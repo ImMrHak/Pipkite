@@ -1,0 +1,26 @@
+# Visual Studio
+.vs/
+*.user
+*.aps
+*.VC.db
+*.VC.opendb
+# Build output (Visual Studio defaults: <solution>\x64\<Config> and <project>\x64\<Config>)
+x64/
+*/x64/
+out/
+dist/
+backend/target/
+# Secrets and signing keys never belong in source control
+*.key
+devkeys/
+# Local data
+*.sqlite
+*.db
+*.db-wal
+*.db-shm
+# Documentation stays local, never committed (third-party license notices are the exception: they ship with the app)
+docs/
+*.md
+!third_party/THIRD_PARTY_NOTICES.md
+# Backend stays private, never pushed
+backend/
