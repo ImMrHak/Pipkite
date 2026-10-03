@@ -1,0 +1,18 @@
+{
+  "format": "signalrelay-module-v1",
+  "moduleType": "parser",
+  "id": "gold_parser_native",
+  "version": "1.0.0",
+  "abiVersion": 1,
+  "architecture": "x64",
+  "entry": "module.dll",
+  "publisher": "SignalRelay",
+  "description": "Native gold transformer: starter gold rules plus XAU/GOLD. and emoji-heavy layouts.",
+  "fixtures": [
+    {"id": "native_buy_range", "text": "#GOLD BUY 4300 4295\nTP1 4305\nTP2 4310\nSL 4287", "expect": "signal", "side": "BUY", "symbol": "XAUUSD", "entryLow": 4295, "entryHigh": 4300, "stopLoss": 4287, "takeProfits": [4305, 4310]},
+    {"id": "native_xau_alias", "text": "XAU SELL 4302\nTP 4290\nSL 4310", "expect": "signal", "side": "SELL", "symbol": "XAUUSD"},
+    {"id": "native_commentary", "text": "TP1 HIT", "expect": "ignore"}
+  ],
+  "sha256": "",
+  "signature": ""
+}
