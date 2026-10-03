@@ -1,0 +1,12 @@
+{
+  "format": "signalrelay-module-v1",
+  "moduleType": "bridge_impl",
+  "id": "mt5_bridge_impl",
+  "version": "1.0.0",
+  "abiVersion": 1,
+  "architecture": "x64",
+  "entry": "bridge_impl.dll",
+  "publisher": "SignalRelay",
+  "sha256": "",
+  "signature": ""
+}

@@ -1,0 +1,13 @@
+LIBRARY MT5BridgeHost
+EXPORTS
+    BridgeVersion
+    BridgeInitialize
+    BridgeTryReceive
+    BridgeTrySend
+    BridgeConnectionStatus
+    BridgeStatusText
+    BridgeJournalAppend
+    BridgeJournalState
+    BridgeShutdown
+    BridgeNowMicros
+    BridgeInboundEvent
