@@ -1,0 +1,105 @@
+[
+  {
+    "entryHigh": 4300.0,
+    "entryLow": 4295.0,
+    "expect": "signal",
+    "id": "spec_gold_buy_range",
+    "side": "BUY",
+    "stopLoss": 4287.0,
+    "symbol": "XAUUSD",
+    "takeProfits": [
+      4305.0,
+      4310.0,
+      4315.0,
+      4320.0,
+      4325.0,
+      4330.0
+    ],
+    "text": "#GOLD BUY 4300 4295\nTP1 4305\nTP2 4310\nTP3 4315\nTP4 4320\nTP5 4325\nTP6 4330\nSL 4287"
+  },
+  {
+    "entryHigh": 4306.0,
+    "entryLow": 4302.0,
+    "expect": "signal",
+    "id": "spec_gold_sell_now",
+    "side": "SELL",
+    "stopLoss": 4316.0,
+    "symbol": "XAUUSD",
+    "takeProfits": [
+      4296.0,
+      4288.0,
+      4282.0,
+      4276.0
+    ],
+    "text": "GOLD (XAUUSD) Sell NOW\nEntry 4302–4306\nTP1 4296\nTP2 4288\nTP3 4282\nTP4 4276\nSL 4316"
+  },
+  {
+    "entryHigh": 4295.0,
+    "entryLow": 4295.0,
+    "expect": "signal",
+    "id": "spec_gold_sell_glued",
+    "side": "SELL",
+    "stopLoss": 4305.0,
+    "symbol": "XAUUSD",
+    "takeProfits": [
+      4285.0,
+      4280.0
+    ],
+    "text": "GOLD SELL4295\nTP1 4285\nTP2 4280\nSL 4305"
+  },
+  {
+    "expect": "ignore",
+    "id": "neg_tp1_hit",
+    "text": "TP1 HIT"
+  },
+  {
+    "expect": "ignore",
+    "id": "neg_great_profit",
+    "text": "great profit"
+  },
+  {
+    "expect": "ignore",
+    "id": "neg_buy_or_sell",
+    "text": "buy or sell?"
+  },
+  {
+    "expect": "ignore",
+    "id": "neg_tp_hit_emoji",
+    "text": "✅ TP2 HIT +80 pips 🔥🔥"
+  },
+  {
+    "expect": "ignore",
+    "id": "neg_empty",
+    "text": "   "
+  },
+  {
+    "expect": "ignore",
+    "id": "neg_good_morning",
+    "text": "Good morning traders! Market opens soon."
+  },
+  {
+    "expect": "review",
+    "id": "neg_close_all",
+    "text": "Close all gold trades now"
+  },
+  {
+    "expect": "review",
+    "id": "neg_move_sl_be",
+    "text": "Move SL to BE"
+  },
+  {
+    "expect": "review",
+    "id": "neg_both_dirs",
+    "text": "GOLD BUY 4300 SELL 4310 SL 4290 TP 4320"
+  },
+  {
+    "expect": "review",
+    "id": "neg_entry_only",
+    "text": "GOLD BUY 4300"
+  },
+  {
+    "expect": "review",
+    "id": "neg_reply_stops",
+    "text": "SL 4290\nTP 4310"
+  }
+]
