@@ -1,0 +1,126 @@
+{
+  "advancedRules": [],
+  "allowGluedTokens": false,
+  "allowThousandsSeparator": false,
+  "commentary": [
+    "HIT",
+    "PROFIT",
+    "PROFITS",
+    "PIPS",
+    "CONGRATS",
+    "CONGRATULATIONS",
+    "RUNNING",
+    "BOOKED",
+    "SECURED",
+    "SMASHED",
+    "BOOM",
+    "RESULT",
+    "RESULTS"
+  ],
+  "conflictBehavior": "review",
+  "description": "EURUSD-style pairs with Entry/SL/TP labels. Glued tokens disabled.",
+  "id": "forex_generic_v1",
+  "keywords": {
+    "buy": [
+      "BUY",
+      "LONG"
+    ],
+    "limit": [
+      "LIMIT"
+    ],
+    "now": [
+      "NOW",
+      "MARKET",
+      "CMP",
+      "MARKET EXECUTION"
+    ],
+    "sell": [
+      "SELL",
+      "SHORT"
+    ],
+    "stop": [
+      "STOP"
+    ]
+  },
+  "labels": {
+    "entry": [
+      "ENTRY",
+      "ENTRY ZONE",
+      "ENTRY PRICE",
+      "ENTER",
+      "ZONE",
+      "RANGE",
+      "OPEN"
+    ],
+    "expiry": [
+      "EXPIRY",
+      "EXPIRES",
+      "VALID FOR",
+      "VALID"
+    ],
+    "lot": [
+      "LOT",
+      "LOTS",
+      "VOLUME"
+    ],
+    "reference": [
+      "REF",
+      "REFERENCE",
+      "SIGNAL ID"
+    ],
+    "sl": [
+      "SL",
+      "STOP LOSS",
+      "STOPLOSS",
+      "S/L",
+      "S.L",
+      "STOP-LOSS"
+    ],
+    "tp": [
+      "TP",
+      "TAKE PROFIT",
+      "TAKEPROFIT",
+      "T/P",
+      "T.P",
+      "TARGET"
+    ]
+  },
+  "management": [
+    "CLOSE ALL",
+    "CLOSE NOW",
+    "CLOSE HALF",
+    "CLOSE PARTIAL",
+    "MOVE SL",
+    "SL TO BE",
+    "SL TO ENTRY",
+    "BREAKEVEN",
+    "BREAK EVEN",
+    "CANCEL",
+    "DELETE ORDER",
+    "SET BE"
+  ],
+  "maxTargets": 10,
+  "name": "Forex pairs (starter)",
+  "numberFormat": "dot_decimal",
+  "recognizeCurrencyPairs": true,
+  "requireStopLoss": true,
+  "requireTakeProfit": true,
+  "schemaVersion": 1,
+  "symbolAliases": {
+    "BRENT": "UKOIL",
+    "BTC": "BTCUSD",
+    "BTCUSD": "BTCUSD",
+    "DOW": "US30",
+    "GOLD": "XAUUSD",
+    "NAS100": "NAS100",
+    "NASDAQ": "NAS100",
+    "SILVER": "XAGUSD",
+    "UKOIL": "UKOIL",
+    "US30": "US30",
+    "USOIL": "USOIL",
+    "WTI": "USOIL",
+    "XAGUSD": "XAGUSD",
+    "XAUUSD": "XAUUSD"
+  },
+  "version": "1.0.0"
+}

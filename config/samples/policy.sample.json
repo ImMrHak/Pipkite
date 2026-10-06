@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "executionMode": "preview",
+  "source": {
+    "chatId": "-1001234567890",
+    "template": "gold_provider_v1",
+    "entryMode": "wait_for_range"
+  },
+  "sizing": {"mode": "fixed_total_lots", "lots": 0.01},
+  "targets": {"mode": "single", "selectedIndex": 1},
+  "requireStopLoss": true,
+  "maxImmediateAgeSeconds": 30,
+  "rangeExpirySeconds": 120,
+  "catchUpAfterReconnect": false,
+  "symbolMap": {"GOLD": "XAUUSD"},
+  "symbolLimits": {
+    "XAUUSD": {"maxSpreadPrice": 0.50, "maxEntryDeviationPrice": 0.50}
+  }
+}
