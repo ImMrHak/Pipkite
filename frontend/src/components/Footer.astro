@@ -1,0 +1,47 @@
+---
+import Logo from './Logo.astro';
+import { VERSION } from '../config';
+import { localize, t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const L = (p: string) => localize(lang, p);
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-24 border-t border-line">
+  <div class="container-page grid gap-10 py-12 md:grid-cols-[1.4fr_1fr_1fr]">
+    <div>
+      <Logo />
+      <p class="mt-4 max-w-sm text-sm text-muted">{d.footer.tagline}</p>
+      <p class="mt-4 text-xs text-muted">{d.footer.versionLine(VERSION)}</p>
+    </div>
+    <div>
+      <p class="text-sm font-semibold text-fg">{d.footer.product}</p>
+      <ul class="mt-3 space-y-2 text-sm text-muted">
+        <li><a class="hover:text-fg" href={L('/download')}>{d.common.download}</a></li>
+        <li><a class="hover:text-fg" href={L('/license')}>{d.common.getFreeKey}</a></li>
+        <li><a class="hover:text-fg" href={L('/#features')}>{d.footer.features}</a></li>
+        <li><a class="hover:text-fg" href={L('/#speed')}>{d.footer.performance}</a></li>
+        <li><a class="hover:text-fg" href={L('/changelog')}>{d.footer.changelog}</a></li>
+      </ul>
+    </div>
+    <div>
+      <p class="text-sm font-semibold text-fg">{d.footer.help}</p>
+      <ul class="mt-3 space-y-2 text-sm text-muted">
+        <li><a class="hover:text-fg" href={L('/telegram-to-mt5-copier')}>{d.footer.guide}</a></li>
+        <li><a class="hover:text-fg" href={L('/#faq')}>{d.footer.faq}</a></li>
+        <li><a class="hover:text-fg" href={L('/privacy')}>{d.footer.privacy}</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="border-t border-line">
+    <div class="container-page space-y-3 py-6 text-xs leading-relaxed text-muted">
+      <p><strong class="font-semibold text-fg">{d.footer.riskTitle}</strong> {d.footer.risk}</p>
+      <p>{d.footer.legal(year)}</p>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,83 @@
+---
+import Icon from './Icon.astro';
+import { t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const a = d.ai;
+const reasonOk = [true, true, false];
+const pointIcons = ['sparkles', 'sliders', 'lock'] as const;
+---
+
+<section id="ai" class="scroll-mt-20 border-y border-line bg-surface/40 py-24">
+  <div class="container-page grid items-center gap-14 lg:grid-cols-2">
+    <div class="reveal order-2 lg:order-1">
+      <div class="spotlight card relative mx-auto max-w-md p-6 shadow-2xl shadow-black/20">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-xs font-medium tracking-wide text-muted uppercase">{a.exampleLabel}</span>
+          <span class="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted">{d.common.illustration}</span>
+        </div>
+
+        <div class="mt-5 rounded-xl border border-line bg-bg p-4 font-mono text-sm leading-relaxed" dir="ltr">
+          <p><span class="text-good">BUY</span> XAUUSD 4299 – 4295</p>
+          <p class="text-muted">SL 4282</p>
+          <p class="text-muted">TP 4307 · 4317 · 4330</p>
+        </div>
+
+        <div class="mt-5 flex items-center gap-3">
+          <span class="inline-flex items-center gap-1.5 rounded-full bg-good/15 px-3 py-1 text-sm font-semibold text-good">
+            <Icon name="check" size={16} />
+            {a.good}
+          </span>
+          <div class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+            <div class="bar h-full w-[72%] rounded-full bg-good"></div>
+          </div>
+          <span class="font-mono text-sm tabular-nums">0.72</span>
+        </div>
+
+        <ul class="mt-5 space-y-2.5 text-sm">
+          {
+            a.reasons.map((r, i) => (
+              <li class="flex gap-2.5">
+                <span class:list={['mt-0.5 shrink-0', reasonOk[i] ? 'text-good' : 'text-warn']}>
+                  <Icon name={reasonOk[i] ? 'check' : 'alert'} size={16} />
+                </span>
+                <span class="text-muted">{r}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+
+    <div class="reveal order-1 lg:order-2">
+      <p class="eyebrow">{a.eyebrow}</p>
+      <h2 class="section-title mt-3">{a.title}</h2>
+      <p class="section-lead">{a.lead}</p>
+
+      <ul class="mt-8 space-y-5">
+        {
+          a.points.map((p, i) => (
+            <li class="flex gap-4">
+              <div class="grid size-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">
+                <Icon name={pointIcons[i]} />
+              </div>
+              <div>
+                <h3 class="font-semibold">{p.title}</h3>
+                <p class="mt-1 text-sm text-muted">{p.text}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+
+      <div class="mt-8 flex gap-3 rounded-xl border border-warn/30 bg-warn/10 p-4 text-sm">
+        <Icon name="alert" size={18} class="mt-0.5 shrink-0 text-warn" />
+        <p class="text-muted"><strong class="font-semibold text-fg">{a.warnStrong}</strong> {a.warn}</p>
+      </div>
+    </div>
+  </div>
+</section>

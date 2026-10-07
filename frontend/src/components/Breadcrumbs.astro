@@ -1,0 +1,28 @@
+---
+import { localize, t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+  trail: { name: string; path: string }[];
+  class?: string;
+}
+const { lang, trail, class: className = 'justify-center' } = Astro.props;
+const items = [{ name: t(lang).common.home, path: '/' }, ...trail];
+---
+
+<nav aria-label={t(lang).common.breadcrumb} class="text-sm text-muted">
+  <ol class:list={['flex flex-wrap items-center gap-1.5', className]}>
+    {
+      items.map((c, i) => (
+        <li class="flex items-center gap-1.5">
+          {i > 0 && <span aria-hidden="true">/</span>}
+          {i === items.length - 1 ? (
+            <span aria-current="page" class="text-fg">{c.name}</span>
+          ) : (
+            <a href={localize(lang, c.path)} class="hover:text-fg">{c.name}</a>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+</nav>

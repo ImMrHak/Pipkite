@@ -1,0 +1,67 @@
+---
+import Icon from './Icon.astro';
+import { localize, t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const fr = d.free;
+const L = (p: string) => localize(lang, p);
+const privacyIcons = ['lock', 'shield', 'key'] as const;
+---
+
+<section id="free" class="scroll-mt-20 border-y border-line bg-surface/40 py-24">
+  <div class="container-page grid items-center gap-14 lg:grid-cols-[1fr_1.1fr]">
+    <div class="reveal">
+      <p class="eyebrow">{fr.eyebrow}</p>
+      <h2 class="section-title mt-3">{fr.title}</h2>
+      <p class="section-lead">{fr.lead}</p>
+    </div>
+
+    <div class="reveal card relative overflow-hidden p-8">
+      <div class="glow absolute -end-24 -top-24 size-72" aria-hidden="true"></div>
+      <div class="flex items-end gap-2">
+        <span class="text-6xl font-semibold tracking-tight" dir="ltr">{fr.price}</span>
+        <span class="pb-2 text-muted">{fr.forever}</span>
+      </div>
+      <ul class="mt-8 grid gap-3 sm:grid-cols-2">
+        {
+          fr.included.map((item) => (
+            <li class="flex gap-2.5 text-sm">
+              <Icon name="check" size={18} class="mt-px shrink-0 text-good" />
+              {item}
+            </li>
+          ))
+        }
+      </ul>
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+        <a href={L('/download')} class="btn-primary"><Icon name="download" size={16} /> {d.common.download}</a>
+        <a href={L('/license')} class="btn-ghost"><Icon name="key" size={16} /> {d.common.getYourFreeKey}</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="privacy" class="scroll-mt-20 py-24">
+  <div class="container-page">
+    <div class="reveal mx-auto max-w-2xl text-center">
+      <p class="eyebrow">{fr.privacyEyebrow}</p>
+      <h2 class="section-title mt-3">{fr.privacyTitle}</h2>
+    </div>
+    <div class="mt-12 grid gap-4 md:grid-cols-3">
+      {
+        fr.privacy.map((p, i) => (
+          <article class="reveal card p-6" data-stagger={String(i)}>
+            <div class="grid size-10 place-items-center rounded-xl bg-accent-soft text-accent">
+              <Icon name={privacyIcons[i]} />
+            </div>
+            <h3 class="mt-5 font-semibold">{p.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-muted">{p.text}</p>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>

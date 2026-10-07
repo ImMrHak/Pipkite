@@ -1,0 +1,190 @@
+---
+import Icon from './Icon.astro';
+import ThemedShot from './ThemedShot.astro';
+import { BENCH, VERSION } from '../config';
+import { localize, t, type Lang } from '../i18n';
+import { num } from '../i18n/format';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const L = (p: string) => localize(lang, p);
+const ms = num(lang, BENCH.ownOverheadP50Ms, 1);
+---
+
+<section id="hero" class="relative isolate overflow-hidden">
+  <div id="hero-bg" class="hero-bg pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+    <div class="bg-grid absolute inset-0"></div>
+    <div class="bg-grid-glow absolute inset-0"></div>
+    <div class="hero-orb absolute -top-48 left-1/2 h-[640px] w-[1100px] max-w-[180vw] -translate-x-1/2">
+      <div class="aurora size-full"></div>
+    </div>
+  </div>
+
+  <div class="container-page pt-14 pb-10 text-center sm:pt-20">
+    <a
+      href={L('/download')}
+      class="inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 py-1 ps-1 pe-3 text-xs text-muted backdrop-blur transition hover:border-accent/50 hover:text-fg"
+    >
+      <span class="rounded-full bg-accent-solid px-2 py-0.5 font-semibold text-white">{d.hero.badgeNew}</span>
+      {d.hero.badge(VERSION)}
+      <Icon name="arrow" size={14} class="rtl:-scale-x-100" />
+    </a>
+
+    <h1 class="mx-auto mt-6 max-w-4xl text-[2.6rem] leading-[1.1] font-semibold tracking-[-0.035em] text-balance sm:text-7xl">
+      {d.hero.title}{' '}<span class="text-gradient whitespace-nowrap">{ms}&nbsp;{d.hero.unit}</span>.
+    </h1>
+
+    <p class="mx-auto mt-6 max-w-2xl text-lg text-pretty text-muted sm:text-xl">
+      {d.hero.lead} <strong class="font-semibold text-fg">{d.hero.leadStrong}</strong>
+    </p>
+
+    <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <a href={L('/download')} class="btn-primary group w-full !px-7 !py-3.5 text-base sm:w-auto">
+        <Icon name="windows" size={18} />
+        {d.common.downloadWindows}
+        <Icon name="arrow" size={16} class="-ms-0.5 transition group-hover:translate-x-0.5 rtl:-scale-x-100 rtl:group-hover:-translate-x-0.5" />
+      </a>
+      <a href={L('/license')} class="btn-ghost w-full !px-7 !py-3.5 text-base sm:w-auto">
+        <Icon name="key" size={18} />
+        {d.common.getFreeKey}
+      </a>
+    </div>
+
+    <ul class="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted">
+      {
+        d.hero.checks.map((c) => (
+          <li class="inline-flex items-center gap-1.5">
+            <Icon name="check" size={16} class="text-good" />
+            {c}
+          </li>
+        ))
+      }
+      <!-- filled in by Layout.astro once downloads >= DOWNLOADS_PUBLIC_MIN -->
+      <li class="inline-flex items-center gap-1.5 font-medium text-fg" data-downloads={d.hero.downloadsCount} hidden>
+        <Icon name="download" size={16} class="text-accent" />
+        <span data-downloads-label></span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="container-page pb-20">
+    <div class="hero-stage relative mx-auto max-w-6xl">
+      <div class="hero-window relative overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl ring-1 ring-black/5" dir="ltr">
+        <ThemedShot name="dashboard" eager alt={d.hero.shotAlt} />
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-bg/50 to-transparent"></div>
+      </div>
+
+      <div class="float-card float-a absolute top-[14%] -start-6 hidden w-64 text-start lg:block">
+        <div class="flex items-center gap-2 text-xs text-muted">
+          <span class="grid size-6 place-items-center rounded-full bg-[#2aabee] text-white"><Icon name="send" size={13} /></span>
+          Gold Signals VIP · {d.hero.cardNow}
+        </div>
+        <p class="mt-2 font-mono text-sm" dir="ltr"><span class="text-good">BUY</span> XAUUSD 4299 – 4295</p>
+        <p class="font-mono text-xs text-muted" dir="ltr">SL 4282 · TP 4307 / 4317</p>
+      </div>
+
+      <div class="float-card float-b absolute top-[38%] -end-6 hidden w-60 text-start lg:block">
+        <div class="flex items-center justify-between text-xs text-muted">
+          {d.hero.aiReview}
+          <Icon name="sparkles" size={14} class="text-accent" />
+        </div>
+        <div class="mt-2 flex items-center gap-2">
+          <span class="rounded-full bg-good/15 px-2.5 py-0.5 text-sm font-semibold text-good">{d.hero.good}</span>
+          <span class="text-xs text-muted">{d.hero.rr}</span>
+        </div>
+      </div>
+
+      <div class="float-card float-c absolute start-[12%] -bottom-5 hidden items-center gap-3 text-start sm:flex">
+        <span class="grid size-9 place-items-center rounded-xl bg-good/15 text-good"><Icon name="check" size={18} /></span>
+        <div>
+          <p class="text-sm font-semibold">{d.hero.orderSent}</p>
+          <p class="text-xs text-muted">
+            <span dir="ltr">Buy 0.01 XAUUSD</span> · <span class="text-accent"><span class="font-mono">{ms}</span> {d.hero.unit}</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // mouse-reactive background. the rAF loop stops once things settle
+  const hero = document.getElementById('hero')!;
+  const bg = document.getElementById('hero-bg')!;
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const target = { x: 0, y: 0, ox: 0, oy: 0 };
+    const cur = { x: 0, y: 0, ox: 0, oy: 0 };
+    let raf = 0;
+    const frame = () => {
+      let moving = false;
+      for (const k of ['x', 'y', 'ox', 'oy'] as const) {
+        const d = target[k] - cur[k];
+        cur[k] += d * (k === 'x' || k === 'y' ? 0.22 : 0.06);
+        if (Math.abs(d) > 0.3) moving = true;
+      }
+      bg.style.setProperty('--mx', `${cur.x}px`);
+      bg.style.setProperty('--my', `${cur.y}px`);
+      bg.style.setProperty('--ox', `${cur.ox}px`);
+      bg.style.setProperty('--oy', `${cur.oy}px`);
+      raf = moving ? requestAnimationFrame(frame) : 0;
+    };
+    const kick = () => {
+      if (!raf) raf = requestAnimationFrame(frame);
+    };
+
+    hero.addEventListener(
+      'pointermove',
+      (e) => {
+        const r = bg.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+        if (!bg.hasAttribute('data-active')) {
+          // start where the pointer came in, not from the corner
+          cur.x = x;
+          cur.y = y;
+          bg.setAttribute('data-active', '');
+        }
+        target.x = x;
+        target.y = y;
+        target.ox = (x / r.width - 0.5) * r.width * 0.06;
+        target.oy = (y / r.height - 0.5) * r.height * 0.06;
+        kick();
+      },
+      { passive: true },
+    );
+    hero.addEventListener('pointerleave', () => {
+      bg.removeAttribute('data-active');
+      target.ox = 0;
+      target.oy = 0;
+      kick();
+    });
+
+    new IntersectionObserver(([e]) => bg.toggleAttribute('data-paused', !e.isIntersecting)).observe(hero);
+  }
+
+  // tilt the app window, flatten it while scrolling
+  const win = document.querySelector<HTMLElement>('.hero-window');
+  if (win && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const p = Math.min(1, Math.max(0, scrollY / (innerHeight * 0.6)));
+      win.style.setProperty('--tilt', `${10 * (1 - p)}deg`);
+      win.style.setProperty('--tilt-scale', String(0.97 + 0.03 * p));
+    };
+    addEventListener(
+      'scroll',
+      () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(update);
+        }
+      },
+      { passive: true },
+    );
+    update();
+  }
+</script>

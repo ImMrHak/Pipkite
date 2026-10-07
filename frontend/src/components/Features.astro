@@ -1,0 +1,137 @@
+---
+import Icon from './Icon.astro';
+import { t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const fx = d.features;
+
+const smallIcons = ['sliders', 'database', 'shield', 'refresh'] as const;
+
+const tokens = [
+  { t: '🔥', kind: 'skip' },
+  { t: '#GOLD', kind: 'sym' },
+  { t: 'Buy', kind: 'side' },
+  { t: 'now', kind: 'skip' },
+  { t: '٤٢٩٩', kind: 'num' },
+  { t: '—', kind: 'skip' },
+  { t: '4295', kind: 'num' },
+  { t: '**SL**', kind: 'lbl' },
+  { t: '4282', kind: 'num' },
+  { t: 'TP¹', kind: 'lbl' },
+  { t: '4307', kind: 'num' },
+] as const;
+const tokenCls: Record<string, string> = {
+  skip: 'text-muted/60 line-through decoration-muted/40',
+  sym: 'bg-accent-soft text-accent',
+  side: 'bg-good/15 text-good',
+  num: 'bg-surface-2 text-fg',
+  lbl: 'bg-warn/15 text-warn',
+};
+const latency = [30, 55, 25, 70, 40, 95, 45, 35, 60, 28];
+---
+
+<section id="features" class="scroll-mt-20 border-y border-line bg-surface/40 py-24">
+  <div class="container-page">
+    <div class="reveal mx-auto max-w-2xl text-center">
+      <p class="eyebrow">{fx.eyebrow}</p>
+      <h2 class="section-title mt-3">{fx.title}</h2>
+      <p class="section-lead">{fx.lead}</p>
+    </div>
+
+    <div class="mt-14 grid gap-4 md:grid-cols-6">
+      <!-- Parser -->
+      <article class="reveal spotlight card overflow-hidden p-7 md:col-span-4">
+        <div class="flex items-center gap-3">
+          <div class="grid size-10 place-items-center rounded-xl bg-accent-soft text-accent"><Icon name="braces" /></div>
+          <h3 class="text-lg font-semibold">{fx.parserTitle}</h3>
+        </div>
+        <p class="mt-3 max-w-lg text-sm leading-relaxed text-muted">{fx.parserText}</p>
+        <div class="mt-6 flex flex-wrap gap-1.5 font-mono text-sm" dir="ltr">
+          {tokens.map((tk) => <span class:list={['rounded-md px-2 py-1', tokenCls[tk.kind]]}>{tk.t}</span>)}
+        </div>
+        <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
+          <span><span class="me-1.5 inline-block size-2 rounded-full bg-accent"></span>{fx.legend.symbol}</span>
+          <span><span class="me-1.5 inline-block size-2 rounded-full bg-good"></span>{fx.legend.side}</span>
+          <span><span class="me-1.5 inline-block size-2 rounded-full bg-warn"></span>{fx.legend.label}</span>
+          <span><span class="me-1.5 inline-block size-2 rounded-full bg-muted/50"></span>{fx.legend.ignored}</span>
+        </div>
+        <div class="mt-6 flex items-center gap-3 rounded-xl border border-line bg-bg px-4 py-3 font-mono text-sm">
+          <Icon name="arrow" size={16} class="shrink-0 text-accent rtl:-scale-x-100" />
+          <span dir="ltr"><span class="font-semibold text-good">BUY</span> XAUUSD <span class="text-muted">entry</span> 4295–4299 <span class="text-muted">SL</span> 4282 <span class="text-muted">TP</span> 4307</span>
+          <span class="ms-auto hidden shrink-0 rounded-full bg-good/15 px-2 py-0.5 font-sans text-xs font-semibold text-good sm:inline">{fx.valid}</span>
+        </div>
+      </article>
+
+      <!-- Entry range -->
+      <article class="reveal spotlight card overflow-hidden p-7 md:col-span-2" data-stagger="1">
+        <div class="grid size-10 place-items-center rounded-xl bg-accent-soft text-accent"><Icon name="eye" /></div>
+        <h3 class="mt-5 text-lg font-semibold">{fx.rangeTitle}</h3>
+        <p class="mt-2 text-sm leading-relaxed text-muted">{fx.rangeText}</p>
+        <svg viewBox="0 0 240 90" class="mt-5 w-full" aria-hidden="true">
+          <rect x="0" y="48" width="240" height="22" fill="var(--accent)" opacity="0.12"></rect>
+          <line x1="0" y1="48" x2="240" y2="48" stroke="var(--accent)" stroke-dasharray="3 3" opacity="0.6"></line>
+          <line x1="0" y1="70" x2="240" y2="70" stroke="var(--accent)" stroke-dasharray="3 3" opacity="0.6"></line>
+          <polyline
+            points="0,14 22,20 40,12 62,26 84,22 104,34 126,30 146,44 160,56 176,50"
+            fill="none"
+            stroke="var(--fg)"
+            stroke-width="2"
+            stroke-linejoin="round"
+            stroke-linecap="round"></polyline>
+          <circle cx="160" cy="56" r="5" fill="var(--good)"></circle>
+          <text x="172" y="86" font-size="10" fill="var(--good)" font-family="inherit">{fx.filled}</text>
+        </svg>
+      </article>
+
+      {
+        fx.small.map((f, i) => (
+          <article class="reveal spotlight card p-7 md:col-span-3" data-stagger={String(i % 2)}>
+            <div class="flex items-start gap-4">
+              <div class="grid size-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">
+                <Icon name={smallIcons[i]} />
+              </div>
+              <div>
+                <h3 class="font-semibold">{f.title}</h3>
+                <p class="mt-1.5 text-sm leading-relaxed text-muted">{f.text}</p>
+              </div>
+            </div>
+          </article>
+        ))
+      }
+
+      <!-- Dashboard -->
+      <article class="reveal spotlight card overflow-hidden p-7 md:col-span-6">
+        <div class="grid items-center gap-8 md:grid-cols-[1fr_1.4fr]">
+          <div>
+            <div class="grid size-10 place-items-center rounded-xl bg-accent-soft text-accent"><Icon name="chart" /></div>
+            <h3 class="mt-5 text-lg font-semibold">{fx.dashTitle}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-muted">{fx.dashText}</p>
+          </div>
+          <div class="grid grid-cols-3 gap-3" aria-hidden="true">
+            <div class="rounded-xl border border-line bg-bg p-4">
+              <p class="text-xs text-muted">{fx.equity}</p>
+              <p class="mt-1 font-semibold tabular-nums" dir="ltr">10,002.87</p>
+              <svg viewBox="0 0 80 24" class="mt-2 w-full"><polyline points="0,20 15,18 28,19 40,12 54,14 66,7 80,4" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"></polyline></svg>
+            </div>
+            <div class="rounded-xl border border-line bg-bg p-4">
+              <p class="text-xs text-muted">{fx.floating}</p>
+              <p class="mt-1 font-semibold text-good tabular-nums" dir="ltr">+2.94</p>
+              <svg viewBox="0 0 80 24" class="mt-2 w-full"><polyline points="0,18 14,16 26,20 38,14 52,15 64,9 80,6" fill="none" stroke="var(--good)" stroke-width="1.8" stroke-linecap="round"></polyline></svg>
+            </div>
+            <div class="rounded-xl border border-line bg-bg p-4">
+              <p class="text-xs text-muted">{fx.latency}</p>
+              <p class="mt-1 font-semibold tabular-nums" dir="ltr">5.7 ms</p>
+              <svg viewBox="0 0 100 28" class="mt-2 h-7 w-full" preserveAspectRatio="none">
+                {latency.map((h, i) => <rect x={i * 10 + 1} y={28 - (28 * h) / 100} width="8" height={(28 * h) / 100} rx="1.5" fill="var(--accent)" opacity="0.6" />)}
+              </svg>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>

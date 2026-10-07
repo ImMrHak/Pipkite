@@ -1,0 +1,169 @@
+---
+import Logo from './Logo.astro';
+import Icon from './Icon.astro';
+import { LOCALES, LOCALE_META, localize, t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+  path: string; // without the /fr, /es, /ar prefix
+}
+const { lang, path } = Astro.props;
+const d = t(lang);
+const L = (p: string) => localize(lang, p);
+
+const links = [
+  { href: '/#how', label: d.nav.how },
+  { href: '/#features', label: d.nav.features },
+  { href: '/#speed', label: d.nav.speed },
+  { href: '/#ai', label: d.nav.ai },
+  { href: '/telegram-to-mt5-copier', label: d.nav.guide },
+  { href: '/#faq', label: d.nav.faq },
+];
+---
+
+<header
+  id="site-header"
+  class="sticky top-0 z-40 border-b border-transparent transition-colors duration-200 data-[scrolled]:border-line data-[scrolled]:bg-bg/80 data-[scrolled]:backdrop-blur-xl"
+>
+  <div class="container-page flex h-16 items-center justify-between gap-3">
+    <a href={L('/')} aria-label={d.common.homeAria}><Logo /></a>
+
+    <nav class="hidden items-center gap-1 lg:flex" aria-label={d.common.mainNav}>
+      {
+        links.map((l) => (
+          <a
+            href={L(l.href)}
+            data-section={l.href.startsWith('/#') ? l.href.slice(2) : undefined}
+            class="rounded-lg px-3 py-2 text-sm whitespace-nowrap text-muted transition hover:bg-surface-2 hover:text-fg aria-[current=true]:bg-surface-2 aria-[current=true]:text-fg"
+          >
+            {l.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="flex items-center gap-1.5">
+      <details class="lang-menu group relative">
+        <summary
+          class="flex h-10 cursor-pointer list-none items-center gap-1.5 rounded-xl px-2.5 text-sm text-muted transition hover:bg-surface-2 hover:text-fg [&::-webkit-details-marker]:hidden"
+          aria-label={d.common.language}
+        >
+          <Icon name="globe" size={18} />
+          <span class="font-medium uppercase">{lang}</span>
+        </summary>
+        <ul class="absolute end-0 top-12 z-50 min-w-40 rounded-xl border border-line bg-surface p-1.5 shadow-xl shadow-black/20">
+          {
+            LOCALES.map((l) => (
+              <li>
+                <a
+                  href={localize(l, path)}
+                  hreflang={l}
+                  lang={l}
+                  aria-current={l === lang ? 'page' : undefined}
+                  class="flex items-center justify-between gap-4 rounded-lg px-3 py-2 text-sm text-fg hover:bg-surface-2 aria-[current=page]:text-accent"
+                >
+                  {LOCALE_META[l].name}
+                  <span class="text-xs text-muted uppercase">{l}</span>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </details>
+      <button
+        id="theme-toggle"
+        type="button"
+        class="grid size-10 place-items-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-fg"
+        aria-label={d.common.themeToggle}
+      >
+        <Icon name="sun" class="hidden dark:block" />
+        <Icon name="moon" class="dark:hidden" />
+      </button>
+      <a href={L('/license')} class="btn-ghost hidden !px-4 !py-2 whitespace-nowrap sm:inline-flex">{d.common.freeKey}</a>
+      <a href={L('/download')} class="btn-primary hidden !px-4 !py-2 whitespace-nowrap sm:inline-flex">
+        <Icon name="download" size={16} />
+        {d.common.download}
+      </a>
+      <button
+        id="menu-toggle"
+        type="button"
+        class="grid size-10 place-items-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-fg lg:hidden"
+        aria-label={d.common.openMenu}
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+      >
+        <Icon name="menu" />
+      </button>
+    </div>
+  </div>
+
+  <div id="mobile-menu" class="hidden border-t border-line bg-bg/95 backdrop-blur-xl lg:hidden">
+    <nav class="container-page flex flex-col py-3" aria-label={d.common.mobileNav}>
+      {
+        links.map((l) => (
+          <a href={L(l.href)} class="rounded-lg px-3 py-3 text-fg hover:bg-surface-2">
+            {l.label}
+          </a>
+        ))
+      }
+      <div class="mt-3 grid grid-cols-2 gap-2">
+        <a href={L('/license')} class="btn-ghost">{d.common.freeKey}</a>
+        <a href={L('/download')} class="btn-primary"><Icon name="download" size={16} /> {d.common.download}</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<script>
+  const header = document.getElementById('site-header')!;
+  const onScroll = () => header.toggleAttribute('data-scrolled', scrollY > 8);
+  addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  document.getElementById('theme-toggle')!.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    (window as unknown as { syncShots?: () => void }).syncShots?.();
+    try {
+      localStorage.setItem('theme', next);
+    } catch {}
+  });
+
+  const langMenu = document.querySelector<HTMLDetailsElement>('.lang-menu')!;
+  document.addEventListener('click', (e) => {
+    if (langMenu.open && !langMenu.contains(e.target as Node)) langMenu.open = false;
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') langMenu.open = false;
+  });
+
+  const menuBtn = document.getElementById('menu-toggle')!;
+  const menu = document.getElementById('mobile-menu')!;
+  const setMenu = (open: boolean) => {
+    menu.classList.toggle('hidden', !open);
+    menuBtn.setAttribute('aria-expanded', String(open));
+    header.toggleAttribute('data-scrolled', open || scrollY > 8);
+  };
+  // scroll spy, home page only
+  const navLinks = [...document.querySelectorAll<HTMLAnchorElement>('nav [data-section]')];
+  const sections = navLinks
+    .map((a) => document.getElementById(a.dataset.section!))
+    .filter((el): el is HTMLElement => el !== null);
+  if (sections.length) {
+    const spy = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          navLinks.forEach((a) => a.setAttribute('aria-current', String(a.dataset.section === e.target.id)));
+        }
+      },
+      { rootMargin: '-45% 0px -50% 0px' },
+    );
+    sections.forEach((s) => spy.observe(s));
+  }
+
+  menuBtn.addEventListener('click', () => setMenu(menu.classList.contains('hidden')));
+  menu.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('a')) setMenu(false);
+  });
+</script>

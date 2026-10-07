@@ -1,0 +1,47 @@
+---
+// dark/light screenshot. <picture> so only one gets downloaded; syncShots() in the theme script
+// fixes it up when the user picked a theme different from the OS one.
+import { getImage } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+const shots = import.meta.glob<{ default: ImageMetadata }>('../assets/screenshots/*.png', { eager: true });
+const get = (file: string) => {
+  const mod = shots[`../assets/screenshots/${file}.png`];
+  if (!mod) throw new Error(`Missing screenshot ${file}.png`);
+  return mod.default;
+};
+
+export type ShotName = 'dashboard' | 'history' | 'metatrader' | 'execution-policy' | 'signal-rules';
+
+interface Props {
+  name: ShotName;
+  alt: string;
+  eager?: boolean;
+  class?: string;
+}
+const { name, alt, eager = false, class: className = '' } = Astro.props;
+
+const widths = [720, 1080, 1424];
+const sizes = '(max-width: 1100px) 100vw, 1100px';
+const dark = get(`dark-${name}`);
+const [darkImg, lightImg] = await Promise.all([
+  getImage({ src: dark, widths, format: 'webp' }),
+  getImage({ src: get(`light-${name}`), widths, format: 'webp' }),
+]);
+---
+
+<picture data-themed>
+  <source media="(prefers-color-scheme: light)" srcset={lightImg.srcSet.attribute} sizes={sizes} type="image/webp" />
+  <img
+    src={darkImg.src}
+    srcset={darkImg.srcSet.attribute}
+    sizes={sizes}
+    alt={alt}
+    width={dark.width}
+    height={dark.height}
+    loading={eager ? 'eager' : 'lazy'}
+    fetchpriority={eager ? 'high' : 'auto'}
+    decoding={eager ? 'sync' : 'async'}
+    class:list={['block h-auto w-full', className]}
+  />
+</picture>

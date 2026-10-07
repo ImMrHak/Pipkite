@@ -1,0 +1,33 @@
+---
+import Icon from './Icon.astro';
+import { localizeHtml, t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const fq = t(lang).faq;
+---
+
+<section id="faq" class="scroll-mt-20 py-24">
+  <div class="container-page grid gap-12 lg:grid-cols-[1fr_1.6fr]">
+    <div class="reveal">
+      <p class="eyebrow">{fq.eyebrow}</p>
+      <h2 class="section-title mt-3">{fq.title}</h2>
+      <p class="section-lead prose-links" set:html={localizeHtml(lang, fq.leadHtml)} />
+    </div>
+    <div class="reveal divide-y divide-line rounded-2xl border border-line bg-surface">
+      {
+        fq.items.map((f) => (
+          <details class="group px-6 [&_summary::-webkit-details-marker]:hidden">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-medium">
+              <h3 class="text-base font-medium">{f.q}</h3>
+              <Icon name="plus" size={18} class="shrink-0 text-muted transition group-open:rotate-45" />
+            </summary>
+            <p class="-mt-1 pb-5 text-sm leading-relaxed text-muted">{f.a}</p>
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>

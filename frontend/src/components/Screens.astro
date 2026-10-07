@@ -1,0 +1,129 @@
+---
+import ThemedShot, { type ShotName } from './ThemedShot.astro';
+import { t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const sc = d.screens;
+const ids: ShotName[] = ['dashboard', 'history', 'metatrader', 'execution-policy', 'signal-rules'];
+// same as the .tour-progress animation in global.css
+const DURATION = 6000;
+---
+
+<section id="tour" class="scroll-mt-20 py-24" data-duration={DURATION}>
+  <div class="container-page">
+    <div class="reveal mx-auto max-w-2xl text-center">
+      <p class="eyebrow">{sc.eyebrow}</p>
+      <h2 class="section-title mt-3">{sc.title}</h2>
+      <p class="section-lead">{sc.lead}</p>
+    </div>
+
+    <div class="reveal mt-14 grid gap-6 lg:grid-cols-[300px_1fr] lg:items-start">
+      <div
+        role="tablist"
+        aria-label={sc.tablist}
+        aria-orientation="vertical"
+        class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0"
+      >
+        {
+          ids.map((id, i) => (
+            <button
+              role="tab"
+              id={`tab-${id}`}
+              aria-controls={`panel-${id}`}
+              aria-selected={i === 0 ? 'true' : 'false'}
+              tabindex={i === 0 ? 0 : -1}
+              class="group relative shrink-0 overflow-hidden rounded-2xl border border-transparent px-4 py-3 text-start transition hover:bg-surface aria-selected:border-line aria-selected:bg-surface lg:py-4"
+            >
+              <span class="block text-sm font-semibold whitespace-nowrap text-muted transition group-aria-selected:text-fg">
+                {sc.items[id].label}
+              </span>
+              <span class="mt-1 hidden text-sm leading-relaxed text-muted lg:group-aria-selected:block">{sc.items[id].text}</span>
+              <span class="absolute inset-x-0 bottom-0 h-0.5 bg-line/60 opacity-0 group-aria-selected:opacity-100">
+                <span class="tour-progress block h-full bg-accent" />
+              </span>
+            </button>
+          ))
+        }
+      </div>
+
+      <div class="relative">
+        <div class="glow absolute -inset-10 -z-10" aria-hidden="true"></div>
+        {
+          ids.map((id, i) => (
+            <div role="tabpanel" id={`panel-${id}`} aria-labelledby={`tab-${id}`} hidden={i !== 0}>
+              <div class="overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl shadow-black/20" dir="ltr">
+                <ThemedShot name={id} alt={sc.screenAlt(sc.items[id].label, sc.items[id].text)} />
+              </div>
+              <p class="mt-4 text-center text-sm text-muted lg:hidden">{sc.items[id].text}</p>
+            </div>
+          ))
+        }
+        {lang !== 'en' && <p class="mt-3 text-center text-xs text-muted">{sc.note}</p>}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const root = document.getElementById('tour')!;
+  const DURATION = Number(root.dataset.duration);
+  const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role=tab]')];
+  const rtl = document.documentElement.dir === 'rtl';
+  let index = 0;
+  let timer: number | undefined;
+  let auto = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let visible = false;
+
+  const schedule = () => {
+    clearTimeout(timer);
+    if (auto && visible) timer = window.setTimeout(() => select(index + 1), DURATION);
+  };
+  const select = (i: number, user = false) => {
+    index = (i + tabs.length) % tabs.length;
+    tabs.forEach((tab, j) => {
+      const on = j === index;
+      tab.setAttribute('aria-selected', String(on));
+      tab.tabIndex = on ? 0 : -1;
+      document.getElementById(tab.getAttribute('aria-controls')!)!.hidden = !on;
+      const bar = tab.querySelector('.tour-progress')!;
+      bar.classList.remove('run');
+      if (on && auto && visible) {
+        void (bar as HTMLElement).offsetWidth;
+        bar.classList.add('run');
+      }
+    });
+    // only when clicked, otherwise the page jumps during auto-rotate
+    if (user) tabs[index].scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    schedule();
+  };
+
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => {
+      auto = false;
+      select(i, true);
+    });
+    tab.addEventListener('keydown', (e) => {
+      const next = rtl ? 'ArrowLeft' : 'ArrowRight';
+      const prev = rtl ? 'ArrowRight' : 'ArrowLeft';
+      const dir = [next, 'ArrowDown'].includes(e.key) ? 1 : [prev, 'ArrowUp'].includes(e.key) ? -1 : 0;
+      if (!dir) return;
+      e.preventDefault();
+      auto = false;
+      select(index + dir, true);
+      tabs[index].focus();
+    });
+  });
+
+  new IntersectionObserver(
+    ([e]) => {
+      const was = visible;
+      visible = e.isIntersecting;
+      if (visible !== was) select(index);
+    },
+    { threshold: 0.3 },
+  ).observe(root);
+</script>

@@ -1,0 +1,20 @@
+---
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+---
+
+<span class:list={['inline-flex items-center gap-2.5 font-semibold tracking-tight', className]}>
+  <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+    <rect width="32" height="32" rx="8" fill="var(--accent)"></rect>
+    <path
+      d="m9 10 6 6-6 6M17 10l6 6-6 6"
+      fill="none"
+      stroke="#fff"
+      stroke-width="2.6"
+      stroke-linecap="round"
+      stroke-linejoin="round"></path>
+  </svg>
+  <span>SignalRelay</span>
+</span>
