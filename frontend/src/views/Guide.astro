@@ -1,0 +1,86 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import Icon from '../components/Icon.astro';
+import ThemedShot, { type ShotName } from '../components/ThemedShot.astro';
+import { CONTENT_UPDATED, RELEASE_DATE } from '../config';
+import { localize, localizeHtml, t, type Lang } from '../i18n';
+import { date } from '../i18n/format';
+import { abs, article, breadcrumbs, webPage } from '../seo/schema';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const g = d.guide;
+const path = '/telegram-to-mt5-copier';
+const { guideTitle: title, guideDesc: description } = d.meta;
+const trail = [{ name: g.breadcrumb, path }];
+const site = Astro.site!;
+const schema = [
+  webPage(site, lang, path, title, description),
+  article(site, lang, path, title, description, abs(site, '/og.png'), RELEASE_DATE),
+  breadcrumbs(site, lang, trail),
+];
+type FigureId = keyof typeof g.figures;
+---
+
+<Layout lang={lang} path={path} title={title} description={description} schema={schema} ogType="article">
+  <article class="container-page pt-12 sm:pt-16">
+    <header class="mx-auto max-w-3xl text-center">
+      <Breadcrumbs lang={lang} trail={trail} />
+      <h1 class="mt-6 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{g.h1}</h1>
+      <p class="mt-5 text-lg text-pretty text-muted">{g.lead}</p>
+      <p class="mt-4 text-sm text-muted">
+        {g.updated} <time datetime={CONTENT_UPDATED}>{date(lang, CONTENT_UPDATED)}</time> · {g.by} · {g.readTime}
+      </p>
+    </header>
+
+    <div class="mx-auto mt-12 grid max-w-6xl gap-12 lg:grid-cols-[240px_1fr]">
+      <aside class="lg:sticky lg:top-24 lg:self-start">
+        <nav aria-label={d.common.onThisPage} class="card p-5">
+          <p class="text-xs font-semibold tracking-wide text-muted uppercase">{d.common.onThisPage}</p>
+          <ol class="mt-3 space-y-2 text-sm">
+            {g.sections.map((s) => <li><a href={`#${s.id}`} class="text-muted hover:text-fg">{s.title}</a></li>)}
+          </ol>
+        </nav>
+      </aside>
+
+      <div class="guide min-w-0">
+        <div class="callout">
+          <p class="font-semibold text-fg">{g.shortTitle}</p>
+          <p>{g.short}</p>
+        </div>
+
+        {
+          g.sections.map((s) => {
+            const fig = 'figure' in s && s.figure ? (s.figure as FigureId) : null;
+            return (
+              <>
+                <h2 id={s.id}>{s.title}</h2>
+                {fig && (
+                  <figure>
+                    <div class="overflow-hidden rounded-xl border border-line" dir="ltr">
+                      <ThemedShot name={fig as ShotName} alt={g.figures[fig].alt} />
+                    </div>
+                    <figcaption>{g.figures[fig].caption}</figcaption>
+                  </figure>
+                )}
+                <Fragment set:html={localizeHtml(lang, s.html)} />
+              </>
+            );
+          })
+        }
+
+        <div class="not-guide card mt-14 flex flex-col items-start gap-5 p-7 sm:flex-row sm:items-center">
+          <div class="flex-1">
+            <p class="text-lg font-semibold text-fg">{g.ctaTitle}</p>
+            <p class="mt-1 text-sm text-muted">{g.ctaText}</p>
+          </div>
+          <a href={localize(lang, '/download')} class="btn-primary"><Icon name="download" size={16} /> {g.ctaButton}</a>
+        </div>
+      </div>
+    </div>
+  </article>
+</Layout>

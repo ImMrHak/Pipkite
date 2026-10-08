@@ -1,0 +1,64 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Hero from '../components/Hero.astro';
+import HowItWorks from '../components/HowItWorks.astro';
+import Features from '../components/Features.astro';
+import Speed from '../components/Speed.astro';
+import AiSection from '../components/AiSection.astro';
+import Screens from '../components/Screens.astro';
+import Free from '../components/Free.astro';
+import Faq from '../components/Faq.astro';
+import Icon from '../components/Icon.astro';
+import { getImage } from 'astro:assets';
+import { localize, t, type Lang } from '../i18n';
+import { abs, faqPage, softwareApplication, webPage } from '../seo/schema';
+import dash from '../assets/screenshots/dark-dashboard.png';
+import history from '../assets/screenshots/dark-history.png';
+import policy from '../assets/screenshots/dark-execution-policy.png';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const L = (p: string) => localize(lang, p);
+
+const { homeTitle: title, homeDesc: description } = d.meta;
+const site = Astro.site!;
+const shots = await Promise.all([dash, history, policy].map((src) => getImage({ src, width: 1280, format: 'webp' })));
+const schema = [
+  webPage(site, lang, '/', title, description, { about: { '@id': `${site.origin}/#software` }, primaryImageOfPage: abs(site, '/og.png') }),
+  softwareApplication(site, lang, shots.map((s) => abs(site, s.src))),
+  faqPage(site, lang, '/', d.faq.items),
+];
+---
+
+<Layout lang={lang} path="/" title={title} description={description} schema={schema}>
+  <Hero lang={lang} />
+  <HowItWorks lang={lang} />
+  <Features lang={lang} />
+  <Speed lang={lang} />
+  <AiSection lang={lang} />
+  <Screens lang={lang} />
+  <Free lang={lang} />
+  <Faq lang={lang} />
+
+  <section class="container-page">
+    <div class="reveal relative isolate overflow-hidden rounded-3xl border border-line bg-surface px-6 py-16 text-center sm:px-12">
+      <div class="bg-grid absolute inset-0 -z-10 opacity-60" aria-hidden="true"></div>
+      <div class="glow absolute -bottom-40 left-1/2 -z-10 h-80 w-[700px] max-w-[150vw] -translate-x-1/2" aria-hidden="true"></div>
+      <h2 class="section-title mx-auto max-w-2xl">{d.cta.title}</h2>
+      <p class="section-lead mx-auto max-w-xl">{d.cta.lead}</p>
+      <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href={L('/download')} class="btn-primary w-full !px-7 !py-3.5 text-base sm:w-auto">
+          <Icon name="windows" size={18} />
+          {d.common.downloadWindows}
+        </a>
+        <a href={L('/license')} class="btn-ghost w-full !px-7 !py-3.5 text-base sm:w-auto">
+          <Icon name="key" size={18} />
+          {d.common.getFreeKey}
+        </a>
+      </div>
+    </div>
+  </section>
+</Layout>

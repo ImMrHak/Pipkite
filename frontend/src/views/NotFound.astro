@@ -1,0 +1,26 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
+import { localize, t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const nf = d.notFound;
+const L = (p: string) => localize(lang, p);
+---
+
+<Layout lang={lang} path="/404" title={d.meta.notFoundTitle} description={d.meta.notFoundDesc} noindex>
+  <section class="container-page py-28 text-center">
+    <p class="font-mono text-sm text-accent">{nf.code}</p>
+    <h1 class="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">{nf.title}</h1>
+    <p class="mx-auto mt-4 max-w-md text-lg text-muted">{nf.lead}</p>
+    <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <a href={L('/')} class="btn-primary">{nf.home}</a>
+      <a href={L('/download')} class="btn-ghost"><Icon name="download" size={16} /> {d.common.download}</a>
+      <a href={L('/telegram-to-mt5-copier')} class="btn-ghost">{nf.guide}</a>
+    </div>
+  </section>
+</Layout>

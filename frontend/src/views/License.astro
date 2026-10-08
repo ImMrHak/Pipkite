@@ -1,0 +1,175 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { API_BASE } from '../config';
+import { localize, localizeHtml, t, type Lang } from '../i18n';
+import { breadcrumbs, webPage } from '../seo/schema';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const lc = d.license;
+const L = (p: string) => localize(lang, p);
+
+const { licenseTitle: title, licenseDesc: description } = d.meta;
+const trail = [{ name: lc.breadcrumb, path: '/license' }];
+const site = Astro.site!;
+const schema = [webPage(site, lang, '/license', title, description), breadcrumbs(site, lang, trail)];
+const unlockIcons = ['braces', 'sparkles', 'refresh'] as const;
+const e = lc.errors;
+---
+
+<Layout lang={lang} path="/license" title={title} description={description} schema={schema}>
+  <section class="relative isolate overflow-hidden">
+    <div class="bg-grid absolute inset-0 -z-10" aria-hidden="true"></div>
+    <div class="glow absolute -top-40 left-1/2 -z-10 h-[460px] w-[800px] max-w-[160vw] -translate-x-1/2" aria-hidden="true"></div>
+
+    <div class="container-page grid gap-12 pt-14 pb-10 sm:pt-20 lg:grid-cols-[1fr_1.1fr] lg:items-start">
+      <div>
+        <Breadcrumbs lang={lang} trail={trail} class="justify-center lg:justify-start" />
+        <h1 class="mt-4 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{lc.h1}</h1>
+        <p class="mt-5 text-lg text-muted">{lc.lead}</p>
+        <ul class="mt-6 space-y-3">
+          {
+            lc.unlocks.map((u, i) => (
+              <li class="flex items-center gap-3">
+                <span class="grid size-9 place-items-center rounded-xl bg-accent-soft text-accent">
+                  <Icon name={unlockIcons[i]} size={18} />
+                </span>
+                {u}
+              </li>
+            ))
+          }
+        </ul>
+        <p class="mt-8 text-sm text-muted [&_strong]:font-medium [&_strong]:text-fg" set:html={lc.skipHtml} />
+      </div>
+
+      <div class="card p-6 shadow-xl shadow-black/10 sm:p-8">
+        <form
+          id="license-form"
+          class="space-y-5"
+          novalidate
+          data-api={API_BASE}
+          data-generating={lc.generating}
+          data-err-name={e.name}
+          data-err-email={e.email}
+          data-err-bad={e.bad}
+          data-err-rate={e.rate}
+          data-err-server={e.server}
+          data-err-unexpected={e.unexpected}
+          data-err-network={e.network}
+        >
+          <div>
+            <label for="name" class="text-sm font-medium">{lc.name}</label>
+            <input id="name" name="name" class="field mt-2" required maxlength="120" autocomplete="name" placeholder={lc.namePh} />
+          </div>
+          <div>
+            <label for="email" class="text-sm font-medium">
+              {lc.email} <span class="font-normal text-muted">{lc.emailOpt}</span>
+            </label>
+            <input id="email" name="email" type="email" class="field mt-2" maxlength="200" autocomplete="email" placeholder={lc.emailPh} dir="ltr" />
+          </div>
+          <!-- honeypot -->
+          <div class="hidden" aria-hidden="true">
+            <label for="website">Website</label>
+            <input id="website" name="website" tabindex="-1" autocomplete="off" />
+          </div>
+
+          <p id="form-error" role="alert" class="hidden rounded-xl bg-bad/10 px-4 py-3 text-sm text-bad"></p>
+
+          <button id="submit" type="submit" class="btn-primary w-full !py-3.5 text-base disabled:opacity-60">
+            <Icon name="key" size={18} /> <span id="submit-label">{lc.submit}</span>
+          </button>
+          <p class="text-center text-xs text-muted">
+            {lc.detailsUse} <a href={L('/privacy')} class="underline hover:text-fg">{lc.privacy}</a>
+          </p>
+        </form>
+
+        <div id="result" class="hidden" aria-live="polite">
+          <div class="flex items-center gap-2 text-good">
+            <Icon name="check" />
+            <h2 class="font-semibold">{lc.ready}</h2>
+          </div>
+          <div class="mt-5 rounded-xl border border-line bg-bg p-4">
+            <code id="key" class="block font-mono text-sm break-all select-all" dir="ltr"></code>
+          </div>
+          <button type="button" data-copy-target="#key" class="btn-primary mt-4 w-full">
+            <Icon name="copy" size={16} /> <span data-copy-label>{lc.copyKey}</span>
+          </button>
+          <p class="mt-3 text-center text-xs text-muted">{lc.saveIt}</p>
+
+          <ol class="mt-8 space-y-3 text-sm">
+            {
+              lc.afterHtml.map((html, i) => (
+                <li class="flex gap-3">
+                  <span class="grid size-6 shrink-0 place-items-center rounded-md bg-accent-soft text-xs font-semibold text-accent">{i + 1}</span>
+                  <span class="[&_a]:text-accent [&_a]:underline [&_strong]:font-medium" set:html={localizeHtml(lang, html)} />
+                </li>
+              ))
+            }
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  const form = document.getElementById('license-form') as HTMLFormElement;
+  const msg = form.dataset;
+  const error = document.getElementById('form-error')!;
+  const submit = document.getElementById('submit') as HTMLButtonElement;
+  const submitLabel = document.getElementById('submit-label')!;
+  const idleLabel = submitLabel.textContent ?? '';
+  const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement;
+
+  const showError = (text = '') => {
+    error.textContent = text;
+    error.classList.toggle('hidden', !text);
+  };
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (submit.disabled) return;
+    showError();
+
+    const name = field('name').value.replace(/\s+/g, ' ').trim().slice(0, 120);
+    const email = field('email').value.trim().slice(0, 200);
+    if (!name) return showError(msg.errName);
+    if (email && !field('email').checkValidity()) return showError(msg.errEmail);
+    if (field('website').value) return; // bot
+
+    submit.disabled = true;
+    submitLabel.textContent = msg.generating ?? '…';
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(`${msg.api}/licenses/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'omit',
+        referrerPolicy: 'no-referrer',
+        signal: ctrl.signal,
+        body: JSON.stringify({ requestId: crypto.randomUUID(), customerName: name, customerEmail: email || undefined }),
+      });
+      if (res.status === 400) throw new Error(msg.errBad);
+      if (res.status === 429) throw new Error(msg.errRate);
+      if (!res.ok) throw new Error(msg.errServer);
+
+      const data = await res.json();
+      if (typeof data?.licenseKey !== 'string' || data.licenseKey.length > 200) throw new Error(msg.errUnexpected);
+      document.getElementById('key')!.textContent = data.licenseKey;
+      form.classList.add('hidden');
+      document.getElementById('result')!.classList.remove('hidden');
+    } catch (err) {
+      showError(err instanceof Error && err.message && !(err instanceof TypeError) && err.name !== 'AbortError' ? err.message : msg.errNetwork);
+    } finally {
+      clearTimeout(timeout);
+      submit.disabled = false;
+      submitLabel.textContent = idleLabel;
+    }
+  });
+</script>

@@ -1,0 +1,48 @@
+---
+// keep in sync with what the backend actually stores, in all 4 languages
+import Layout from '../layouts/Layout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { CONTACT_EMAIL, CONTENT_UPDATED } from '../config';
+import { localizeHtml, t, type Lang } from '../i18n';
+import { date } from '../i18n/format';
+import { breadcrumbs, webPage } from '../seo/schema';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const d = t(lang);
+const pv = d.privacy;
+const path = '/privacy';
+const { privacyTitle: title, privacyDesc: description } = d.meta;
+const trail = [{ name: pv.breadcrumb, path }];
+const site = Astro.site!;
+const schema = [webPage(site, lang, path, title, description), breadcrumbs(site, lang, trail)];
+const contact = CONTACT_EMAIL ? pv.contactEmail(CONTACT_EMAIL) : pv.contactFallback;
+---
+
+<Layout lang={lang} path={path} title={title} description={description} schema={schema}>
+  <div class="container-page pt-12 sm:pt-16">
+    <header class="mx-auto max-w-3xl text-center">
+      <Breadcrumbs lang={lang} trail={trail} />
+      <h1 class="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">{pv.h1}</h1>
+      <p class="mt-4 text-sm text-muted">{pv.updated} <time datetime={CONTENT_UPDATED}>{date(lang, CONTENT_UPDATED)}</time></p>
+    </header>
+
+    <div class="guide mx-auto mt-10 max-w-3xl">
+      <div class="callout">
+        <p class="font-semibold text-fg">{pv.shortTitle}</p>
+        <p>{pv.short}</p>
+      </div>
+      {
+        pv.sections.map((s) => (
+          <>
+            <h2>{s.h}</h2>
+            <Fragment set:html={localizeHtml(lang, s.html.replace('{contact}', contact))} />
+          </>
+        ))
+      }
+      {pv.englishPrevails && <p class="text-sm italic">{pv.englishPrevails}</p>}
+    </div>
+  </div>
+</Layout>

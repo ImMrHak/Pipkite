@@ -1,0 +1,9 @@
+---
+import View from '../../views/Download.astro';
+import { prefixedLocalePaths, type Lang } from '../../i18n';
+
+export const getStaticPaths = prefixedLocalePaths;
+const { lang } = Astro.params as { lang: Lang };
+---
+
+<View lang={lang} />
