@@ -1,0 +1,82 @@
+# env: SITE_DOMAIN, API_UPSTREAM (default localhost:8080), SITE_ROOT (default /srv)
+# not using `precompressed`: caddy 2.10 sends 206 for those even without a Range header
+
+{
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+www.{$SITE_DOMAIN:localhost} {
+	redir https://{$SITE_DOMAIN:localhost}{uri} permanent
+}
+
+{$SITE_DOMAIN:localhost} {
+	root * {$SITE_ROOT:/srv}
+
+	# CSP itself is a <meta> in each page
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		X-Permitted-Cross-Domain-Policies "none"
+		-Server
+	}
+
+	@immutable path /_astro/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+	@static path /favicon.svg /apple-touch-icon.png /icon-*.png /og.png /site.webmanifest /downloads/*
+	header @static Cache-Control "public, max-age=86400"
+	header ?Cache-Control "public, max-age=0, must-revalidate"
+
+	# only the endpoints the site and the app use, the rest 404s
+	handle /api/* {
+		@small path /api/v1/licenses/generate /api/v1/licenses/validate /api/v1/metrics/download /api/v1/metrics/pageview /api/v1/metrics/downloads /api/v1/ai/suggest /api/v1/updates/manifest /api/v1/updates/files/*
+		handle @small {
+			request_body {
+				max_size 16KB
+			}
+			reverse_proxy {$API_UPSTREAM:localhost:8080} {
+				header_up X-Real-IP {remote_host}
+				header_down -Server
+			}
+		}
+		# parser requests send up to 15 messages
+		@parserRequest path /api/v1/support/custom-parser-requests
+		handle @parserRequest {
+			request_body {
+				max_size 512KB
+			}
+			reverse_proxy {$API_UPSTREAM:localhost:8080} {
+				header_up X-Real-IP {remote_host}
+				header_down -Server
+			}
+		}
+		respond 404
+	}
+
+	handle {
+		try_files {path} {path}.html
+		file_server {
+			hide .* *.br *.gz
+		}
+	}
+	encode zstd gzip
+
+	handle_errors 404 {
+		@fr path /fr /fr/*
+		@es path /es /es/*
+		@ar path /ar /ar/*
+		rewrite @fr /fr/404.html
+		rewrite @es /es/404.html
+		rewrite @ar /ar/404.html
+		rewrite * /404.html
+		file_server
+	}
+
+}
