@@ -5,7 +5,7 @@
   and exports the PUBLIC certificate so the installer can add it to each user's trust store.
 
 .DESCRIPTION
-  - A persistent code-signing cert "CN=SignalRelay" is created once in Cert:\CurrentUser\My and reused by
+  - A persistent code-signing cert "CN=Pipkite" is created once in Cert:\CurrentUser\My and reused by
     thumbprint on later runs, so the publisher identity (and therefore the trust the installer establishes)
     stays stable across builds.
   - Microsoft-signed files (VC++ runtime) keep their real signatures; only files that are not already validly
@@ -26,7 +26,7 @@ param(
     [switch]$Timestamp  # add an RFC-3161 timestamp (needs internet; off by default so signing never hangs)
 )
 $ErrorActionPreference = "Stop"
-$subject = "CN=SignalRelay"
+$subject = "CN=Pipkite"
 $ts = "http://timestamp.digicert.com"
 
 # 1) Get-or-create the persistent signing cert.
@@ -36,7 +36,7 @@ if (-not $cert) {
     Write-Host "Creating persistent self-signed code-signing certificate ($subject)..."
     $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject $subject -CertStoreLocation Cert:\CurrentUser\My `
         -KeyUsage DigitalSignature -KeyExportPolicy Exportable -NotAfter (Get-Date).AddYears(10) `
-        -FriendlyName "SignalRelay code signing (self-signed)"
+        -FriendlyName "Pipkite code signing (self-signed)"
 }
 Write-Host "Signing with cert thumbprint $($cert.Thumbprint)"
 

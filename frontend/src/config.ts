@@ -1,6 +1,6 @@
 // update on every release
 
-export const SITE_NAME = 'SignalRelay';
+export const SITE_NAME = 'Pipkite';
 export const VERSION = '1.0.0';
 export const CONTENT_UPDATED = '2026-10-09';
 
@@ -18,14 +18,14 @@ export const DOWNLOADS_PUBLIC_MIN = Number(import.meta.env.PUBLIC_DOWNLOADS_MIN 
 
 export const DOWNLOADS = {
   installer: {
-    name: `SignalRelay-${VERSION}-setup.exe`,
-    url: `${downloadBase}/SignalRelay-${VERSION}-setup.exe`,
+    name: `Pipkite-${VERSION}-setup.exe`,
+    url: `${downloadBase}/Pipkite-${VERSION}-setup.exe`,
     size: '30.9 MB',
     sha256: 'b9211f78786d8fb7fa1a7564eb1ddd3559f846a672ffe3d11c8d6919cde05fdd',
   },
   portable: {
-    name: `SignalRelay-${VERSION}-win-x64.zip`,
-    url: `${downloadBase}/SignalRelay-${VERSION}-win-x64.zip`,
+    name: `Pipkite-${VERSION}-win-x64.zip`,
+    url: `${downloadBase}/Pipkite-${VERSION}-win-x64.zip`,
     size: '35.1 MB',
     sha256: 'dd654642d07c76b2c30b0837b7713d8d9de9824059e9edf7981d2d505c4b8631',
   },

@@ -31,7 +31,7 @@ const bg = `
   <rect width="${W}" height="${H}" fill="url(#g2)"/>
   <g font-family="Segoe UI, Inter, Arial, sans-serif">
     <g transform="translate(64 64)">${logo(56, 8).replace('<svg', '<svg x="0" y="0"')}</g>
-    <text x="136" y="104" font-size="34" font-weight="600" fill="#eef1f6">SignalRelay</text>
+    <text x="136" y="104" font-size="34" font-weight="600" fill="#eef1f6">Pipkite</text>
     <text x="64" y="232" font-size="64" font-weight="700" fill="#eef1f6" letter-spacing="-1.5">Telegram signals</text>
     <text x="64" y="308" font-size="64" font-weight="700" fill="#eef1f6" letter-spacing="-1.5">to MetaTrader 5</text>
     <text x="64" y="384" font-size="64" font-weight="700" fill="url(#t)" letter-spacing="-1.5">in 4.3 ms</text>

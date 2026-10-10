@@ -1,4 +1,4 @@
-# SignalRelay
+# Pipkite
 
 Copy trading signals from Telegram to MetaTrader 5, automatically and fast (about 4 ms from message to order).
 Free for everyone, including the AI review of every signal.
@@ -10,7 +10,7 @@ Free for everyone, including the AI review of every signal.
 - Reads new messages from the Telegram channels and groups you pick (your own account, private channels work).
 - Each channel gets a parser built for its signal format. You request it from the app, it arrives as an update.
 - Checks every signal against your rules: lot size or risk %, max spread, trading hours, entry ranges.
-- Places the order in your MT5 terminal through the SignalRelay EA.
+- Places the order in your MT5 terminal through the Pipkite EA.
 - AI review on every signal: Good, Uncertain or Bad, with the reasons.
 - Pause / resume copying with one click. Pausing never closes open trades.
 
@@ -30,27 +30,27 @@ You need Visual Studio 2026 (C++ desktop + C++/CLI + .NET Framework 4.8 targetin
 
 ```powershell
 # app, engine, EA bridge, tests (Release x64)
-MSBuild SignalRelay.sln -p:Configuration=Release -p:Platform=x64 -m
-x64\Release\SignalRelay.Tests.exe
+MSBuild Pipkite.sln -p:Configuration=Release -p:Platform=x64 -m
+x64\Release\Pipkite.Tests.exe
 
 # installer + portable zip (needs Inno Setup)
 powershell -ExecutionPolicy Bypass -File installer\package.ps1 -Build
 ```
 
-Or open `SignalRelay.sln` and press F5. More in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+Or open `Pipkite.sln` and press F5. More in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Repo layout
 
 | Folder | What's in it |
 |---|---|
-| `SignalRelay.WinForms` | the desktop UI |
-| `SignalRelay.Engine` | the engine: Telegram, parsing, decisions, orders, updates |
-| `SignalRelay.Core` | parser, rules, planner, AI client |
-| `SignalRelay.Storage` | local SQLite database and backups |
-| `SignalRelay.Protocol` | IPC, crypto, signing |
-| `SignalRelay.MT5BridgeHost` / `MT5BridgeImpl` | the DLL the EA talks to |
+| `Pipkite.WinForms` | the desktop UI |
+| `Pipkite.Engine` | the engine: Telegram, parsing, decisions, orders, updates |
+| `Pipkite.Core` | parser, rules, planner, AI client |
+| `Pipkite.Storage` | local SQLite database and backups |
+| `Pipkite.Protocol` | IPC, crypto, signing |
+| `Pipkite.MT5BridgeHost` / `MT5BridgeImpl` | the DLL the EA talks to |
 | `mql5/` | the MetaTrader 5 EA |
-| `SignalRelay.Tests` | tests (unit + end-to-end with a fake MT5) |
+| `Pipkite.Tests` | tests (unit + end-to-end with a fake MT5) |
 | `frontend/` | the website |
 
 ## Contributing

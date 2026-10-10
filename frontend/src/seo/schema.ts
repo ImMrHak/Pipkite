@@ -38,7 +38,7 @@ export function softwareApplication(site: URL, lang: Lang, screenshots: string[]
     '@type': 'SoftwareApplication',
     '@id': id(site, 'software'),
     name: SITE_NAME,
-    alternateName: 'SignalRelay Telegram to MT5 copier',
+    alternateName: 'Pipkite Telegram to MT5 copier',
     description: d.meta.appDescription,
     url: abs(site, localize(lang, '/')),
     applicationCategory: 'FinanceApplication',

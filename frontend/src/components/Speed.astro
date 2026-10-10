@@ -24,7 +24,7 @@ const values = [
 // comparison rows only show up once COMPARISON in config.ts has real numbers
 const hasComparison = COMPARISON.length > 0;
 const rows = hasComparison
-  ? [{ label: 'SignalRelay', p50Ms: BENCH.ownOverheadP50Ms, us: true }, ...COMPARISON.map((c) => ({ ...c, us: false }))]
+  ? [{ label: 'Pipkite', p50Ms: BENCH.ownOverheadP50Ms, us: true }, ...COMPARISON.map((c) => ({ ...c, us: false }))]
   : [
       { label: s.rowUs, p50Ms: BENCH.ownOverheadP50Ms, us: true },
       { label: s.rowBefore, p50Ms: BENCH.ownOverheadBeforeP50Ms, us: false },

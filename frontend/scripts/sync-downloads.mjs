@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, '..', 'dist');
 const dest = join(root, 'public', 'downloads');
-const files = ['SignalRelay-1.0.0-setup.exe', 'SignalRelay-1.0.0-win-x64.zip', 'SignalRelay-1.0.0-win-x64.zip.sha256'];
+const files = ['Pipkite-1.0.0-setup.exe', 'Pipkite-1.0.0-win-x64.zip', 'Pipkite-1.0.0-win-x64.zip.sha256'];
 
 mkdirSync(dest, { recursive: true });
 for (const f of files) {

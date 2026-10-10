@@ -8,31 +8,31 @@ const p95 = num(L, BENCH.ownOverheadP95Ms, 1);
 
 export const es: Dict = {
   meta: {
-    homeTitle: 'Copiador gratis de señales de Telegram a MT5 | SignalRelay',
+    homeTitle: 'Copiador gratis de señales de Telegram a MT5 | Pipkite',
     homeDesc:
       'Copia automáticamente señales de trading de Telegram a MetaTrader 5 en unos 4 ms. App gratis para Windows, parsers hechos para ti y revisión con IA.',
-    downloadTitle: `Descargar SignalRelay ${VERSION} – Copiador Telegram MT5 gratis`,
-    downloadDesc: `Descarga SignalRelay ${VERSION} para Windows 10/11: un copiador gratis de señales de Telegram a MetaTrader 5. Instalador o zip portátil, con SHA-256.`,
-    licenseTitle: 'Licencia gratis de SignalRelay (sin tarjeta, no caduca)',
+    downloadTitle: `Descargar Pipkite ${VERSION} – Copiador Telegram MT5 gratis`,
+    downloadDesc: `Descarga Pipkite ${VERSION} para Windows 10/11: un copiador gratis de señales de Telegram a MetaTrader 5. Instalador o zip portátil, con SHA-256.`,
+    licenseTitle: 'Licencia gratis de Pipkite (sin tarjeta, no caduca)',
     licenseDesc:
-      'Genera en segundos una clave de licencia gratis de SignalRelay. Nunca caduca y desbloquea los parsers, la revisión con IA y las actualizaciones firmadas.',
+      'Genera en segundos una clave de licencia gratis de Pipkite. Nunca caduca y desbloquea los parsers, la revisión con IA y las actualizaciones firmadas.',
     guideTitle: 'Cómo copiar señales de Telegram a MT5 automáticamente (2026)',
     guideDesc:
       'Guía paso a paso para copiar señales de Telegram a MetaTrader 5: conecta Telegram y MT5, consigue los parsers, fija tus reglas de riesgo y prueba seguro.',
-    changelogTitle: `Novedades de SignalRelay – Versión ${VERSION}`,
-    changelogDesc: `Notas de versión de SignalRelay, el copiador gratis de Telegram a MT5. Versión ${VERSION}: motor de ejecución, parsers, revisión con IA, velocidad y panel.`,
-    privacyTitle: 'Privacidad – Qué recoge SignalRelay y por qué',
+    changelogTitle: `Novedades de Pipkite – Versión ${VERSION}`,
+    changelogDesc: `Notas de versión de Pipkite, el copiador gratis de Telegram a MT5. Versión ${VERSION}: motor de ejecución, parsers, revisión con IA, velocidad y panel.`,
+    privacyTitle: 'Privacidad – Qué recoge Pipkite y por qué',
     privacyDesc:
-      'Qué guarda SignalRelay en tu PC, qué reciben los servicios de licencia, revisión con IA y parsers, y qué no se recoge nunca. Explicado con claridad.',
-    notFoundTitle: 'Página no encontrada | SignalRelay',
-    notFoundDesc: 'Esta página no existe. Vuelve a SignalRelay, el copiador gratis de señales de Telegram a MT5.',
-    ogAlt: `SignalRelay: señales de Telegram a MetaTrader 5 en ${ms} ms`,
+      'Qué guarda Pipkite en tu PC, qué reciben los servicios de licencia, revisión con IA y parsers, y qué no se recoge nunca. Explicado con claridad.',
+    notFoundTitle: 'Página no encontrada | Pipkite',
+    notFoundDesc: 'Esta página no existe. Vuelve a Pipkite, el copiador gratis de señales de Telegram a MT5.',
+    ogAlt: `Pipkite: señales de Telegram a MetaTrader 5 en ${ms} ms`,
     appDescription:
-      'App gratis para Windows que copia señales de trading de canales y grupos de Telegram a MetaTrader 5. Cada canal recibe un parser creado por el equipo de SignalRelay; las señales se comprueban con tus reglas de riesgo y se ejecutan en unos 4 ms.',
+      'App gratis para Windows que copia señales de trading de canales y grupos de Telegram a MetaTrader 5. Cada canal recibe un parser creado por el equipo de Pipkite; las señales se comprueban con tus reglas de riesgo y se ejecutan en unos 4 ms.',
     featureList: [
       'Copia automática de señales de canales y grupos de Telegram a MetaTrader 5',
       `Unos ${ms} ms desde el mensaje de Telegram hasta la orden enviada (mediana, medida)`,
-      'Parsers creados para cada canal por el equipo de SignalRelay, entregados como actualizaciones automáticas',
+      'Parsers creados para cada canal por el equipo de Pipkite, entregados como actualizaciones automáticas',
       'Revisión consultiva con IA de cada señal: veredicto Buena, Mala o Incierta con motivos',
       'Tamaño por lotes fijos o % de riesgo, límites de spread y deslizamiento, horario de trading',
       'Espera a las zonas de entrada y puede forzar la entrada si el precio las rebasa por poco',
@@ -61,7 +61,7 @@ export const es: Dict = {
     breadcrumb: 'Ruta de navegación',
     onThisPage: 'En esta página',
     illustration: 'Ilustración',
-    homeAria: 'Inicio de SignalRelay',
+    homeAria: 'Inicio de Pipkite',
   },
 
   nav: { how: 'Cómo funciona', features: 'Funciones', speed: 'Velocidad', ai: 'IA', guide: 'Guía', faq: 'Preguntas' },
@@ -78,9 +78,9 @@ export const es: Dict = {
     faq: 'Preguntas frecuentes',
     privacy: 'Privacidad',
     riskTitle: 'Aviso de riesgo.',
-    risk: 'Operar con productos apalancados como forex y CFD conlleva un alto riesgo de pérdida. SignalRelay copia señales; no puede garantizar ejecuciones ni beneficios, y la revisión con IA es una primera versión que puede equivocarse. Prueba primero en una cuenta demo.',
+    risk: 'Operar con productos apalancados como forex y CFD conlleva un alto riesgo de pérdida. Pipkite copia señales; no puede garantizar ejecuciones ni beneficios, y la revisión con IA es una primera versión que puede equivocarse. Prueba primero en una cuenta demo.',
     legal: (year: number) =>
-      `© ${year} SignalRelay. MetaTrader es una marca de MetaQuotes Ltd. Telegram es una marca de Telegram FZ-LLC. SignalRelay no está afiliado a ninguna de ellas.`,
+      `© ${year} Pipkite. MetaTrader es una marca de MetaQuotes Ltd. Telegram es una marca de Telegram FZ-LLC. Pipkite no está afiliado a ninguna de ellas.`,
   },
 
   hero: {
@@ -88,10 +88,10 @@ export const es: Dict = {
     badge: (v: string) => `Ya está aquí la versión ${v}. Gratis para Windows`,
     title: 'Señales de Telegram en MetaTrader 5 en',
     unit: 'ms',
-    lead: 'SignalRelay lee los canales que eliges, entiende cada señal, la comprueba con tus reglas y coloca la orden en MT5 antes de que puedas desbloquear el móvil.',
+    lead: 'Pipkite lee los canales que eliges, entiende cada señal, la comprueba con tus reglas y coloca la orden en MT5 antes de que puedas desbloquear el móvil.',
     leadStrong: '100 % gratis.',
     checks: ['Gratis para siempre, sin tarjeta', 'Parsers hechos para ti', 'Sin permisos de administrador', 'Windows 10 / 11'],
-    shotAlt: 'El panel de SignalRelay: conexiones, cuenta y beneficios, feed en directo y latencia',
+    shotAlt: 'El panel de Pipkite: conexiones, cuenta y beneficios, feed en directo y latencia',
     cardNow: 'ahora',
     aiReview: 'Revisión IA',
     good: 'Buena',
@@ -116,7 +116,7 @@ export const es: Dict = {
     setupTitle: 'Configúralo una vez, con un asistente guiado',
     steps: [
       { title: 'Conecta Telegram', text: 'Inicia sesión con tu propia cuenta de Telegram y marca los canales o grupos a copiar. Los códigos de acceso nunca se guardan.' },
-      { title: 'Conecta MetaTrader 5', text: 'Pulsa «Start MetaTrader». SignalRelay instala su Expert Advisor, abre tu terminal y se empareja con él.' },
+      { title: 'Conecta MetaTrader 5', text: 'Pulsa «Start MetaTrader». Pipkite instala su Expert Advisor, abre tu terminal y se empareja con él.' },
       { title: 'Pide tus parsers', text: 'Un clic por canal. Nuestro equipo crea un parser para el formato exacto de ese canal y se instala solo, sin reiniciar.' },
       { title: 'Fija tus reglas', text: 'Lotes o % de riesgo, spread máximo, horario, zonas de entrada. La copia funciona en cuanto MT5 está emparejado; pausa o reanuda con un clic.' },
     ],
@@ -152,10 +152,10 @@ export const es: Dict = {
   speed: {
     eyebrow: 'Velocidad',
     title: 'Medido, no prometido.',
-    leadHtml: `En el copy trading, cada milisegundo es precio. Todo el recorrido de SignalRelay, desde el mensaje de Telegram hasta la orden que sale hacia tu bróker, funciona en código nativo con una sola escritura duradera, y tarda unos <strong>${ms} ms</strong>.`,
+    leadHtml: `En el copy trading, cada milisegundo es precio. Todo el recorrido de Pipkite, desde el mensaje de Telegram hasta la orden que sale hacia tu bróker, funciona en código nativo con una sola escritura duradera, y tarda unos <strong>${ms} ms</strong>.`,
     proof: 'No hace falta que nos creas: el panel muestra en directo los percentiles de latencia medidos en tu propio PC.',
     stats: [
-      { label: 'Telegram → envío a MT5', note: `tiempo propio de SignalRelay, mediana (p95 ${p95} ms)` },
+      { label: 'Telegram → envío a MT5', note: `tiempo propio de Pipkite, mediana (p95 ${p95} ms)` },
       { label: 'Para leer una señal', note: `tiempo de análisis mediano, p95 ${num(L, BENCH.parseP95Us, 1)} µs` },
       { label: 'Señales por segundo', note: 'rendimiento del parser sin conexión' },
       { label: 'Escritura en disco por orden', note: `antes ${BENCH.flushesBefore}, sigue siendo a prueba de fallos` },
@@ -163,7 +163,7 @@ export const es: Dict = {
     chartTitle: 'Mensaje de Telegram → orden enviada a MT5',
     chartSub: 'Mediana, en milisegundos. Menos es mejor.',
     fastest: 'El más rápido probado',
-    rowUs: 'SignalRelay 1.0',
+    rowUs: 'Pipkite 1.0',
     rowBefore: 'Antes de optimizar',
     improvementStrong: '3,6× más rápido que nuestra primera versión.',
     improvement: 'Una escritura en disco por orden en lugar de cuatro, las escrituras críticas van primero y las zonas de entrada reaccionan a cada cotización en lugar de a un temporizador de 100 ms.',
@@ -176,7 +176,7 @@ export const es: Dict = {
     good: 'Buena',
     eyebrow: 'IA incluida',
     title: 'Una segunda opinión sobre cada señal, gratis',
-    lead: 'El backend de IA de SignalRelay ya está funcionando. Nada que instalar ni clave de API que comprar: añade tu clave de licencia gratis y cada señal recibe una segunda opinión.',
+    lead: 'El backend de IA de Pipkite ya está funcionando. Nada que instalar ni clave de API que comprar: añade tu clave de licencia gratis y cada señal recibe una segunda opinión.',
     points: [
       { title: 'Veredictos claros y razonados', text: 'Buena, Mala o Incierta, con los motivos: posición del stop, beneficio/riesgo y amplitud de la entrada.' },
       { title: 'Consejo, no órdenes', text: 'El veredicto aparece junto a cada señal en el feed en directo para ayudarte a juzgar a un proveedor. Actívalo o desactívalo en Execution policy.' },
@@ -191,7 +191,7 @@ export const es: Dict = {
     title: 'Limpia, tranquila y fácil de leer',
     lead: 'Temas oscuro y claro (cambia el tema de esta web para ver ambos), una ayuda en cada botón y una guía completa integrada.',
     tablist: 'Pantallas de la app',
-    screenAlt: (label: string, text: string) => `Pantalla ${label} de SignalRelay. ${text}`,
+    screenAlt: (label: string, text: string) => `Pantalla ${label} de Pipkite. ${text}`,
     items: {
       dashboard: { label: 'Panel', text: 'Conexiones, cuenta y beneficios, feed en directo y latencia, en una sola pantalla.' },
       history: { label: 'Historial', text: 'Cada mensaje, cómo se leyó y qué se hizo, con el motivo. Exporta a CSV o JSON.' },
@@ -220,7 +220,7 @@ export const es: Dict = {
     privacyTitle: 'Gratis no significa que tú seas el producto',
     privacy: [
       { title: 'Tus datos se quedan en tu PC', text: 'Historial, ajustes y registros viven en una base de datos local. Los secretos se cifran con Windows DPAPI.' },
-      { title: 'Nunca tus contraseñas del bróker', text: 'Tu acceso al bróker se queda en MetaTrader. SignalRelay nunca lo pide.' },
+      { title: 'Nunca tus contraseñas del bróker', text: 'Tu acceso al bróker se queda en MetaTrader. Pipkite nunca lo pide.' },
       { title: 'Módulos y actualizaciones firmados', text: 'Cada módulo de parser y cada versión van firmados con ECDSA y se verifican antes de cargarse.' },
     ],
   },
@@ -232,37 +232,37 @@ export const es: Dict = {
       '¿Nuevo en esto? Lee la <a href="/telegram-to-mt5-copier">guía paso a paso</a>. La app incluye además una guía completa con capturas de cada pantalla.',
     items: [
       {
-        q: '¿Qué es SignalRelay?',
-        a: `SignalRelay es una app gratis para Windows que copia señales de trading de canales y grupos de Telegram a MetaTrader 5. Lee cada mensaje nuevo con un parser creado para ese canal, extrae el símbolo, la dirección, la entrada, el stop-loss y los take-profits, los comprueba con tus reglas de riesgo y coloca la orden en tu propio terminal MT5 en unos ${ms} ms. Una revisión opcional con IA da una segunda opinión sobre cada señal.`,
+        q: '¿Qué es Pipkite?',
+        a: `Pipkite es una app gratis para Windows que copia señales de trading de canales y grupos de Telegram a MetaTrader 5. Lee cada mensaje nuevo con un parser creado para ese canal, extrae el símbolo, la dirección, la entrada, el stop-loss y los take-profits, los comprueba con tus reglas de riesgo y coloca la orden en tu propio terminal MT5 en unos ${ms} ms. Una revisión opcional con IA da una segunda opinión sobre cada señal.`,
       },
       {
-        q: '¿SignalRelay es realmente gratis?',
+        q: '¿Pipkite es realmente gratis?',
         a: 'Sí. La app, los parsers, la revisión con IA y las actualizaciones son gratis, sin suscripción, prueba ni tarjeta. La clave de licencia también es gratis; identifica tu instalación ante los servicios de parsers, IA y actualizaciones.',
       },
       {
         q: '¿Cómo copio señales de Telegram a MT5 automáticamente?',
-        a: 'Instala SignalRelay, inicia sesión con tu cuenta de Telegram y marca los canales a copiar, pulsa «Start MetaTrader» para adjuntar el Expert Advisor de SignalRelay y aprueba el emparejamiento, pide un parser para cada canal y fija tu tamaño de lote o % de riesgo. En cuanto el parser de un canal está instalado, sus nuevas señales se colocan solas en MT5. Pausa o reanuda la copia con un clic.',
+        a: 'Instala Pipkite, inicia sesión con tu cuenta de Telegram y marca los canales a copiar, pulsa «Start MetaTrader» para adjuntar el Expert Advisor de Pipkite y aprueba el emparejamiento, pide un parser para cada canal y fija tu tamaño de lote o % de riesgo. En cuanto el parser de un canal está instalado, sus nuevas señales se colocan solas en MT5. Pausa o reanuda la copia con un clic.',
       },
       {
         q: '¿Qué tan rápido es, de verdad?',
-        a: `La parte propia de SignalRelay, desde que Telegram entrega el mensaje hasta que la orden se envía a MT5, tarda unos ${ms} ms (mediana) en el PC de referencia. La entrega de Telegram, tu bróker y tu conexión añaden su propio tiempo. El panel muestra la latencia medida en tu equipo.`,
+        a: `La parte propia de Pipkite, desde que Telegram entrega el mensaje hasta que la orden se envía a MT5, tarda unos ${ms} ms (mediana) en el PC de referencia. La entrega de Telegram, tu bróker y tu conexión añaden su propio tiempo. El panel muestra la latencia medida en tu equipo.`,
       },
       {
         q: '¿Funciona con mi bróker?',
-        a: 'SignalRelay coloca las órdenes mediante un Expert Advisor dentro de tu propio terminal de escritorio MetaTrader 5 en Windows, así que funciona con los brókers con los que operas en MT5. Tu acceso se queda en MetaTrader. Asocia cada símbolo del canal (por ejemplo GOLD) al nombre de tu bróker (por ejemplo XAUUSD).',
+        a: 'Pipkite coloca las órdenes mediante un Expert Advisor dentro de tu propio terminal de escritorio MetaTrader 5 en Windows, así que funciona con los brókers con los que operas en MT5. Tu acceso se queda en MetaTrader. Asocia cada símbolo del canal (por ejemplo GOLD) al nombre de tu bróker (por ejemplo XAUUSD).',
       },
-      { q: '¿Funciona con MetaTrader 4?', a: 'No. SignalRelay solo es compatible con MetaTrader 5.' },
+      { q: '¿Funciona con MetaTrader 4?', a: 'No. Pipkite solo es compatible con MetaTrader 5.' },
       {
         q: '¿Puede copiar de canales y grupos privados?',
-        a: 'Sí. SignalRelay inicia sesión en Telegram como tú, así que puede leer cualquier canal o grupo del que tu cuenta sea miembro, incluidos los privados. Solo se copian los mensajes que llegan después de iniciar sesión; el historial nunca se convierte en órdenes.',
+        a: 'Sí. Pipkite inicia sesión en Telegram como tú, así que puede leer cualquier canal o grupo del que tu cuenta sea miembro, incluidos los privados. Solo se copian los mensajes que llegan después de iniciar sesión; el historial nunca se convierte en órdenes.',
       },
       {
         q: '¿Puedo probarlo sin arriesgar dinero?',
-        a: 'Sí. Conecta primero una cuenta demo de MT5: la copia funciona exactamente igual sin nada en juego. El asistente también tiene un paso «Test a sample» que muestra lo que SignalRelay lee de un mensaje pegado sin enviar nada. La copia está activa en cuanto MT5 está emparejado, y la pausa detiene al instante las nuevas operaciones.',
+        a: 'Sí. Conecta primero una cuenta demo de MT5: la copia funciona exactamente igual sin nada en juego. El asistente también tiene un paso «Test a sample» que muestra lo que Pipkite lee de un mensaje pegado sin enviar nada. La copia está activa en cuanto MT5 está emparejado, y la pausa detiene al instante las nuevas operaciones.',
       },
       {
         q: '¿Tengo que configurar o escribir un parser?',
-        a: 'No, y no puedes: los parsers los crea el equipo de SignalRelay. Pulsa «Request a custom parser» en la pantalla Signal rules; se envían algunos mensajes recientes del canal sin enlaces, @usuarios, teléfonos ni correos, creamos un parser para su formato exacto y se instala solo como actualización firmada, sin reiniciar. Hasta que llega el parser de un canal, sus mensajes no se operan.',
+        a: 'No, y no puedes: los parsers los crea el equipo de Pipkite. Pulsa «Request a custom parser» en la pantalla Signal rules; se envían algunos mensajes recientes del canal sin enlaces, @usuarios, teléfonos ni correos, creamos un parser para su formato exacto y se instala solo como actualización firmada, sin reiniciar. Hasta que llega el parser de un canal, sus mensajes no se operan.',
       },
       {
         q: '¿La revisión con IA siempre acierta?',
@@ -274,11 +274,11 @@ export const es: Dict = {
       },
       {
         q: '¿Qué idiomas están disponibles?',
-        a: 'Esta web está disponible en inglés, francés, español y árabe. La app SignalRelay en sí está por ahora en inglés. Los parsers funcionan con señales escritas en cualquier idioma, porque cada uno se crea para su canal.',
+        a: 'Esta web está disponible en inglés, francés, español y árabe. La app Pipkite en sí está por ahora en inglés. Los parsers funcionan con señales escritas en cualquier idioma, porque cada uno se crea para su canal.',
       },
       {
         q: '¿Mi PC tiene que estar encendido?',
-        a: 'Sí. SignalRelay y MetaTrader funcionan en tu PC con Windows, así que la suspensión, el apagado o un terminal MT5 cerrado pausan la copia. SignalRelay puede mantener Windows despierto mientras copia; para copiar 24/7, usa un VPS con Windows.',
+        a: 'Sí. Pipkite y MetaTrader funcionan en tu PC con Windows, así que la suspensión, el apagado o un terminal MT5 cerrado pausan la copia. Pipkite puede mantener Windows despierto mientras copia; para copiar 24/7, usa un VPS con Windows.',
       },
       {
         q: 'Windows muestra un aviso de SmartScreen. ¿Es normal?',
@@ -295,10 +295,10 @@ export const es: Dict = {
   download: {
     breadcrumb: 'Descargar',
     h1: 'Descarga el copiador gratis de Telegram a MT5',
-    sub: (v: string) => `SignalRelay ${v} para Windows 10 y 11. Publicado el`,
+    sub: (v: string) => `Pipkite ${v} para Windows 10 y 11. Publicado el`,
     whatsNew: 'Novedades',
     installer: { title: 'Instalador', badge: 'Recomendado', text: 'Se instala solo para ti, sin permisos de administrador. Añade un acceso directo al menú Inicio y la guía de usuario.' },
-    portable: { title: 'Zip portátil', text: 'Descomprímelo donde puedas escribir y ejecuta SignalRelay.Launcher.exe. No se instala nada.' },
+    portable: { title: 'Zip portátil', text: 'Descomprímelo donde puedas escribir y ejecuta Pipkite.Launcher.exe. No se instala nada.' },
     sha: 'SHA-256',
     checkHint: 'Comprueba una descarga en PowerShell:',
     stepsTitle: 'Listo en tres pasos',
@@ -322,7 +322,7 @@ export const es: Dict = {
   license: {
     breadcrumb: 'Clave de licencia gratis',
     h1: 'Tu clave, gratis y para siempre',
-    lead: 'Sin pago y sin tarjeta. La clave conecta tu instalación con los servicios en línea de SignalRelay:',
+    lead: 'Sin pago y sin tarjeta. La clave conecta tu instalación con los servicios en línea de Pipkite:',
     unlocks: ['Parsers hechos para tus canales', 'Revisión con IA de cada señal', 'Actualizaciones automáticas firmadas'],
     skipHtml: 'La app se abre sin clave, pero los parsers, la revisión con IA y las actualizaciones la necesitan. Añádela en el asistente de bienvenida o más tarde en <strong>Settings → AI and licensing</strong>.',
     name: 'Tu nombre',
@@ -338,7 +338,7 @@ export const es: Dict = {
     copyKey: 'Copiar clave',
     saveIt: 'Guárdala en un lugar seguro. Solo se muestra una vez.',
     afterHtml: [
-      'Abre SignalRelay (o <a href="/download">descárgalo</a>).',
+      'Abre Pipkite (o <a href="/download">descárgalo</a>).',
       'Pega la clave en el asistente de bienvenida o en Settings → AI and licensing.',
       'Pulsa <strong>Validate &amp; save</strong>. El estado se pone en verde.',
     ],
@@ -358,14 +358,14 @@ export const es: Dict = {
     h1: 'Cómo copiar señales de Telegram a MetaTrader 5 automáticamente',
     lead: 'Una guía completa y práctica: de una señal publicada en un canal de Telegram a una orden en tu terminal MT5, sin copiar precios a mano.',
     updated: 'Actualizado el',
-    by: 'Por el equipo de SignalRelay',
+    by: 'Por el equipo de Pipkite',
     readTime: '7 min de lectura',
     shortTitle: 'Respuesta corta',
-    short: `Para copiar señales de Telegram a MT5 automáticamente, instala un copiador de Telegram a MT5 como SignalRelay, inicia sesión con tu cuenta de Telegram, elige los canales a copiar, adjunta el Expert Advisor del copiador a tu terminal MetaTrader 5, pide un parser para cada canal y fija tu tamaño de lote o % de riesgo. Cada nueva señal se analiza y se coloca como orden por sí sola, en unos ${ms} ms. Un clic pausa o reanuda la copia.`,
+    short: `Para copiar señales de Telegram a MT5 automáticamente, instala un copiador de Telegram a MT5 como Pipkite, inicia sesión con tu cuenta de Telegram, elige los canales a copiar, adjunta el Expert Advisor del copiador a tu terminal MetaTrader 5, pide un parser para cada canal y fija tu tamaño de lote o % de riesgo. Cada nueva señal se analiza y se coloca como orden por sí sola, en unos ${ms} ms. Un clic pausa o reanuda la copia.`,
     figures: {
-      metatrader: { alt: 'Pantalla MetaTrader de SignalRelay con la lista de terminales, el botón Start MetaTrader y el estado del emparejamiento', caption: 'La pantalla MetaTrader: abre el terminal, aprueba el emparejamiento, asocia símbolos.' },
-      'signal-rules': { alt: 'Pantalla Signal rules de SignalRelay con los canales, el estado de su parser y el botón Request a custom parser', caption: 'Signal rules: el parser de cada canal y el botón para pedir uno.' },
-      'execution-policy': { alt: 'Pantalla Execution policy de SignalRelay con tamaño de posición, take-profits y tiempos', caption: 'Execution policy: cuánto, qué objetivos y cuándo no operar.' },
+      metatrader: { alt: 'Pantalla MetaTrader de Pipkite con la lista de terminales, el botón Start MetaTrader y el estado del emparejamiento', caption: 'La pantalla MetaTrader: abre el terminal, aprueba el emparejamiento, asocia símbolos.' },
+      'signal-rules': { alt: 'Pantalla Signal rules de Pipkite con los canales, el estado de su parser y el botón Request a custom parser', caption: 'Signal rules: el parser de cada canal y el botón para pedir uno.' },
+      'execution-policy': { alt: 'Pantalla Execution policy de Pipkite con tamaño de posición, take-profits y tiempos', caption: 'Execution policy: cuánto, qué objetivos y cuándo no operar.' },
     },
     sections: [
       {
@@ -382,12 +382,12 @@ export const es: Dict = {
 <li>MetaTrader 5 (escritorio) con sesión iniciada en tu bróker. Una cuenta demo es lo mejor para empezar.</li>
 <li>Tu cuenta de Telegram, miembro de los canales o grupos que quieres copiar.</li>
 <li>Un API ID y un hash de Telegram gratis en <code>my.telegram.org</code> (un minuto).</li>
-<li>SignalRelay y una <a href="/license">clave de licencia gratis</a>, necesaria para pedir parsers y recibirlos como actualizaciones (y para la revisión con IA).</li>
+<li>Pipkite y una <a href="/license">clave de licencia gratis</a>, necesaria para pedir parsers y recibirlos como actualizaciones (y para la revisión con IA).</li>
 </ul>`,
       },
       {
         id: 'step-1',
-        title: 'Paso 1: instala SignalRelay',
+        title: 'Paso 1: instala Pipkite',
         html: `<p><a href="/download">Descarga el instalador</a> y ejecútalo. Se instala solo para tu usuario de Windows, sin permisos de administrador. Si aparece Windows SmartScreen, elige <strong>Más información → Ejecutar de todas formas</strong>; puedes comprobar el archivo con la suma SHA-256 de la página de descarga. Al abrirlo por primera vez, un breve asistente te guía por cada paso de abajo, con un estado en directo para cada uno. La interfaz de la app está en inglés.</p>`,
       },
       {
@@ -395,7 +395,7 @@ export const es: Dict = {
         title: 'Paso 2: conecta Telegram',
         html: `<ol>
 <li>Ve a <code>my.telegram.org</code>, abre <strong>API development tools</strong> y copia el API ID y el API hash.</li>
-<li>Pega ambos en SignalRelay y pulsa <strong>Save credentials</strong>. Se cifran en tu PC con Windows DPAPI y nunca se registran.</li>
+<li>Pega ambos en Pipkite y pulsa <strong>Save credentials</strong>. Se cifran en tu PC con Windows DPAPI y nunca se registran.</li>
 <li>Escribe tu número, pulsa <strong>Send code</strong> e introduce el código que te envía Telegram (y tu contraseña de verificación en dos pasos si la usas).</li>
 <li>Marca los canales y grupos a copiar y pulsa <strong>Add checked as sources</strong>. Los canales privados también funcionan, siempre que tu cuenta sea miembro.</li>
 </ol>
@@ -406,9 +406,9 @@ export const es: Dict = {
         title: 'Paso 3: conecta MetaTrader 5',
         figure: 'metatrader',
         html: `<ol>
-<li>En la pantalla <strong>MetaTrader</strong>, elige tu terminal y pulsa <strong>Start MetaTrader</strong>. SignalRelay instala su Expert Advisor, abre MT5 con él en un gráfico y activa los ajustes necesarios. Antes te lo pregunta.</li>
-<li>Inicia sesión en tu bróker dentro de MetaTrader como siempre. SignalRelay nunca pide la contraseña del bróker.</li>
-<li>De vuelta en SignalRelay, pulsa <strong>Approve pairing</strong> y escribe tu número de cuenta para confirmar. Empareja primero una <strong>cuenta demo</strong>: en cuanto hay una cuenta emparejada, la copia está activa.</li>
+<li>En la pantalla <strong>MetaTrader</strong>, elige tu terminal y pulsa <strong>Start MetaTrader</strong>. Pipkite instala su Expert Advisor, abre MT5 con él en un gráfico y activa los ajustes necesarios. Antes te lo pregunta.</li>
+<li>Inicia sesión en tu bróker dentro de MetaTrader como siempre. Pipkite nunca pide la contraseña del bróker.</li>
+<li>De vuelta en Pipkite, pulsa <strong>Approve pairing</strong> y escribe tu número de cuenta para confirmar. Empareja primero una <strong>cuenta demo</strong>: en cuanto hay una cuenta emparejada, la copia está activa.</li>
 <li>Asocia el símbolo de cada canal al nombre de tu bróker, por ejemplo «GOLD» del canal a «XAUUSD» de tu bróker.</li>
 </ol>`,
       },
@@ -416,10 +416,10 @@ export const es: Dict = {
         id: 'step-4',
         title: 'Paso 4: pide un parser para cada canal',
         figure: 'signal-rules',
-        html: `<p>Cada proveedor escribe sus señales a su manera, así que cada canal necesita un <em>parser</em> creado para su formato. SignalRelay no trae ninguno, y no los creas ni los editas tú: lo hace el equipo de SignalRelay.</p>
+        html: `<p>Cada proveedor escribe sus señales a su manera, así que cada canal necesita un <em>parser</em> creado para su formato. Pipkite no trae ninguno, y no los creas ni los editas tú: lo hace el equipo de Pipkite.</p>
 <ol>
 <li>Abre <strong>Signal rules</strong>, selecciona un canal y pulsa <strong>Request a custom parser for this channel</strong>. Añade una nota si quieres.</li>
-<li>SignalRelay envía algunos mensajes recientes de ese canal, sin enlaces, @usuarios, teléfonos ni correos.</li>
+<li>Pipkite envía algunos mensajes recientes de ese canal, sin enlaces, @usuarios, teléfonos ni correos.</li>
 <li>Creamos el parser y lo publicamos como actualización firmada. Se instala solo y funciona sin reiniciar; <strong>Check for parser updates</strong> lo descarga al momento.</li>
 </ol>
 <p>Hasta que llega el parser de un canal, sus mensajes se muestran como no compatibles y nunca se operan.</p>`,
@@ -432,7 +432,7 @@ export const es: Dict = {
 <li><strong>Tamaño de posición:</strong> un lote fijo, o un porcentaje del equity arriesgado hasta el stop-loss. El cálculo por riesgo siempre redondea a la baja al paso de lote de tu bróker; si incluso el lote mínimo es demasiado, la operación se omite en lugar de forzarse.</li>
 <li><strong>Take-profits:</strong> un solo objetivo, o la posición repartida entre varios.</li>
 <li><strong>Límites:</strong> antigüedad máxima de la señal, spread y deslizamiento máximos por símbolo, posiciones abiertas, pérdida diaria y horario de trading.</li>
-<li><strong>Zonas de entrada:</strong> con señales «buy 4299–4295», SignalRelay espera a que el precio entre en la zona. La opción <em>force-enter</em> abre la operación si el precio la rebasó por unos pocos pips que tú eliges.</li>
+<li><strong>Zonas de entrada:</strong> con señales «buy 4299–4295», Pipkite espera a que el precio entre en la zona. La opción <em>force-enter</em> abre la operación si el precio la rebasó por unos pocos pips que tú eliges.</li>
 <li><strong>Revisión con IA:</strong> activa «review every signal» para ver una opinión Buena / Incierta / Mala junto a cada señal en el feed en directo.</li>
 </ul>`,
       },
@@ -441,7 +441,7 @@ export const es: Dict = {
         title: 'Paso 6: prueba y deja que copie',
         html: `<p>No hay un modo de vista previa aparte: en cuanto MT5 está emparejado y un canal tiene su parser, las señales válidas se copian. Así que prueba antes de arriesgar dinero:</p>
 <ul>
-<li>En el paso <strong>Test a sample</strong> del asistente, pega un mensaje real del canal para ver exactamente lo que SignalRelay lee. No se envía nada.</li>
+<li>En el paso <strong>Test a sample</strong> del asistente, pega un mensaje real del canal para ver exactamente lo que Pipkite lee. No se envía nada.</li>
 <li>Empieza en una <strong>cuenta demo</strong> y observa algunas señales reales en el panel y en el historial. Cada fila explica su decisión, así que una señal rechazada te dice por qué (sin stop-loss, símbolo sin asociar, spread demasiado amplio, etc.).</li>
 <li>Usa <strong>Pause copying</strong> en la barra superior (o el icono de la bandeja) para detener al instante las nuevas operaciones, y <strong>Resume copying</strong> para continuar. La pausa nunca cierra posiciones abiertas.</li>
 </ul>`,
@@ -460,7 +460,7 @@ export const es: Dict = {
       {
         id: 'speed',
         title: '¿Qué tan rápida es la copia?',
-        html: `<p>El procesamiento propio de SignalRelay, desde que Telegram entrega el mensaje hasta que la orden se envía a MT5, tarda unos <strong>${ms} ms</strong> (mediana; ${p95} ms en el percentil 95) en el PC de referencia (${BENCH.machine}), con una escritura de registro a prueba de fallos antes de cada orden. Leer una señal tarda unos ${num(L, BENCH.parseP50Us, 1)} µs. La entrega de Telegram, tu bróker y tu red añaden su propio tiempo, y el panel muestra la latencia medida en tu equipo. Más detalles en la <a href="/#speed">sección de rendimiento</a>.</p>`,
+        html: `<p>El procesamiento propio de Pipkite, desde que Telegram entrega el mensaje hasta que la orden se envía a MT5, tarda unos <strong>${ms} ms</strong> (mediana; ${p95} ms en el percentil 95) en el PC de referencia (${BENCH.machine}), con una escritura de registro a prueba de fallos antes de cada orden. Leer una señal tarda unos ${num(L, BENCH.parseP50Us, 1)} µs. La entrega de Telegram, tu bróker y tu red añaden su propio tiempo, y el panel muestra la latencia medida en tu equipo. Más detalles en la <a href="/#speed">sección de rendimiento</a>.</p>`,
       },
       {
         id: 'safety',
@@ -468,7 +468,7 @@ export const es: Dict = {
         html: `<ul>
 <li>Empareja primero una cuenta demo; pasa a una cuenta real solo cuando los resultados sean los que esperas.</li>
 <li>Mantén siempre una regla de stop-loss y límites de spread por símbolo. Los símbolos sin límites no se operan.</li>
-<li>Mantén tu PC despierto (SignalRelay puede hacerlo) o usa un VPS: la suspensión y el apagado pausan la copia.</li>
+<li>Mantén tu PC despierto (Pipkite puede hacerlo) o usa un VPS: la suspensión y el apagado pausan la copia.</li>
 <li>Ningún copiador puede garantizar ejecuciones ni beneficios, y la revisión con IA puede equivocarse.</li>
 </ul>`,
       },
@@ -492,7 +492,7 @@ export const es: Dict = {
   changelog: {
     breadcrumb: 'Novedades',
     h1: 'Novedades',
-    lead: 'Lo nuevo en cada versión de SignalRelay.',
+    lead: 'Lo nuevo en cada versión de Pipkite.',
     version: (v: string) => `Versión ${v}`,
     firstRelease: 'Primera versión',
     downloadButton: (v: string) => `Descargar ${v}`,
@@ -520,7 +520,7 @@ export const es: Dict = {
         h: 'Parsers y fuentes',
         items: [
           'Copia de muchos canales y grupos, cada uno con su parser, política de entrada y ajustes de tamaño.',
-          'Los parsers los crea el equipo de SignalRelay: pide uno por canal desde la app y llega como actualización firmada que se carga sin reiniciar.',
+          'Los parsers los crea el equipo de Pipkite: pide uno por canal desde la app y llega como actualización firmada que se carga sin reiniciar.',
           'Los parsers manejan emojis, Markdown, guiones raros, dígitos arábigo-índicos y en superíndice, y detectan comentarios y ediciones.',
         ],
       },
@@ -557,7 +557,7 @@ export const es: Dict = {
         html: `<ul>
 <li>El historial de señales, las órdenes, los ajustes y los registros, en una base de datos local de tu perfil de Windows.</li>
 <li>Tu API ID/hash y tu sesión de Telegram, cifrados con Windows DPAPI. Los códigos de acceso y las contraseñas de dos pasos se pasan a Telegram y nunca se guardan.</li>
-<li>Tu acceso al bróker, que se queda en MetaTrader. SignalRelay nunca lo pide.</li>
+<li>Tu acceso al bróker, que se queda en MetaTrader. Pipkite nunca lo pide.</li>
 </ul>`,
       },
       {

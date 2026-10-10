@@ -1,6 +1,6 @@
-# SignalRelay website
+# Pipkite website
 
-The website for [SignalRelay](../README.md), the free Telegram to MetaTrader 5 signal copier.
+The website for [Pipkite](../README.md), the free Telegram to MetaTrader 5 signal copier.
 
 It has the landing page, the download page, the free license key page, a step-by-step setup guide, the
 changelog and the privacy page, in **English, French, Spanish and Arabic** (Arabic is right-to-left).
@@ -36,7 +36,7 @@ Copy `.env.example` to `.env` and fill it in:
 
 | Setting | What it's for |
 |---|---|
-| `SITE_URL` | Your domain, e.g. `https://signalrelay.com`. Used for links, the sitemap and social previews. |
+| `SITE_URL` | Your domain, e.g. `https://pipkite.com`. Used for links, the sitemap and social previews. |
 | `PUBLIC_API_BASE` | Where the API is. Leave empty to use `/api/v1` on the same domain (recommended). |
 | `PUBLIC_DOWNLOAD_BASE` | Where the installer and zip are hosted. Leave empty to serve them from `/downloads`. |
 | `PUBLIC_DOWNLOADS_MIN` | The download counter only appears from this number on (default 500, `0` = always). |
@@ -76,7 +76,7 @@ configs with HTTPS and security headers:
 - **nginx**: `deploy/nginx.conf`.
 - **Netlify / Cloudflare Pages**: publish `dist/`. The headers come from `public/_headers`.
 
-The license key page and the download counter call the SignalRelay API, so on your server `/api/` has to be
+The license key page and the download counter call the Pipkite API, so on your server `/api/` has to be
 forwarded to it (the configs in `deploy/` already do this).
 
 After going live, submit `https://your-domain/sitemap-index.xml` to Google Search Console.

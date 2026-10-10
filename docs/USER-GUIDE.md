@@ -1,4 +1,4 @@
-# SignalRelay user guide
+# Pipkite user guide
 
 ## Setup in 5 steps
 
@@ -13,7 +13,7 @@ The setup wizard opens on first launch and walks you through these. You can redo
 5. **Parsers.** On **Signal rules**, select each channel and click **Request a custom parser**. We build one for that
    channel's format and it installs by itself, no restart. Until it arrives, that channel's messages aren't traded.
 
-Before risking money, use **Test a sample** in the wizard: paste a real message and see what SignalRelay reads.
+Before risking money, use **Test a sample** in the wizard: paste a real message and see what Pipkite reads.
 Nothing is sent.
 
 ![Welcome wizard](images/welcome-wizard.png)
@@ -71,7 +71,7 @@ Only the signal fields are sent (symbol, side, entry, SL, TPs), never your accou
 ## Your data
 
 Everything stays on your PC: history, settings, your Telegram session (encrypted with Windows DPAPI). Your broker
-password stays in MetaTrader, SignalRelay never asks for it.
+password stays in MetaTrader, Pipkite never asks for it.
 
 ## Something wrong?
 

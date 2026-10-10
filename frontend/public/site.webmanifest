@@ -1,6 +1,6 @@
 {
-  "name": "SignalRelay — Telegram to MT5 copier",
-  "short_name": "SignalRelay",
+  "name": "Pipkite — Telegram to MT5 copier",
+  "short_name": "Pipkite",
   "description": "Free Telegram to MetaTrader 5 signal copier for Windows.",
   "start_url": "/",
   "display": "browser",

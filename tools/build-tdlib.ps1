@@ -1,5 +1,5 @@
 # Builds TDLib (tdjson.dll) from the official sources and places it, with its OpenSSL/zlib runtime DLLs
-# and license texts, in third_party\tdlib. SignalRelay.Engine copies that folder next to the executable
+# and license texts, in third_party\tdlib. Pipkite.Engine copies that folder next to the executable
 # on every build, and installer\package.ps1 ships it.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\build-tdlib.ps1 [-TdRef <tag|commit>] [-Work <dir>]
@@ -8,7 +8,7 @@
 # The first build takes a long time (OpenSSL + TDLib); later runs reuse the work folder.
 param(
     [string]$TdRef = "master",
-    [string]$Work = "$env:LOCALAPPDATA\SignalRelayBuild"
+    [string]$Work = "$env:LOCALAPPDATA\PipkiteBuild"
 )
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot

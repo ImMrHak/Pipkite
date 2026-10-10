@@ -1,8 +1,8 @@
 # from frontend/:
-#   docker build -f deploy/Dockerfile --build-arg SITE_URL=https://signalrelay.com -t signalrelay-web .
-#   docker run -d --name signalrelay-web --restart unless-stopped -p 80:80 -p 443:443 -p 443:443/udp \
-#     -e SITE_DOMAIN=signalrelay.com -e API_UPSTREAM=host.docker.internal:8080 \
-#     --add-host host.docker.internal:host-gateway -v caddy_data:/data signalrelay-web
+#   docker build -f deploy/Dockerfile --build-arg SITE_URL=https://pipkite.com -t pipkite-web .
+#   docker run -d --name pipkite-web --restart unless-stopped -p 80:80 -p 443:443 -p 443:443/udp \
+#     -e SITE_DOMAIN=pipkite.com -e API_UPSTREAM=host.docker.internal:8080 \
+#     --add-host host.docker.internal:host-gateway -v caddy_data:/data pipkite-web
 
 FROM node:22-alpine AS build
 WORKDIR /app

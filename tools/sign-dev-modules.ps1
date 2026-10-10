@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Signs SignalRelay module manifests in a build output folder with a LOCAL DEVELOPMENT publisher key.
+  Signs Pipkite module manifests in a build output folder with a LOCAL DEVELOPMENT publisher key.
 
 .DESCRIPTION
-  - Creates the dev key once under %LOCALAPPDATA%\SignalRelay\devkeys (never inside the repository).
+  - Creates the dev key once under %LOCALAPPDATA%\Pipkite\devkeys (never inside the repository).
   - Signs bridge\impl\*\manifest.json and plugins\*\*\manifest.json (hash + ECDSA P-256 signature).
   - Installs the dev public key as trusted_keys\dev-publisher.pub in the output folder.
   - Copies the MQL5 EA (source + compiled .ex5) and TDLib (tdjson.dll + dependencies) next to the binaries.
@@ -16,17 +16,17 @@ param([Parameter(Mandatory = $true)][string]$OutDir)
 
 $ErrorActionPreference = 'Stop'
 $OutDir = (Resolve-Path $OutDir).Path
-$tool = Join-Path $OutDir 'SignalRelay.SignTool.exe'
+$tool = Join-Path $OutDir 'Pipkite.SignTool.exe'
 if (-not (Test-Path $tool)) { Write-Host "SignTool not built yet; skipping module signing."; exit 0 }
 
-$keyDir = Join-Path $env:LOCALAPPDATA 'SignalRelay\devkeys'
+$keyDir = Join-Path $env:LOCALAPPDATA 'Pipkite\devkeys'
 if (-not (Test-Path (Join-Path $keyDir 'publisher.key'))) { & $tool keygen $keyDir | Out-Host }
 $key = Join-Path $keyDir 'publisher.key'
 
 $trusted = Join-Path $OutDir 'trusted_keys'
 New-Item -ItemType Directory -Force $trusted | Out-Null
 Copy-Item (Join-Path $keyDir 'publisher.pub') (Join-Path $trusted 'dev-publisher.pub') -Force
-# Ship any additional publisher public keys committed in the repo (e.g. signalrelay-backend.pub, which the
+# Ship any additional publisher public keys committed in the repo (e.g. pipkite-backend.pub, which the
 # backend uses to sign update release manifests). Public keys only; private keys never live in the repo.
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $repoTrusted = Join-Path $repoRoot 'trusted_keys'
@@ -43,10 +43,10 @@ foreach ($m in $manifests) {
 $repo = Split-Path -Parent $PSScriptRoot
 $mqlOut = Join-Path $OutDir 'mql5'
 New-Item -ItemType Directory -Force $mqlOut | Out-Null
-Copy-Item (Join-Path $repo 'mql5\SignalRelayEA\SignalRelayEA.mq5') $mqlOut -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repo 'mql5\SignalRelayEA\SignalRelayEA.ex5') $mqlOut -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repo 'mql5\PipkiteEA\PipkiteEA.mq5') $mqlOut -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repo 'mql5\PipkiteEA\PipkiteEA.ex5') $mqlOut -Force -ErrorAction SilentlyContinue
 
-# TDLib (tdjson.dll + OpenSSL/zlib) ships next to SignalRelay.Engine.exe; build it with tools\build-tdlib.ps1.
+# TDLib (tdjson.dll + OpenSSL/zlib) ships next to Pipkite.Engine.exe; build it with tools\build-tdlib.ps1.
 $tdlib = Join-Path $repo 'third_party\tdlib'
 if (Test-Path (Join-Path $tdlib 'bin\tdjson.dll')) {
     Copy-Item (Join-Path $tdlib 'bin\*.dll') $OutDir -Force

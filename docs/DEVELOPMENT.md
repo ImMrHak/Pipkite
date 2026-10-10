@@ -9,23 +9,23 @@
 ## Build and test
 
 ```powershell
-MSBuild SignalRelay.sln -p:Configuration=Release -p:Platform=x64 -m
-x64\Release\SignalRelay.Tests.exe          # all tests
-x64\Release\SignalRelay.Tests.exe e2e      # only tests whose name contains "e2e"
-x64\Release\SignalRelay.Benchmarks.exe     # speed numbers for your machine
+MSBuild Pipkite.sln -p:Configuration=Release -p:Platform=x64 -m
+x64\Release\Pipkite.Tests.exe          # all tests
+x64\Release\Pipkite.Tests.exe e2e      # only tests whose name contains "e2e"
+x64\Release\Pipkite.Benchmarks.exe     # speed numbers for your machine
 ```
 
-In Visual Studio: open `SignalRelay.sln`, pick Release/Debug x64, F5. The UI starts the engine by itself.
-The build signs the sample parser and the bridge with a local dev key (`%LOCALAPPDATA%\SignalRelay\devkeys`).
+In Visual Studio: open `Pipkite.sln`, pick Release/Debug x64, F5. The UI starts the engine by itself.
+The build signs the sample parser and the bridge with a local dev key (`%LOCALAPPDATA%\Pipkite\devkeys`).
 
 ## Run it without Telegram or a real broker
 
 Use an isolated data folder so you don't touch your real install, and the fake terminal instead of MT5:
 
 ```powershell
-$env:SIGNALRELAY_DATA_DIR = "$env:TEMP\sr-dev"; $env:SIGNALRELAY_INSTANCE = "dev"
-x64\Release\SignalRelay.exe
-x64\Release\SignalRelay.FakeTerminal.exe --login 90000001    # then approve pairing with 90000001
+$env:PIPKITE_DATA_DIR = "$env:TEMP\sr-dev"; $env:PIPKITE_INSTANCE = "dev"
+x64\Release\Pipkite.exe
+x64\Release\Pipkite.FakeTerminal.exe --login 90000001    # then approve pairing with 90000001
 ```
 
 The fake terminal uses the real bridge DLL with a simulated broker; everything it reports is labeled simulated.
@@ -49,7 +49,7 @@ UI (WinForms) <-> Engine over a local named pipe
 - The engine is native C++ and does all the work; the UI only displays and sends commands.
 - Every order is written to the journal before it's sent, so a crash never sends twice.
 - Parsers are signed modules in `plugins\<id>\<version>\`, verified and hot-reloaded.
-- `SignalRelay.Plugin.GoldParser` is a sample parser module, handy for tests.
+- `Pipkite.Plugin.GoldParser` is a sample parser module, handy for tests.
 
 ## Rules for changes
 
