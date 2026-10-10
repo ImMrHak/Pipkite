@@ -18,9 +18,9 @@ devkeys/
 *.db
 *.db-wal
 *.db-shm
-# Documentation stays local, never committed (third-party license notices are the exception: they ship with the app)
-docs/
-*.md
-!third_party/THIRD_PARTY_NOTICES.md
+# Backend notes stay private
+docs/BACKEND.md
 # Backend stays private, never pushed
 backend/
+# Built installer
+installer/Output/
