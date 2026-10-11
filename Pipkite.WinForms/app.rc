@@ -14,7 +14,7 @@ BEGIN
     BLOCK "040904b0"
     BEGIN
       VALUE "CompanyName", "Pipkite"
-      VALUE "FileDescription", "Pipkite - Telegram to MetaTrader 5 signal copier"
+      VALUE "FileDescription", "Pipkite"
       VALUE "FileVersion", "1.0.0"
       VALUE "ProductName", "Pipkite"
       VALUE "ProductVersion", "1.0.0"
