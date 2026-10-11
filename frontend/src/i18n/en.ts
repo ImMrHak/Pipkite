@@ -181,7 +181,7 @@ export const en = {
     points: [
       { title: 'Clear verdicts with reasons', text: 'Good, Bad or Uncertain, plus the reasons behind it: stop placement, reward/risk and entry width.' },
       { title: 'Advice, not orders', text: 'The verdict appears next to each signal in the live feed to help you judge a provider. Turn it on or off in Execution policy.' },
-      { title: 'Only the signal is sent', text: 'Symbol, side, entry, SL and TPs. Never your account, balance, broker login, chat or message text. Nothing is stored once it has answered.' },
+      { title: 'Only the signal is sent', text: 'Symbol, side, entry, SL and TPs. Never your account, balance, broker login, chat or message text. Signals are kept to help the AI learn.' },
     ],
     warnStrong: 'Early days: the AI can be wrong.',
     warn: "It's a first version, so it can miss things, and its score is a confidence rating, not a promise of profit. We're improving it with every release; treat it as a second opinion, never as a guarantee.",
@@ -329,7 +329,7 @@ export const en = {
     name: 'Your name',
     namePh: 'Jane Trader',
     email: 'Email',
-    emailOpt: '(optional, to recover your key)',
+    emailOpt: '(optional, we’ll email you the key)',
     emailPh: 'you@example.com',
     submit: 'Generate my free key',
     generating: 'Generating…',
@@ -338,6 +338,9 @@ export const en = {
     ready: 'Your license key is ready',
     copyKey: 'Copy key',
     saveIt: "Save it somewhere safe. It's shown only once.",
+    emailSentHtml: 'We also sent it to <strong></strong>. Check your spam folder if it isn’t there in a few minutes.',
+    emailNone: 'You didn’t enter an email, so this is the only copy. If you lose it, you’ll have to generate a new key.',
+    done: 'Done',
     afterHtml: [
       'Open Pipkite (or <a href="/download">download it</a>).',
       'Paste the key in the welcome wizard, or in Settings → AI and licensing.',
@@ -563,11 +566,11 @@ export const en = {
       },
       {
         h: 'License keys',
-        html: '<p>When you generate a free key on this website we store your name, your email if you give one, a random request ID, the key and when it was issued. We use them to identify your key and, if you gave an email, to help you recover it.</p>',
+        html: '<p>When you generate a free key on this website we store your name, your email if you give one, a random request ID, the key and when it was issued. We use them to identify your key and, if you gave an email, to email you the key right away (sent from support@pipkite.com through Microsoft 365) and help you recover it.</p>',
       },
       {
         h: 'AI review',
-        html: "<p>If AI review is on, the app sends the signal's symbol, side, order type, entry, stop-loss and take-profits with your license key. The key is checked, the signal is reviewed in memory, and nothing about it is stored. Your account number, balance, broker login, chats and message text are never sent.</p>",
+        html: "<p>If AI review is on, the app sends the signal's symbol, side, order type, entry, stop-loss and take-profits with your license key. The key is checked, and the signal and its verdict are kept with your key to help the AI review learn and improve. Your account number, balance, broker login, chats and message text are never sent.</p>",
       },
       {
         h: 'Custom parser requests',

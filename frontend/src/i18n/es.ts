@@ -180,7 +180,7 @@ export const es: Dict = {
     points: [
       { title: 'Veredictos claros y razonados', text: 'Buena, Mala o Incierta, con los motivos: posición del stop, beneficio/riesgo y amplitud de la entrada.' },
       { title: 'Consejo, no órdenes', text: 'El veredicto aparece junto a cada señal en el feed en directo para ayudarte a juzgar a un proveedor. Actívalo o desactívalo en Execution policy.' },
-      { title: 'Solo se envía la señal', text: 'Símbolo, dirección, entrada, SL y TP. Nunca tu cuenta, saldo, acceso al bróker, chats ni el texto de los mensajes. No se guarda nada una vez que responde.' },
+      { title: 'Solo se envía la señal', text: 'Símbolo, dirección, entrada, SL y TP. Nunca tu cuenta, saldo, acceso al bróker, chats ni el texto de los mensajes. Las señales se guardan para que la IA aprenda.' },
     ],
     warnStrong: 'Aún es pronto: la IA puede equivocarse.',
     warn: 'Es una primera versión, así que se le pueden escapar cosas, y su puntuación es un índice de confianza, no una promesa de beneficio. La mejoramos en cada versión; tómala como una segunda opinión, nunca como una garantía.',
@@ -328,7 +328,7 @@ export const es: Dict = {
     name: 'Tu nombre',
     namePh: 'Ana Trader',
     email: 'Correo electrónico',
-    emailOpt: '(opcional, para recuperar tu clave)',
+    emailOpt: '(opcional, te enviaremos la clave)',
     emailPh: 'tu@ejemplo.com',
     submit: 'Generar mi clave gratis',
     generating: 'Generando…',
@@ -337,6 +337,9 @@ export const es: Dict = {
     ready: 'Tu clave de licencia está lista',
     copyKey: 'Copiar clave',
     saveIt: 'Guárdala en un lugar seguro. Solo se muestra una vez.',
+    emailSentHtml: 'También la enviamos a <strong></strong>. Revisa la carpeta de spam si no llega en unos minutos.',
+    emailNone: 'No escribiste un email, así que esta es la única copia. Si la pierdes, tendrás que generar una clave nueva.',
+    done: 'Listo',
     afterHtml: [
       'Abre Pipkite (o <a href="/download">descárgalo</a>).',
       'Pega la clave en el asistente de bienvenida o en Settings → AI and licensing.',
@@ -562,11 +565,11 @@ export const es: Dict = {
       },
       {
         h: 'Claves de licencia',
-        html: '<p>Cuando generas una clave gratis en esta web guardamos tu nombre, tu correo si lo das, un identificador de solicitud aleatorio, la clave y la fecha de emisión. Los usamos para identificar tu clave y, si diste un correo, para ayudarte a recuperarla.</p>',
+        html: '<p>Cuando generas una clave gratis en esta web guardamos tu nombre, tu correo si lo das, un identificador de solicitud aleatorio, la clave y la fecha de emisión. Los usamos para identificar tu clave y, si diste un correo, para enviarte la clave al momento (desde support@pipkite.com mediante Microsoft 365) y ayudarte a recuperarla.</p>',
       },
       {
         h: 'Revisión con IA',
-        html: '<p>Si la revisión con IA está activada, la app envía el símbolo, la dirección, el tipo de orden, la entrada, el stop-loss y los take-profits de la señal junto con tu clave de licencia. Se comprueba la clave, la señal se revisa en memoria y no se guarda nada de ella. Tu número de cuenta, saldo, acceso al bróker, chats y el texto de los mensajes nunca se envían.</p>',
+        html: '<p>Si la revisión con IA está activada, la app envía el símbolo, la dirección, el tipo de orden, la entrada, el stop-loss y los take-profits de la señal junto con tu clave de licencia. Se comprueba la clave, y la señal y su veredicto se guardan con tu clave para que la revisión con IA aprenda y mejore. Tu número de cuenta, saldo, acceso al bróker, chats y el texto de los mensajes nunca se envían.</p>',
       },
       {
         h: 'Solicitudes de parser',

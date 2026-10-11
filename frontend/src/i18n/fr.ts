@@ -180,7 +180,7 @@ export const fr: Dict = {
     points: [
       { title: 'Des verdicts clairs et expliqués', text: 'Bon, Mauvais ou Incertain, avec les raisons : placement du stop, gain/risque et largeur de la zone d’entrée.' },
       { title: 'Un conseil, pas un ordre', text: 'Le verdict s’affiche à côté de chaque signal dans le flux en direct pour vous aider à juger un fournisseur. Activez-le ou non dans Execution policy.' },
-      { title: 'Seul le signal est envoyé', text: 'Symbole, sens, entrée, SL et TP. Jamais votre compte, votre solde, vos identifiants courtier, vos discussions ni le texte des messages. Rien n’est conservé une fois la réponse donnée.' },
+      { title: 'Seul le signal est envoyé', text: 'Symbole, sens, entrée, SL et TP. Jamais votre compte, votre solde, vos identifiants courtier, vos discussions ni le texte des messages. Les signaux sont conservés pour aider l’IA à apprendre.' },
     ],
     warnStrong: 'Encore jeune : l’IA peut se tromper.',
     warn: 'C’est une première version : elle peut rater des choses, et son score est un indice de confiance, pas une promesse de gain. Nous l’améliorons à chaque version ; prenez-la comme un second avis, jamais comme une garantie.',
@@ -328,7 +328,7 @@ export const fr: Dict = {
     name: 'Votre nom',
     namePh: 'Jeanne Trader',
     email: 'E-mail',
-    emailOpt: '(facultatif, pour récupérer votre clé)',
+    emailOpt: '(facultatif, nous vous enverrons la clé)',
     emailPh: 'vous@exemple.com',
     submit: 'Générer ma clé gratuite',
     generating: 'Génération…',
@@ -337,6 +337,9 @@ export const fr: Dict = {
     ready: 'Votre clé de licence est prête',
     copyKey: 'Copier la clé',
     saveIt: 'Conservez-la en lieu sûr. Elle n’est affichée qu’une fois.',
+    emailSentHtml: 'Nous l’avons aussi envoyée à <strong></strong>. Vérifiez vos spams si elle n’arrive pas d’ici quelques minutes.',
+    emailNone: 'Vous n’avez pas saisi d’email : ceci est la seule copie. Si vous la perdez, il faudra générer une nouvelle clé.',
+    done: 'Terminé',
     afterHtml: [
       'Ouvrez Pipkite (ou <a href="/download">téléchargez-le</a>).',
       'Collez la clé dans l’assistant d’accueil, ou dans Settings → AI and licensing.',
@@ -562,11 +565,11 @@ export const fr: Dict = {
       },
       {
         h: 'Clés de licence',
-        html: '<p>Quand vous générez une clé gratuite sur ce site, nous enregistrons votre nom, votre e-mail si vous le donnez, un identifiant de demande aléatoire, la clé et sa date d’émission. Ils servent à identifier votre clé et, si vous avez donné un e-mail, à vous aider à la récupérer.</p>',
+        html: '<p>Quand vous générez une clé gratuite sur ce site, nous enregistrons votre nom, votre e-mail si vous le donnez, un identifiant de demande aléatoire, la clé et sa date d’émission. Ils servent à identifier votre clé et, si vous avez donné un e-mail, à vous envoyer la clé tout de suite (depuis support@pipkite.com via Microsoft 365) et à vous aider à la récupérer.</p>',
       },
       {
         h: 'Revue IA',
-        html: '<p>Si la revue IA est activée, l’application envoie le symbole, le sens, le type d’ordre, l’entrée, le stop-loss et les take-profits du signal avec votre clé de licence. La clé est vérifiée, le signal est analysé en mémoire, et rien n’en est conservé. Votre numéro de compte, votre solde, vos identifiants courtier, vos discussions et le texte des messages ne sont jamais envoyés.</p>',
+        html: '<p>Si la revue IA est activée, l’application envoie le symbole, le sens, le type d’ordre, l’entrée, le stop-loss et les take-profits du signal avec votre clé de licence. La clé est vérifiée, et le signal et son verdict sont conservés avec votre clé pour aider la revue IA à apprendre et à s’améliorer. Votre numéro de compte, votre solde, vos identifiants courtier, vos discussions et le texte des messages ne sont jamais envoyés.</p>',
       },
       {
         h: 'Demandes de parser',

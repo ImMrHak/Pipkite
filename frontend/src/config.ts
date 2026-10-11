@@ -2,7 +2,7 @@
 
 export const SITE_NAME = 'Pipkite';
 export const VERSION = '1.0.0';
-export const CONTENT_UPDATED = '2026-10-09';
+export const CONTENT_UPDATED = '2026-10-11';
 
 // empty = hidden
 export const CONTACT_EMAIL = '';
