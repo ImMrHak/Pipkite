@@ -96,8 +96,8 @@ public:
         stack->Controls->Add(L::Group("Symbol limits", sl));
 
         TableLayoutPanel^ ai = L::Form2();
-        alwaysAssess_ = L::Check("Ask my backend to review every signal (shows Good / Uncertain / Bad in the feed)");
-        L::Tip(alwaysAssess_, "On: every valid signal is sent to your backend for an advisory opinion, shown in the Live feed's AI column. Advisory never blocks a trade - use a per-source gate for that.");
+        alwaysAssess_ = L::Check("Review every signal with AI (shows Good / Uncertain / Bad in the feed)");
+        L::Tip(alwaysAssess_, "On: the fields of every valid signal (never your account or messages) are sent to the Pipkite AI and kept to help it learn. Its verdict shows in the Live feed's AI column. It's advice: it never blocks a trade.");
         L::AddField(ai, "", alwaysAssess_);
         deadline_ = L::Num(50, 10000, 250, 0, 50);
         L::AddField(ai, "Gate deadline (ms)", deadline_, "If a source uses a backend gate: how long to wait for a verdict before the timeout action.");

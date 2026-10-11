@@ -271,7 +271,7 @@ export const en = {
       },
       {
         q: 'Does the AI see my account?',
-        a: 'No. Only the signal fields are sent: symbol, side, order type, entry, stop-loss and take-profits. Never your account number, balance, broker login, chat or message text. Nothing about the signal is kept after the answer.',
+        a: 'No. Only the signal fields are sent: symbol, side, order type, entry, stop-loss and take-profits. Never your account number, balance, broker login, chat or message text. The signal and its verdict are kept with your license key to help the AI learn.',
       },
       {
         q: 'Which languages are supported?',

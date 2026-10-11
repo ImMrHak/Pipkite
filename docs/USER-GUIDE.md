@@ -69,11 +69,13 @@ Sleep, shutdown or a closed MT5 also pause copying. For 24/7, run it on a Window
 
 Each signal gets a verdict (Good, Uncertain or Bad) with reasons and a confidence score. It's advice: it doesn't
 block trades. It's an early version, it can be wrong, and the score is not a promise of profit.
-Only the signal fields are sent (symbol, side, entry, SL, TPs), never your account or messages.
+Only the signal fields are sent (symbol, side, entry, SL, TPs), never your account or messages. The signal and its
+verdict are kept with your license key to help the AI learn.
 
 ## Your data
 
-Everything stays on your PC: history, settings, your Telegram session (encrypted with Windows DPAPI). Your broker
+History, settings and your Telegram session (encrypted with Windows DPAPI) stay on your PC. Only what the online
+services need is sent: see the privacy page on the website for the full list. Your broker
 password stays in MetaTrader, Pipkite never asks for it.
 
 ## Something wrong?

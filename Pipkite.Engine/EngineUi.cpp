@@ -336,7 +336,8 @@ json Engine::handleUiRequest(const std::string& method, const json& params) {
         s.targets = {{1, 4305, {}}, {2, 4310, {}}};
         const std::string reqId = newUuid();
         const std::string endpoint = callSync([this] { return policy_.ai.endpoint; });
-        auto r = httpRequest("POST", endpoint, buildAiRequest(s, reqId).dump(), "application/json", 3000, 64 * 1024);
+        const std::string key = store_->getSetting("license.key").value_or("");
+        auto r = httpRequest("POST", endpoint, buildAiRequest(s, reqId).dump(), "application/json", 3000, 64 * 1024, {{"X-License-Key", key}});
         if (r.status != 200) return {{"verdict", "Unavailable"}, {"error", r.error.empty() ? "HTTP " + std::to_string(r.status) : r.error}, {"latencyMs", r.elapsedMs}};
         auto a = parseAiResponse(r.body, reqId);
         return {{"verdict", toString(a.verdict)}, {"reasons", a.reasons}, {"modelVersion", a.modelVersion}, {"score", a.score ? json(*a.score) : json(nullptr)},

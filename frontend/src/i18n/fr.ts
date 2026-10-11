@@ -270,7 +270,7 @@ export const fr: Dict = {
       },
       {
         q: 'L’IA voit-elle mon compte ?',
-        a: 'Non. Seuls les champs du signal sont envoyés : symbole, sens, type d’ordre, entrée, stop-loss et take-profits. Jamais votre numéro de compte, votre solde, vos identifiants courtier, vos discussions ni le texte des messages. Rien du signal n’est conservé après la réponse.',
+        a: 'Non. Seuls les champs du signal sont envoyés : symbole, sens, type d’ordre, entrée, stop-loss et take-profits. Jamais votre numéro de compte, votre solde, vos identifiants courtier, vos discussions ni le texte des messages. Le signal et son verdict sont conservés avec votre clé de licence pour aider l’IA à apprendre.',
       },
       {
         q: 'Quelles langues sont prises en charge ?',

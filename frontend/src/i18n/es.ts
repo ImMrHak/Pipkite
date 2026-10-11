@@ -270,7 +270,7 @@ export const es: Dict = {
       },
       {
         q: '¿La IA ve mi cuenta?',
-        a: 'No. Solo se envían los campos de la señal: símbolo, dirección, tipo de orden, entrada, stop-loss y take-profits. Nunca tu número de cuenta, saldo, acceso al bróker, chats ni el texto de los mensajes. No se conserva nada de la señal después de la respuesta.',
+        a: 'No. Solo se envían los campos de la señal: símbolo, dirección, tipo de orden, entrada, stop-loss y take-profits. Nunca tu número de cuenta, saldo, acceso al bróker, chats ni el texto de los mensajes. La señal y su veredicto se guardan con tu clave de licencia para ayudar a la IA a aprender.',
       },
       {
         q: '¿Qué idiomas están disponibles?',
