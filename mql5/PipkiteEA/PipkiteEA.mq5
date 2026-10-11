@@ -17,7 +17,7 @@
 
 #import "MT5BridgeHost.dll"
 int  BridgeVersion();
-int  BridgeInitialize(string terminalId, long login, string server, int simulated);
+int  BridgeInitialize(string terminalId, long login, string server);
 int  BridgeTryReceive(uchar &buf[], int capacity);
 int  BridgeTrySend(uchar &buf[], int len);
 int  BridgeConnectionStatus();
@@ -315,7 +315,6 @@ void SendAccount()
    m.S("marginMode", mode == ACCOUNT_MARGIN_MODE_RETAIL_HEDGING ? "hedging" : "netting");
    m.B("tradeAllowed", TradingAllowed());
    m.B("connected", TerminalInfoInteger(TERMINAL_CONNECTED) != 0);
-   m.B("simulated", false);
    m.I("copierOpenPositions", positions);
    m.I("copierPendingOrders", pendings);
    m.N("copierOpenLots", lots, 2);
@@ -736,7 +735,7 @@ int OnInit()
 
    g_terminalId = "MT5-" + Fnv1a(TerminalInfoString(TERMINAL_DATA_PATH));
    ArrayResize(g_rx, 65536);
-   int rc = BridgeInitialize(g_terminalId, login, AccountInfoString(ACCOUNT_SERVER), 0);
+   int rc = BridgeInitialize(g_terminalId, login, AccountInfoString(ACCOUNT_SERVER));
    if(rc < 0)
    {
       string text;

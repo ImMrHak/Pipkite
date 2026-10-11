@@ -158,12 +158,12 @@ Result<bool> Store::admitRawMessage(const IncomingMessage& m) {
     IncomingMessage copy = m;
     writeAsync([copy](Database& db) -> Status {
         auto q = db.prepare(
-            "INSERT OR IGNORE INTO raw_messages(chat_id,message_id,edit_version,sender_id,reply_to,published_at,received_at,text,has_media,media_kind,historical,simulated)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)");
+            "INSERT OR IGNORE INTO raw_messages(chat_id,message_id,edit_version,sender_id,reply_to,published_at,received_at,text,has_media,media_kind,historical)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?)");
         if (!q) return q.error();
         auto& s = q.value();
         s.bind(1, copy.chatId).bind(2, copy.messageId).bind(3, copy.editVersion).bind(4, copy.senderId).bind(5, copy.replyToMessageId).bind(6, copy.publishedAtMs);
-        s.bind(7, copy.receivedAtMs).bind(8, copy.text).bind(9, copy.hasMedia ? 1 : 0).bind(10, copy.mediaKind).bind(11, copy.historical ? 1 : 0).bind(12, copy.simulated ? 1 : 0);
+        s.bind(7, copy.receivedAtMs).bind(8, copy.text).bind(9, copy.hasMedia ? 1 : 0).bind(10, copy.mediaKind).bind(11, copy.historical ? 1 : 0);
         return s.run();
     });
     return true;
@@ -173,12 +173,12 @@ Result<bool> Store::insertRawMessage(const IncomingMessage& m) {
     bool inserted = false;
     auto st = writeSync([&](Database& db) -> Status {
         auto q = db.prepare(
-            "INSERT OR IGNORE INTO raw_messages(chat_id,message_id,edit_version,sender_id,reply_to,published_at,received_at,text,has_media,media_kind,historical,simulated)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)");
+            "INSERT OR IGNORE INTO raw_messages(chat_id,message_id,edit_version,sender_id,reply_to,published_at,received_at,text,has_media,media_kind,historical)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?)");
         if (!q) return q.error();
         auto& s = q.value();
         s.bind(1, m.chatId).bind(2, m.messageId).bind(3, m.editVersion).bind(4, m.senderId).bind(5, m.replyToMessageId).bind(6, m.publishedAtMs).bind(7, m.receivedAtMs);
-        s.bind(8, m.text).bind(9, m.hasMedia ? 1 : 0).bind(10, m.mediaKind).bind(11, m.historical ? 1 : 0).bind(12, m.simulated ? 1 : 0);
+        s.bind(8, m.text).bind(9, m.hasMedia ? 1 : 0).bind(10, m.mediaKind).bind(11, m.historical ? 1 : 0);
         if (auto r = s.run(); !r) return r;
         inserted = db.changes() > 0;
         return okStatus();
@@ -815,7 +815,7 @@ json Store::signalDetail(std::int64_t chatId, std::int64_t messageId, int revisi
         json out = json::object();
         auto q = db.prepare(
             "SELECT s.signal_json,COALESCE(s.decision_json,''),COALESCE(s.ai_json,''),COALESCE(s.timeline_json,''),s.state,COALESCE(r.text,''),COALESCE(r.published_at,0),"
-            "COALESCE(r.received_at,0),COALESCE(r.simulated,0),COALESCE(r.historical,0) FROM signal_revisions s LEFT JOIN raw_messages r ON r.chat_id=s.chat_id AND"
+            "COALESCE(r.received_at,0),COALESCE(r.historical,0) FROM signal_revisions s LEFT JOIN raw_messages r ON r.chat_id=s.chat_id AND"
             " r.message_id=s.message_id AND r.edit_version=s.revision WHERE s.chat_id=? AND s.message_id=? AND s.revision=?");
         if (!q) return out;
         q.value().bind(1, chatId).bind(2, messageId).bind(3, revision);
@@ -829,8 +829,7 @@ json Store::signalDetail(std::int64_t chatId, std::int64_t messageId, int revisi
         out["rawText"] = s.text(5);
         out["publishedAtMs"] = s.i64(6);
         out["receivedAtMs"] = s.i64(7);
-        out["simulated"] = s.i64(8) != 0;
-        out["historical"] = s.i64(9) != 0;
+        out["historical"] = s.i64(8) != 0;
         json cmds = json::array();
         auto c = db.prepare(
             "SELECT c.command_id,c.child_index,c.action,c.symbol,c.volume,c.state,COALESCE(c.request_id,''),COALESCE(c.order_ticket,''),c.filled_volume,c.updated_at"

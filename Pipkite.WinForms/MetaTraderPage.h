@@ -161,7 +161,6 @@ public:
         bool paired = J::Bool(br, "paired");
         bool healthy = J::Bool(br, "healthy");
         String^ text = !connected ? "Not connected" : !paired ? "Connected - pairing required" : healthy ? "Paired and healthy" : "Paired - heartbeat missing";
-        if (J::Bool(br, "simulated")) text += " (SIMULATED terminal)";
         bridge_->Set(text, !connected ? Theme::TextMuted : (paired && healthy) ? Theme::Success : Theme::Warning);
         JObj^ b = J::Obj(s, "boundAccount");
         bound_->Text = b == nullptr ? "None" : "#" + J::Str(b, "login") + " @ " + J::Str(b, "server") + "  (terminal " + J::Str(b, "terminalId") + ")";

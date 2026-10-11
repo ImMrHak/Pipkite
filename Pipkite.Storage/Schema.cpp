@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS raw_messages(
   chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL, edit_version INTEGER NOT NULL DEFAULT 0,
   sender_id INTEGER, reply_to INTEGER, published_at INTEGER, received_at INTEGER,
   text TEXT, has_media INTEGER NOT NULL DEFAULT 0, media_kind TEXT,
-  historical INTEGER NOT NULL DEFAULT 0, simulated INTEGER NOT NULL DEFAULT 0,
+  historical INTEGER NOT NULL DEFAULT 0,
   UNIQUE(chat_id, message_id, edit_version));
 CREATE INDEX IF NOT EXISTS ix_raw_received ON raw_messages(received_at);
 

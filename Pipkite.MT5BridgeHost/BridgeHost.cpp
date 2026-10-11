@@ -89,7 +89,6 @@ struct Host {
     std::string statusText = "not initialized";
     std::wstring terminalId, server;
     std::int64_t login = 0;
-    bool simulated = false;
     std::atomic<bool> running{false};
     std::atomic<bool> upgrading{false};
     std::thread worker;
@@ -226,7 +225,7 @@ void workerLoop(Host& h) {
         auto implLease = h.lease();
         sendEnvelope(h, c, ipc::msg::HELLO,
                      {{"terminalId", platform::narrow(h.terminalId)}, {"login", std::to_string(h.login)}, {"server", platform::narrow(h.server)}, {"nonce", nonceB},
-                      {"hostVersion", kHostAbiVersion}, {"implVersion", implLease ? implLease->version : ""}, {"simulated", h.simulated}});
+                      {"hostVersion", kHostAbiVersion}, {"implVersion", implLease ? implLease->version : ""}});
         {
             std::lock_guard lock(h.mu);
             h.conn = c;
@@ -339,7 +338,7 @@ extern "C" {
 __declspec(dllexport) int BridgeVersion() { return kHostAbiVersion; }
 
 // Returns 1 on success; negative codes: -1 already initialized for another account, -2 implementation unavailable.
-__declspec(dllexport) int BridgeInitialize(const wchar_t* terminalId, long long login, const wchar_t* server, int simulated) {
+__declspec(dllexport) int BridgeInitialize(const wchar_t* terminalId, long long login, const wchar_t* server) {
     std::lock_guard lock(g_initMu);
     if (g_host) {
         // Exactly one copier owner per terminal/account: a second initialization for another account is refused.
@@ -350,7 +349,6 @@ __declspec(dllexport) int BridgeInitialize(const wchar_t* terminalId, long long 
     h->terminalId = terminalId ? terminalId : L"";
     h->login = login;
     h->server = server ? server : L"";
-    h->simulated = simulated != 0;
     loadJournal(*h);
     h->inboundEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     // Load the active implementation recorded by the engine.

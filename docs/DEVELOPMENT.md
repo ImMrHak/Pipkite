@@ -18,9 +18,11 @@ x64\Release\Pipkite.Benchmarks.exe     # speed numbers for your machine
 In Visual Studio: open `Pipkite.sln`, pick Release/Debug x64, F5. The UI starts the engine by itself.
 The build signs the sample parser and the bridge with a local dev key (`%LOCALAPPDATA%\Pipkite\devkeys`).
 
-## Run it without Telegram or a real broker
+## Test terminal (tests only)
 
-Use an isolated data folder so you don't touch your real install, and the fake terminal instead of MT5:
+`Pipkite.FakeTerminal` stands in for MetaTrader in the end-to-end tests. It loads the real bridge DLL and talks to
+it like the EA, with an in-memory broker. It is never shipped with the app. To try the UI against it, use an
+isolated data folder so your real install isn't touched:
 
 ```powershell
 $env:PIPKITE_DATA_DIR = "$env:TEMP\sr-dev"; $env:PIPKITE_INSTANCE = "dev"
@@ -28,7 +30,6 @@ x64\Release\Pipkite.exe
 x64\Release\Pipkite.FakeTerminal.exe --login 90000001    # then approve pairing with 90000001
 ```
 
-The fake terminal uses the real bridge DLL with a simulated broker; everything it reports is labeled simulated.
 
 ## Other pieces
 

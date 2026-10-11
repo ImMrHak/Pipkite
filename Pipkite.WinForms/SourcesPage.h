@@ -216,7 +216,7 @@ public:
                          : st;
         authState_->Set(stText, st == "Ready" ? Theme::Success : (st == "LibraryMissing" || st == "Error") ? Theme::Danger : Theme::Warning);
         String^ hint;
-        if (st == "LibraryMissing") hint = "Telegram support (tdjson.dll) is missing from the Pipkite folder. Reinstall Pipkite to restore it. You can still use the simulated demo source and the parser sandbox.";
+        if (st == "LibraryMissing") hint = "Telegram support (tdjson.dll) is missing from the Pipkite folder. Reinstall Pipkite to restore it.";
         else if (st == "NotConfigured") hint = "Enter your API ID and API hash, then your phone number.";
         else if (st == "WaitPhone") hint = "Enter your phone number in international format (+...).";
         else if (st == "WaitCode") hint = "Enter the login code Telegram sent to your app or SMS.";

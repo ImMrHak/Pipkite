@@ -1,4 +1,4 @@
-// End-to-end integration: launches the real Pipkite.Engine.exe and the simulated MT5 terminal
+// End-to-end integration: launches the real Pipkite.Engine.exe and the test MT5 terminal
 // (which drives the real MT5BridgeHost.dll + signed bridge implementation), then acts as the UI over the
 // authenticated pipe. Runs in an isolated data directory and pipe instance so it never touches a real
 // installation. Skipped when the binaries are not built next to the test runner.
@@ -154,6 +154,7 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     fs::create_directories(data);
     SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", data.c_str());
     SetEnvironmentVariableW(L"PIPKITE_INSTANCE", (L"e2e" + std::to_wstring(GetCurrentProcessId())).c_str());
+    SetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", L"1");  // lets the test feed messages without Telegram
 
     Proc engine;
     CHECK(engine.start(L"\"" + (bin / L"Pipkite.Engine.exe").wstring() + L"\""));
@@ -171,9 +172,9 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     CHECK_EQ(s0.value("mode", ""), std::string("automatic"));
     CHECK(s0.value("paused", false));
 
-    // Configure one simulated source and symbol limits.
+    // Configure one source and symbol limits.
     const std::string chat = "-1000000000001";
-    ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Demo (simulated)"}, {"chatType", "channel"}, {"template", "gold_parser_native"},
+    ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Gold signals"}, {"chatType", "channel"}, {"template", "gold_parser_native"},
                                                         {"entryMode", "wait_for_range"}, {"aiMode", "off"}}})}});
     json policy = ui.call("policy.get");
     policy["symbolLimits"] = {{"XAUUSD", {{"maxSpreadPrice", 0.5}, {"maxEntryDeviationPrice", 0.5}, {"maxLots", 1.0}}}};
@@ -185,14 +186,14 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     json sb = ui.call("parser.sandbox", {{"text", "#GOLD BUY 4300 4295\nTP1 4305\nTP2 4310\nSL 4287"}});
     CHECK_EQ(sb["signal"].value("status", ""), std::string("Valid"));
 
-    // Start the simulated terminal and approve pairing.
+    // Start the test terminal and approve pairing.
     Proc term;
     CHECK(term.start(L"\"" + (bin / L"Pipkite.FakeTerminal.exe").wstring() + L"\" --login 90000001"));
     CHECK(ui.waitFor([](const json& s) { return !s["bridge"]["pairingPending"].is_null(); }, 15000));
     ui.call("mt5.approvePairing", {{"confirmLogin", "90000001"}});
     CHECK(ui.waitFor([](const json& s) { return s.value("reconciled", false) && s["bridge"].value("paired", false) && !s.value("paused", true); }, 15000));
     json snap = ui.call("getSnapshot");
-    CHECK(snap["account"].value("simulated", false));  // simulated terminal is always labeled
+    CHECK_EQ(snap["account"]["account"].value("server", ""), std::string("Demo-Server"));
 
     // Automatic requires typing the destination account number.
     bool refused = false;
@@ -204,7 +205,7 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     CHECK(refused);
     ui.call("engine.setMode", {{"mode", "automatic"}, {"confirmLogin", "90000001"}});
 
-    // Build a signal around the live simulated ask so the range is executable now.
+    // Build a signal around the live test-terminal ask so the range is executable now.
     json st = ui.call("mt5.status");
     double ask = 0;
     for (auto& sym : st["symbols"])
@@ -212,7 +213,7 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     CHECK(ask > 0);
     char text[512];
     std::snprintf(text, sizeof text, "GOLD BUY %.2f %.2f\nTP1 %.2f\nTP2 %.2f\nSL %.2f", ask + 2.0, ask - 2.0, ask + 25, ask + 40, ask - 20);
-    json inj = ui.call("sim.inject", {{"chatId", chat}, {"text", std::string(text)}});
+    json inj = ui.call("test.injectMessage", {{"chatId", chat}, {"text", std::string(text)}});
     const std::string msgId = inj.value("messageId", "");
 
     // Command must reach Filled through the durable journal; exactly one command for one plan.
@@ -237,7 +238,7 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
             if (sym.value("name", "") == "XAUUSD") a2 = sym["quote"].value("ask", 0.0);
         char t2[256];
         std::snprintf(t2, sizeof t2, "GOLD BUY %.2f %.2f\nTP1 %.2f\nSL %.2f", a2 + 2.0, a2 - 2.0, a2 + 25, a2 - 20);
-        ui.call("sim.inject", {{"chatId", chat}, {"text", std::string(t2)}});
+        ui.call("test.injectMessage", {{"chatId", chat}, {"text", std::string(t2)}});
         Sleep(250);
     }
     Sleep(1500);
@@ -246,13 +247,13 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
         std::printf("        latency %-11s p50 %8.3f  p95 %8.3f  max %8.3f  n=%d\n", k, m[k].value("p50", 0.0), m[k].value("p95", 0.0), m[k].value("max", 0.0), m[k].value("n", 0));
 
     // Commentary never becomes an order.
-    json c = ui.call("sim.inject", {{"chatId", chat}, {"text", "TP1 HIT"}});
+    json c = ui.call("test.injectMessage", {{"chatId", chat}, {"text", "TP1 HIT"}});
     Sleep(400);
     CHECK_EQ(historyStateOf(ui, chat, c.value("messageId", "")), std::string("Rejected"));
 
     // Pause rejects new entries; positions untouched.
     ui.call("engine.pause");
-    json p = ui.call("sim.inject", {{"chatId", chat}, {"text", std::string(text)}});
+    json p = ui.call("test.injectMessage", {{"chatId", chat}, {"text", std::string(text)}});
     Sleep(400);
     CHECK_EQ(historyStateOf(ui, chat, p.value("messageId", "")), std::string("Rejected"));
     ui.call("engine.resume");
@@ -288,7 +289,7 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
 }
 
 // Demo seeding for manual UI walkthroughs: connects to an ALREADY RUNNING isolated instance (same
-// PIPKITE_DATA_DIR / PIPKITE_INSTANCE), configures a simulated source, approves the simulated
+// PIPKITE_DATA_DIR / PIPKITE_INSTANCE), configures demo sources, approves the test
 // terminal, enables Automatic and injects sample signals. Runs only when PIPKITE_DEMO_SEED=1.
 TEST(demo_seed_running_instance) {
     wchar_t flag[8];
@@ -309,10 +310,12 @@ TEST(demo_seed_running_instance) {
         ui.call("settings.save", params);
         return;
     }
+    // screenshots: the Get started list would cover the dashboard (the test terminal can't sign in to Telegram)
+    ui.call("settings.save", {{"values", {{"ui.setupHidden", "true"}}}});
     const std::string chat = "-1000000000001";
-    ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Demo channel (simulated)"}, {"chatType", "channel"}, {"template", "gold_parser_native"},
+    ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Gold Signals VIP"}, {"chatType", "channel"}, {"template", "gold_parser_native"},
                                                         {"entryMode", "wait_for_range"}, {"aiMode", "advisory"}},
-                                                       {{"chatId", "-1000000000002"}, {"title", "Forex VIP (simulated)"}, {"chatType", "supergroup"}, {"template", "gold_parser_native"},
+                                                       {{"chatId", "-1000000000002"}, {"title", "Forex Daily"}, {"chatType", "supergroup"}, {"template", "gold_parser_native"},
                                                         {"entryMode", "immediate_within_tolerance"}, {"aiMode", "off"}}})}});
     json policy = ui.call("policy.get");
     policy["symbolLimits"] = {{"XAUUSD", {{"maxSpreadPrice", 0.5}, {"maxEntryDeviationPrice", 0.5}, {"maxLots", 1.0}}},
@@ -333,8 +336,8 @@ TEST(demo_seed_running_instance) {
     std::snprintf(c, sizeof c, "GOLD BUY %.2f\nSL %.2f", ask, ask - 10);
     const char* samples[] = {a, "TP1 HIT \xE2\x9C\x85 +100 pips", b, c, "buy or sell?", "Move SL to BE"};
     for (const char* text : samples) {
-        ui.call("sim.inject", {{"chatId", chat}, {"text", std::string(text)}});
+        ui.call("test.injectMessage", {{"chatId", chat}, {"text", std::string(text)}});
         Sleep(700);
     }
-    ui.call("sim.inject", {{"chatId", "-1000000000002"}, {"text", "EURUSD SELL NOW 1.0850\nSL 1.0880\nTP 1.0800"}});
+    ui.call("test.injectMessage", {{"chatId", "-1000000000002"}, {"text", "EURUSD SELL NOW 1.0850\nSL 1.0880\nTP 1.0800"}});
 }

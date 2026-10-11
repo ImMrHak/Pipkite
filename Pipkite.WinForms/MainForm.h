@@ -112,8 +112,8 @@ public:
         rightGroup->Tag = "surface";
         rightGroup->Controls->Add(pauseBtn_);
 
-        L::Tip(modeBadge_, "Live status. Copying is active whenever an MT5 account is paired and not paused.");
-        L::Tip(accountBadge_, "The MetaTrader account orders are sent to. 'Simulated' means the built-in test terminal, not a real broker.");
+        L::Tip(modeBadge_, "Live: copying is active. Not ready: something still needs setting up (see the Dashboard). Paused: you paused copying.");
+        L::Tip(accountBadge_, "The MetaTrader account orders are sent to.");
         L::Tip(connBadge_, "Connection status: your Telegram sign-in and the MetaTrader bridge.");
 
         bar->Controls->Add(leftGroup, 0, 0);
@@ -302,6 +302,7 @@ private:
         minimizeToTray_ = J::Str(s, "ui.minimizeToTray", "true") == "true";
         notifications_ = J::Str(s, "ui.notifications", "true") == "true";
         ApplyThemeName(J::Str(s, "ui.theme", "dark"));
+        DashboardPage::SetupHidden = J::Str(s, "ui.setupHidden", "false") == "true";
         if (!settingsLoaded_) {
             settingsLoaded_ = true;
             if (J::Str(s, "ui.firstRunComplete", "false") != "true") BeginInvoke(gcnew MethodInvoker(this, &MainForm::ShowWizard));
@@ -347,15 +348,15 @@ private:
         mode_ = J::Str(s, "mode");
         paused_ = J::Bool(s, "paused");
         bool userPaused = J::Bool(s, "userPaused");
-        modeBadge_->Set(userPaused ? "Paused" : "Live", userPaused ? Theme::Warning : Theme::Success);
+        const bool ready = J::Str(s, "dispatchBlockedReason") == "";
+        modeBadge_->Set(userPaused ? "Paused" : ready ? "Live" : "Not ready", userPaused || !ready ? Theme::Warning : Theme::Success);
         JObj^ acc = J::Obj(s, "account");
         JObj^ bound = J::Obj(s, "boundAccount");
         JObj^ key = acc != nullptr ? J::Obj(acc, "account") : bound;
         if (key != nullptr) {
             String^ login = J::Str(key, "login");
             String^ suffix = login->Length > 4 ? "..." + login->Substring(login->Length - 4) : login;
-            bool sim = acc != nullptr && J::Bool(acc, "simulated");
-            accountBadge_->Set("#" + suffix + "  ·  " + J::Str(key, "server") + (sim ? "  ·  Simulated" : ""), J::Bool(J::Obj(s, "bridge"), "healthy") ? (sim ? Theme::Warning : Theme::Success) : Theme::Danger);
+            accountBadge_->Set("#" + suffix + "  ·  " + J::Str(key, "server"), J::Bool(J::Obj(s, "bridge"), "healthy") ? Theme::Success : Theme::Danger);
         } else {
             accountBadge_->Set("No MT5 account", Theme::TextMuted);
         }
@@ -371,7 +372,7 @@ private:
         }
         if (trayPause_->Text != pauseText) trayPause_->Text = pauseText;
         String^ blocked = J::Str(s, "dispatchBlockedReason");
-        String^ statusLine = (paused_ ? "Paused  ·  " : "") + (blocked == "" ? "Ready to send orders" : blocked) + "  ·  Configuration v" + J::Str(s, "configVersion");
+        String^ statusLine = (userPaused ? "Paused  ·  " : "") + (blocked == "" ? "Ready to send orders" : blocked) + "  ·  Configuration v" + J::Str(s, "configVersion");
         if (statusText_->Text != statusLine) statusText_->Text = statusLine;
         String^ trayText = String::Concat("Pipkite", userPaused ? " - paused" : " - live");
         if (tray_->Text != trayText) tray_->Text = trayText;  // Shell_NotifyIcon only on change

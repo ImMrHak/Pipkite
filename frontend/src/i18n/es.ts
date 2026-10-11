@@ -143,7 +143,7 @@ export const es: Dict = {
     ],
     dashTitle: 'Un panel que dice la verdad',
     dashText:
-      'Saldo, equity, P/L flotante y realizado neto de comisiones, un feed en directo de cada señal y su resultado, y percentiles de latencia medidos en tu propio PC. Los datos del bróker mandan; las cuentas simuladas se indican.',
+      'Saldo, equity, P/L flotante y realizado neto de comisiones, un feed en directo de cada señal y su resultado, y percentiles de latencia medidos en tu propio PC. Los datos del bróker mandan.',
     equity: 'Equity',
     floating: 'P/L flotante',
     latency: 'Latencia p95',

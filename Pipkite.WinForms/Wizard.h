@@ -351,9 +351,8 @@ private:
             JObj^ br = J::Obj(lastSnap_, "bridge");
             JObj^ acc = J::Obj(lastSnap_, "account");
             if (acc != nullptr && J::Bool(br, "healthy")) {
-                String^ sim = J::Bool(acc, "simulated") ? " (simulated)" : "";
-                text = "MetaTrader connected - account #" + J::Str(J::Obj(acc, "account"), "login") + sim;
-                color = J::Bool(acc, "simulated") ? Theme::Warning : Theme::Success;
+                text = "MetaTrader connected - account #" + J::Str(J::Obj(acc, "account"), "login");
+                color = Theme::Success;
             } else {
                 text = "MetaTrader not connected (" + J::Str(br, "status") + ") - use Detect & start MetaTrader below";
                 color = Theme::Warning;

@@ -42,7 +42,7 @@ json summaryJson(const ProfitSummary& s) {
             {"withdrawals", s.withdrawals}, {"deals", s.dealCount}, {"unresolved", s.unresolvedCount}, {"wins", s.wins}, {"losses", s.losses}};
 }
 
-const std::set<std::string> kUiSettings{"ui.theme",         "ui.minimizeToTray",   "ui.startWithWindows", "ui.notifications",     "ui.firstRunComplete", "ui.language",
+const std::set<std::string> kUiSettings{"ui.theme",         "ui.minimizeToTray",   "ui.startWithWindows", "ui.notifications",     "ui.firstRunComplete", "ui.language", "ui.setupHidden",
                                         "retention.rawTextDays", "retention.metadataDays", "updates.channel", "updates.autoCompatible", "updates.manifestUrl", "support.requestUrl", "license.key", "license.portalUrl", "ai.storeLocally",
                                         "diagnostics.verbose", "engine.keepAwake", "backup.scheduleDays", "backup.directory", "license.status",
                                         "mt5.autoLaunch", "mt5.dataPath", "mt5.exePath", "mt5.chartSymbol", "telegram.apiId", "telegram.apiHash", "telegram.phone"};
@@ -156,6 +156,13 @@ void Engine::publishSnapshot() {
     broadcast("snapshot", snap);
 }
 
+namespace {
+bool testHooksEnabled() {
+    wchar_t v[4] = {};
+    return GetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", v, 4) == 1 && v[0] == L'1';
+}
+}  // namespace
+
 json Engine::snapshot() {
     const std::int64_t now = clock_.nowMs();
     json feed = json::array();
@@ -194,6 +201,20 @@ json Engine::snapshot() {
         if (now - q.receivedAtMs > policy_.quoteMaxAgeMs) staleQuotes.push_back(sym);
     ULARGE_INTEGER avail{};
     GetDiskFreeSpaceExW(dataDir_.c_str(), &avail, nullptr, nullptr);
+    // what a fresh install still needs before copying can work; the dashboard shows it as a checklist
+    json parsersMissing = json::array();
+    int enabledSources = 0;
+    for (auto& src : policy_.sources) {
+        if (!src.enabled) continue;
+        ++enabledSources;
+        if (!parserFor(src)) parsersMissing.push_back(src.title.empty() ? std::to_string(src.chatId) : src.title);
+    }
+    json setup = {{"license", !licenseKey_.empty()},
+                  {"telegram", telegram_->authState() == TelegramAuthState::Ready},
+                  {"sources", enabledSources},
+                  {"metatrader", bridgePaired_ && bridgeHealthy_},
+                  {"parsersMissing", parsersMissing},
+                  {"symbolLimits", policy_.symbolLimits.size()}};
     json stats = store_->stats();
     stats["waiting"] = waiting_.size();
     stats["inflight"] = inflight_.size();
@@ -207,6 +228,7 @@ json Engine::snapshot() {
             {"overload", overload_.load()},
             {"dispatchBlockedReason", canDispatchReason()},
             {"configVersion", policy_.configVersion},
+            {"setup", setup},
             {"telegram",
              {{"state", toString(telegram_->authState())},
               {"user", telegram_->userDisplayName()},
@@ -221,7 +243,6 @@ json Engine::snapshot() {
               {"healthy", bridgeHealthy_},
               {"status", bridgeStatusText_},
               {"heartbeatAgoMs", bridge_ ? now - lastHeartbeatMs_ : -1},
-              {"simulated", bridgeHello_.value("simulated", false)},
               {"implVersion", bridgeHello_.value("implVersion", "")},
               {"pairingPending", pairingPending_ ? toJson(*pairingPending_) : json(nullptr)},
               {"upgrading", bridgeUpgrading_},
@@ -925,20 +946,21 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         return {{"started", true}};
     }
 
-    // simulation & diagnostics
-    if (method == "sim.inject") {
+    // automated tests only: feed a message as if it came from Telegram. Off unless the test runner sets
+    // PIPKITE_TEST_HOOKS=1, so a normal install never accepts it.
+    if (method == "test.injectMessage" && testHooksEnabled()) {
         IncomingMessage m;
         m.chatId = jsonInt64(params.value("chatId", json("0")));
-        if (!policy_.findSource(m.chatId)) fail("Select an allowlisted source to simulate a message");
-        m.messageId = now;  // unique synthetic id
+        if (!policy_.findSource(m.chatId)) fail("Unknown source");
+        m.messageId = now;
         m.publishedAtMs = now;
         m.receivedAtMs = now;
         m.receivedMonoUs = clock_.monotonicUs();
         m.text = params.value("text", "");
-        m.simulated = true;
         processMessage(m);
         return {{"messageId", std::to_string(m.messageId)}};
     }
+    // diagnostics
     if (method == "diagnostics.health") {
         json s = snapshot();
         auto integrity = store_->integrityCheck();

@@ -66,7 +66,7 @@ void TelegramClient::start(std::function<void(IncomingMessage)> onMessage) {
     onMessage_ = std::move(onMessage);
     if (!loadLibrary()) {
         state_ = TelegramAuthState::LibraryMissing;
-        setError("Telegram support (tdjson.dll) could not be loaded. It may be missing, blocked by antivirus, or missing its runtime files (reinstall Pipkite). Preview and the simulated source still work. See docs/telegram-tdlib.md.");
+        setError("Telegram support (tdjson.dll) could not be loaded. It may be missing, blocked by antivirus, or missing its runtime files (reinstall Pipkite).");
         return;
     }
     if (!hasCredentials()) {

@@ -1,5 +1,5 @@
 #pragma once
-// Core seams. Production implementations live in the engine; fakes live in tests and the demo harness.
+// Core seams. Production implementations live in the engine; fakes live in the tests.
 
 #include <functional>
 #include <optional>
@@ -27,7 +27,6 @@ struct IncomingMessage {
     bool hasMedia = false;
     std::string mediaKind;   // photo, voice, document ...
     bool historical = false; // loaded from history/catch-up rather than a live push
-    bool simulated = false;  // injected by the demo harness
 };
 
 struct ChatInfo {

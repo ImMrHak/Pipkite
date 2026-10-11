@@ -421,7 +421,7 @@ void Engine::processMessage(const IncomingMessage& m) {
     else if (!ins.value()) return;  // replayed revision already recorded
 
     json timeline = json::array();
-    timeline.push_back({{"stage", "received"}, {"atMs", m.receivedAtMs}, {"monoUs", m.receivedMonoUs}, {"detail", m.simulated ? "simulated message" : "TDLib update"}});
+    timeline.push_back({{"stage", "received"}, {"atMs", m.receivedAtMs}, {"monoUs", m.receivedMonoUs}, {"detail", "TDLib update"}});
     auto mark = [&](const std::string& stage, const std::string& detail) {
         timeline.push_back({{"stage", stage}, {"atMs", clock_.nowMs()}, {"monoUs", clock_.monotonicUs()}, {"detail", detail}});
     };
@@ -461,8 +461,7 @@ void Engine::processMessage(const IncomingMessage& m) {
                       {"state", toString(state)},
                       {"status", toString(s.status)},
                       {"reason", reason},
-                      {"parser", s.parserId + "@" + s.parserVersion},
-                      {"simulated", m.simulated}};
+                      {"parser", s.parserId + "@" + s.parserVersion}};
         feedOrder_.push_back(key);
     };
 
@@ -564,7 +563,6 @@ void Engine::applyDecision(Signal s, const SourceBinding& b, Decision d, json ti
             {"ai", (b.aiMode != AiMode::Off || (policy_.ai.alwaysAssess && s.status == ParseStatus::Valid)) ? "Pending" : "Off"},
             {"aiMode", toString(b.aiMode)},
             {"reason", d.reason},
-            {"simulated", timeline.size() && timeline[0].value("detail", "") == "simulated message"},
             {"timeline", timeline}};
     if (d.plan) {
         item["lots"] = d.plan->totalVolume;
@@ -715,7 +713,8 @@ void Engine::reevaluateWaiting() {
 }
 
 std::string Engine::canDispatchReason() const {
-    if (paused_) return reconciled_ ? "Copying is paused" : "Paused until startup reconciliation completes";
+    if (paused_ && reconciled_) return "Copying is paused";
+    if (paused_) return bridge_ && bridgePaired_ ? "Checking your open trades with MetaTrader" : "Waiting for MetaTrader 5 to connect";
     if (policy_.executionMode != ExecutionMode::Automatic) return "Preview mode";
     if (!bridge_ || !bridgePaired_) return "MT5 terminal is not connected and paired";
     if (!bridgeHealthy_) return "EA heartbeat missing: new dispatch inhibited";

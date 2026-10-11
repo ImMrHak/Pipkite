@@ -50,7 +50,7 @@ Or open `Pipkite.sln` and press F5. More in [docs/DEVELOPMENT.md](docs/DEVELOPME
 | `Pipkite.Protocol` | IPC, crypto, signing |
 | `Pipkite.MT5BridgeHost` / `MT5BridgeImpl` | the DLL the EA talks to |
 | `mql5/` | the MetaTrader 5 EA |
-| `Pipkite.Tests` | tests (unit + end-to-end with a fake MT5) |
+| `Pipkite.Tests` | tests (unit + end-to-end with a test MT5 terminal) |
 | `frontend/` | the website |
 
 ## Contributing

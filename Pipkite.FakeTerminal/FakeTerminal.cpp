@@ -1,5 +1,5 @@
-// fake MT5 terminal for tests/demos. loads the real MT5BridgeHost.dll and talks to it like the EA,
-// with a simulated broker. everything it reports is flagged as simulated.
+// test-only MT5 terminal stand-in, used by the end-to-end tests and for screenshots. never shipped.
+// loads the real MT5BridgeHost.dll and talks to it exactly like the EA, with an in-memory broker.
 // 
 // usage: Pipkite.FakeTerminal.exe [--login N] [--server NAME] [--netting] [--reject-all] [--seconds N]
 //        [--no-heartbeat-after S]
@@ -20,7 +20,7 @@
 
 namespace {
 
-using InitFn = int (*)(const wchar_t*, long long, const wchar_t*, int);
+using InitFn = int (*)(const wchar_t*, long long, const wchar_t*);
 using RecvFn = int (*)(unsigned char*, int);
 using SendFn = int (*)(const unsigned char*, int);
 using StatusFn = int (*)();
@@ -104,7 +104,7 @@ struct Out {
     }
 };
 
-// simulated broker
+// in-memory broker
 struct Sym {
     std::string name;
     int digits;
@@ -128,8 +128,8 @@ struct Pending {
 
 struct Sim {
     long long login = 90000001;
-    std::string server = "Pipkite-Simulated";
-    std::string terminalId = "SIMULATED-TERMINAL";
+    std::string server = "Demo-Server";
+    std::string terminalId = "7F3A9C2E5B1D4086A2E9C4F1B8D3E605";
     bool netting = false, rejectAll = false, paused = false;
     double balance = 10000, commissionPerLot = 7.0;
     std::map<std::string, Sym> syms;
@@ -182,7 +182,7 @@ void sendAccount() {
     o.put("account.terminalId", sim.terminalId).puti("account.login", sim.login).put("account.server", sim.server);
     o.put("currency", "USD").put("balance", sim.balance, 2).put("equity", sim.balance + sim.floating(), 2).put("margin", lots * 900, 2);
     o.put("freeMargin", sim.balance + sim.floating() - lots * 900, 2).put("marginMode", sim.netting ? "netting" : "hedging");
-    o.put("tradeAllowed", "true").put("connected", "true").put("simulated", "true");
+    o.put("tradeAllowed", "true").put("connected", "true");
     o.puti("copierOpenPositions", (long long)sim.positions.size()).puti("copierPendingOrders", (long long)sim.pendings.size()).put("copierOpenLots", lots, 2);
     int i = 0;
     for (auto& s : symbols) o.put("copierSymbols." + std::to_string(i++), s);
@@ -221,7 +221,6 @@ void sendStatus(const std::string& id, const std::string& state, const std::stri
     o.put("commandId", id).put("state", state).put("reason", reason).put("filledVolume", filled, 2);
     if (ticket) o.put("orderTicket", std::to_string(ticket)).put("requestId", std::to_string(ticket));
     if (sendUs) o.puti("sendUs", sendUs);
-    o.put("simulated", "true");
     o.send();
 }
 
@@ -253,7 +252,7 @@ void execute(const Kv& kv) {
     const std::string acct = str(kv, "payload.account.terminalId") + "|" + str(kv, "payload.account.login") + "|" + str(kv, "payload.account.server");
     if (acct != accountKey()) return reject("account mismatch: command bound to another login/server");
     if (sim.paused) return reject("EA paused: unsubmitted command rejected");
-    if (sim.rejectAll) return reject("simulated broker rejection (fault injection)");
+    if (sim.rejectAll) return reject("broker rejection (fault injection)");
     if (nowMs() > (std::int64_t)num(kv, "payload.deadlineMs") + 1000) return reject("deadline passed before submission");
     auto it = sim.syms.find(str(kv, "payload.symbol"));
     if (it == sim.syms.end()) return reject("symbol not available");
@@ -268,22 +267,22 @@ void execute(const Kv& kv) {
     const double volume = num(kv, "payload.volume");
     if (volume < 0.01) return reject("volume below minimum");
     // Durable acceptance record BEFORE broker submission.
-    if (!api.journalAppend(widen(id).c_str(), L"Accepted", L"simulated")) return reject("journal failure: not submitted");
+    if (!api.journalAppend(widen(id).c_str(), L"Accepted", L"")) return reject("journal failure: not submitted");
     const long long sendUs = api.now();
     const std::uint64_t ticket = sim.nextTicket++;
-    sendStatus(id, "Submitted", "OrderSendAsync accepted (simulated)", 0, ticket, sendUs);
+    sendStatus(id, "Submitted", "OrderSendAsync accepted", 0, ticket, sendUs);
     if (kind == "MARKET") {
         const double commission = -sim.commissionPerLot * volume / 2;
         sim.positions.push_back({ticket, id, s.name, buy, volume, px, num(kv, "payload.stopLoss"), num(kv, "payload.takeProfit")});
         sim.balance += commission;
         sendDeal(ticket, ticket, s.name, buy, 0, volume, px, 0, commission, id);
-        api.journalAppend(widen(id).c_str(), L"Filled", L"simulated");
-        sendStatus(id, "Filled", "filled at " + fmt(px, s.digits) + " (SIMULATED broker)", volume, ticket);
+        api.journalAppend(widen(id).c_str(), L"Filled", L"");
+        sendStatus(id, "Filled", "filled at " + fmt(px, s.digits) + "", volume, ticket);
     } else {
         sim.pendings.push_back({ticket, id, s.name, buy, kind == "LIMIT", volume, num(kv, "payload.pendingPrice"), num(kv, "payload.stopLoss"), num(kv, "payload.takeProfit"),
                                 (std::int64_t)num(kv, "payload.pendingExpiryMs")});
-        api.journalAppend(widen(id).c_str(), L"Working", L"simulated");
-        sendStatus(id, "Working", "pending order placed (SIMULATED broker)", 0, ticket);
+        api.journalAppend(widen(id).c_str(), L"Working", L"");
+        sendStatus(id, "Working", "pending order placed", 0, ticket);
     }
     sendAccount();
 }
@@ -316,14 +315,14 @@ void manageBroker() {
         const double px = o.buy ? sim.ask(s) : s.bid;
         const bool trigger = o.limit ? (o.buy ? px <= o.price : px >= o.price) : (o.buy ? px >= o.price : px <= o.price);
         if (nowMs() > o.expiryMs) {
-            sendStatus(o.commandId, "Expired", "pending order expired (broker-supported expiry, simulated)", 0, o.ticket);
+            sendStatus(o.commandId, "Expired", "pending order expired", 0, o.ticket);
             sim.pendings.erase(sim.pendings.begin() + (long long)i);
             continue;
         }
         if (trigger) {
             sim.positions.push_back({o.ticket, o.commandId, o.symbol, o.buy, o.volume, px, o.sl, o.tp});
             sendDeal(o.ticket, o.ticket, o.symbol, o.buy, 0, o.volume, px, 0, -sim.commissionPerLot * o.volume / 2, o.commandId);
-            sendStatus(o.commandId, "Filled", "pending triggered (SIMULATED broker)", o.volume, o.ticket);
+            sendStatus(o.commandId, "Filled", "pending triggered", o.volume, o.ticket);
             sim.pendings.erase(sim.pendings.begin() + (long long)i);
             continue;
         }
@@ -343,7 +342,6 @@ void reconcile(const Kv& kv) {
         const std::string p = "commands." + std::to_string(i) + ".";
         o.put(p + "commandId", id).put(p + "journaled", len > 0 ? "true" : "false").put(p + "state", len > 0 ? state : "Unknown");
     }
-    o.put("simulated", "true");
     o.send();
 }
 
@@ -366,7 +364,7 @@ void handle(const std::string& text) {
         if (action == "close_positions")
             while (!sim.positions.empty()) closePosition(0, "user close");
         if (action == "cancel_pending") {
-            for (auto& o : sim.pendings) sendStatus(o.commandId, "Canceled", "canceled by user (simulated)", 0, o.ticket);
+            for (auto& o : sim.pendings) sendStatus(o.commandId, "Canceled", "canceled by user", 0, o.ticket);
             sim.pendings.clear();
         }
         sendAccount();
@@ -417,10 +415,10 @@ int wmain(int argc, wchar_t** argv) {
         std::printf("MT5BridgeHost.dll does not export the expected ABI\n");
         return 1;
     }
-    const int rc = api.init(widen(sim.terminalId).c_str(), sim.login, widen(sim.server).c_str(), 1);
+    const int rc = api.init(widen(sim.terminalId).c_str(), sim.login, widen(sim.server).c_str());
     wchar_t text[512];
     api.statusText(text, 512);
-    std::printf("SIMULATED MT5 terminal: login %lld @ %s (init=%d) %ls\n", sim.login, sim.server.c_str(), rc, text);
+    std::printf("test MT5 terminal: login %lld @ %s (init=%d) %ls\n", sim.login, sim.server.c_str(), rc, text);
     if (rc < 0) return 1;
     using EventFn = void* (*)();
     auto inboundEventFn = (EventFn)GetProcAddress(h, "BridgeInboundEvent");

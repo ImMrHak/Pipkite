@@ -57,7 +57,7 @@ public:
         DataGridViewTextBoxColumn^ ev = commands_->AddCol("events", "State history", 520);
         ev->AutoSizeMode = DataGridViewAutoSizeColumnMode::Fill;
         s->Controls->Add(commands_);
-        s->Controls->Add(L::Wrap("OrderSendAsync acceptance means submission, not a fill. Simulated terminals are labeled and their fills are not broker fills.", "muted", 1020));
+        s->Controls->Add(L::Wrap("OrderSendAsync acceptance means submission, not a fill.", "muted", 1020));
         Controls->Add(s);
         Theme::Apply(this);
         BackColor = Theme::Bg;
@@ -102,7 +102,7 @@ private:
         header_->Text = J::Str(s, "action", "(no action)") + " " + J::Str(s, "symbol") + "  -  " + J::Str(r, "state") + "  -  parse " + J::Str(s, "status");
         header_->ForeColor = Theme::StateColor(J::Str(r, "state"));
         flags_->Text = "Published " + J::Time(J::Int(r, "publishedAtMs")) + "   received " + J::Time(J::Int(r, "receivedAtMs")) + "   parser " + J::Str(s, "parserId") + "@" +
-                       J::Str(s, "parserVersion") + (J::Bool(r, "simulated") ? "   SIMULATED MESSAGE" : "") + (J::Bool(r, "historical") ? "   HISTORICAL (never executed)" : "");
+                       J::Str(s, "parserVersion") + (J::Bool(r, "historical") ? "   HISTORICAL (never executed)" : "");
         String^ raw = J::Str(r, "rawText")->Replace("\r\n", "\n");
         text_->Text = raw;
         for each (Object^ o in J::Arr(s, "evidence")) {

@@ -144,7 +144,7 @@ export const en = {
     ],
     dashTitle: 'A live dashboard that tells the truth',
     dashText:
-      'Balance, equity, floating and realized P/L net of fees, a live feed of every signal and what happened to it, and latency percentiles measured on your own PC. Broker data is authoritative; simulated accounts are labeled.',
+      'Balance, equity, floating and realized P/L net of fees, a live feed of every signal and what happened to it, and latency percentiles measured on your own PC. Broker data is authoritative.',
     equity: 'Equity',
     floating: 'Floating P/L',
     latency: 'Latency p95',

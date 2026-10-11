@@ -56,9 +56,6 @@ foreach ($f in $tdlibDlls) {
 }
 # Module folders contain linker by-products next to the DLLs; symbols go to the private archive instead.
 Get-ChildItem "$stage\bridge", "$stage\plugins" -Recurse -Include *.pdb, *.lib, *.exp | Remove-Item -Force
-New-Item -ItemType Directory -Force "$stage\tools" | Out-Null
-Copy-Item "$bin\Pipkite.FakeTerminal.exe" "$stage\tools\"   # demo harness: simulated terminal, clearly labeled
-Copy-Item "$bin\MT5BridgeHost.dll" "$stage\tools\"             # the harness loads the host DLL from its own folder
 
 $crt = Get-ChildItem "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" -Directory | Sort-Object FullName -Descending | Select-Object -First 1
 foreach ($dll in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll") { Copy-Item (Join-Path $crt.FullName $dll) $stage }

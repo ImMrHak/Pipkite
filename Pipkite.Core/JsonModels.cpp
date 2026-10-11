@@ -175,7 +175,6 @@ json toJson(const AccountSnapshot& a) {
             {"marginMode", toString(a.marginMode)},
             {"tradeAllowed", a.tradeAllowed},
             {"connected", a.connected},
-            {"simulated", a.simulated},
             {"copierOpenPositions", a.copierOpenPositions},
             {"copierPendingOrders", a.copierPendingOrders},
             {"copierOpenLots", a.copierOpenLots},
@@ -197,7 +196,6 @@ Result<AccountSnapshot> accountFromJson(const json& j) {
         a.marginMode = j.value("marginMode", "hedging") == "netting" ? MarginMode::Netting : MarginMode::Hedging;
         a.tradeAllowed = j.value("tradeAllowed", false);
         a.connected = j.value("connected", false);
-        a.simulated = j.value("simulated", false);
         a.copierOpenPositions = j.value("copierOpenPositions", 0);
         a.copierPendingOrders = j.value("copierPendingOrders", 0);
         a.copierOpenLots = finite(j, "copierOpenLots");

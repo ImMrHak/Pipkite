@@ -13,6 +13,9 @@ The setup wizard opens on first launch and walks you through these. You can redo
 5. **Parsers.** On **Signal rules**, select each channel and click **Request a custom parser**. We build one for that
    channel's format and it installs by itself, no restart. Until it arrives, that channel's messages aren't traded.
 
+Until all of this is done, the Dashboard shows a **Get started** list with what's still missing and a button
+to each step, and the top bar says **Not ready**.
+
 Before risking money, use **Test a sample** in the wizard: paste a real message and see what Pipkite reads.
 Nothing is sent.
 

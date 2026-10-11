@@ -3,6 +3,7 @@
 // AI storage, future licensing (disabled), diagnostics and connection reset.
 
 #include "Dialogs.h"
+#include "DashboardPage.h"
 #include "Pages.h"
 
 using namespace Microsoft::Win32;
@@ -31,6 +32,8 @@ public:
         L::AddField(ap, "", notify_);
         keepAwake_ = L::Check("Keep Windows awake while copying automatically (sleep would suspend execution)");
         L::AddField(ap, "", keepAwake_);
+        setupList_ = L::Check("Show the Get started list on the Dashboard until setup is complete");
+        L::AddField(ap, "", setupList_);
         Button^ saveAp = L::Btn("Apply", "accent");
         saveAp->Click += gcnew EventHandler(this, &SettingsPage::OnSaveGeneral);
         ap->Controls->Add(gcnew Label());
@@ -145,7 +148,7 @@ public:
 
 private:
     ComboBox ^ theme_, ^channel_;
-    CheckBox ^ tray_, ^startup_, ^notify_, ^autoUpd_, ^aiStore_, ^keepAwake_;
+    CheckBox ^ tray_, ^startup_, ^notify_, ^autoUpd_, ^aiStore_, ^keepAwake_, ^setupList_;
     NumericUpDown ^ rawDays_, ^metaDays_;
     TextBox ^ manifestUrl_, ^licenseKey_, ^licensePortal_;
     Label ^ dataDir_, ^updStatus_, ^healthText_, ^licenseStatus_;
@@ -160,6 +163,7 @@ private:
         startup_->Checked = J::Str(s, "ui.startWithWindows", "false") == "true";
         notify_->Checked = J::Str(s, "ui.notifications", "true") == "true";
         keepAwake_->Checked = J::Str(s, "engine.keepAwake", "true") == "true";
+        setupList_->Checked = J::Str(s, "ui.setupHidden", "false") != "true";
         rawDays_->Value = Decimal(Math::Max(1.0, Double::Parse(J::Str(s, "retention.rawTextDays", "30"))));
         metaDays_->Value = Decimal(Math::Max(1.0, Double::Parse(J::Str(s, "retention.metadataDays", "180"))));
         channel_->SelectedItem = J::Str(s, "updates.channel", "stable");
@@ -192,6 +196,8 @@ private:
         v["ui.startWithWindows"] = startup_->Checked ? "true" : "false";
         v["ui.notifications"] = notify_->Checked ? "true" : "false";
         v["engine.keepAwake"] = keepAwake_->Checked ? "true" : "false";
+        v["ui.setupHidden"] = setupList_->Checked ? "false" : "true";
+        DashboardPage::SetupHidden = !setupList_->Checked;
         v["ai.storeLocally"] = aiStore_->Checked ? "true" : "false";
         Save(v);
         try {

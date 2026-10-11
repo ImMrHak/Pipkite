@@ -13,6 +13,7 @@ public ref class DashboardPage : public PageBase {
 public:
     static DetailRequest^ OpenDetail;
     static GoToPage^ Navigate;  // jump to a page from the setup checklist
+    static bool SetupHidden;    // ui.setupHidden: the user hid the checklist
 
     DashboardPage() {
         // status cards (row 1) and account/profit cards (row 2); widths fill the row evenly
@@ -149,11 +150,40 @@ public:
         right->Controls->Add(realizedChart_);
         split->Panel2->Controls->Add(right);
 
+        // setup checklist: only shown while something is missing, so a fresh install says what to do next
+        TableLayoutPanel^ steps = gcnew TableLayoutPanel();
+        steps->ColumnCount = 3;
+        steps->AutoSize = true;
+        steps->AutoSizeMode = Windows::Forms::AutoSizeMode::GrowAndShrink;
+        for (int i = 0; i < 3; ++i) steps->ColumnStyles->Add(gcnew ColumnStyle(SizeType::AutoSize));
+        stepBadges_ = gcnew array<Badge^>(6);
+        stepTexts_ = gcnew array<Label^>(6);
+        stepButtons_ = gcnew array<Button^>(6);
+        AddStep(steps, 0, "Add your free license key. It unlocks parsers, AI review and updates.", "Open Settings", 6);
+        AddStep(steps, 1, "Sign in to Telegram with your own account.", "Open Telegram sources", 1);
+        AddStep(steps, 2, "Tick the channels or groups you want to copy.", "Choose channels", 1);
+        AddStep(steps, 3, "Start MetaTrader 5, log in to your broker and approve the pairing.", "Open MetaTrader", 2);
+        AddStep(steps, 4, "Request a parser for each channel. It installs by itself when ready.", "Open Signal rules", 3);
+        AddStep(steps, 5, "Set the max spread and slippage for each symbol you trade.", "Open Execution policy", 4);
+        Button^ hide = L::Btn("Hide this list", nullptr, "Hide the Get started list. You can show it again in Settings.");
+        hide->Click += gcnew EventHandler(this, &DashboardPage::OnHideSetup);
+        steps->Controls->Add(hide, 2, 6);
+        setup_ = L::Group("Get started", steps);
+        setup_->Dock = DockStyle::Top;
+        setup_->Visible = false;
+        setupWrap_ = gcnew Panel();
+        setupWrap_->Dock = DockStyle::Top;
+        setupWrap_->AutoSize = true;
+        setupWrap_->Padding = Windows::Forms::Padding(Theme::Gutter, 4, Theme::Gutter, 0);
+        setupWrap_->Visible = false;
+        setupWrap_->Controls->Add(setup_);
+
         Controls->Add(split);
         Controls->Add(profit_);
         Controls->Add(profitHeader);
         Controls->Add(cards_);
-        Header("Dashboard", "Live status of copying. Broker data is authoritative; simulated terminals are labeled.", this);
+        Controls->Add(setupWrap_);
+        Header("Dashboard", "Live status of copying, your account and every signal.", this);
 
         chartTimer_ = gcnew Windows::Forms::Timer();
         chartTimer_->Interval = 10000;
@@ -172,6 +202,7 @@ public:
     virtual void OnSnapshot(JObj^ s) override {
         PageBase::OnSnapshot(s);
         if (!Visible) return;
+        UpdateSetup(J::Obj(s, "setup"));
         JObj^ tg = J::Obj(s, "telegram");
         String^ tgs = J::Str(tg, "state");
         telegram_->Set(TelegramText(tgs), J::Str(tg, "user") != "" ? J::Str(tg, "user") : J::Str(tg, "error"),
@@ -181,18 +212,18 @@ public:
         JObj^ bound = J::Obj(s, "boundAccount");
         if (acc != nullptr) {
             JObj^ key = J::Obj(acc, "account");
-            String^ sim = J::Bool(acc, "simulated") ? " (SIMULATED)" : "";
-            account_->Set("#" + J::Str(key, "login") + sim, J::Str(key, "server") + (J::Bool(br, "healthy") ? " - connected" : " - heartbeat missing"),
-                          J::Bool(br, "healthy") ? (J::Bool(acc, "simulated") ? Theme::Warning : Theme::Success) : Theme::Danger);
+            account_->Set("#" + J::Str(key, "login"), J::Str(key, "server") + (J::Bool(br, "healthy") ? " - connected" : " - heartbeat missing"),
+                          J::Bool(br, "healthy") ? Theme::Success : Theme::Danger);
         } else if (bound != nullptr) {
             account_->Set("#" + J::Str(bound, "login"), J::Str(bound, "server") + " - terminal not connected", Theme::Warning);
         } else {
             account_->Set("Not paired", J::Str(br, "status"), Theme::TextMuted);
         }
         String^ mode = J::Str(s, "mode");
-        bool paused = J::Bool(s, "paused");
         String^ blocked = J::Str(s, "dispatchBlockedReason");
-        mode_->Set(paused ? "Paused" : "Live", blocked == "" ? "Ready to copy" : blocked, paused ? Theme::Warning : Theme::Success);
+        const bool userPaused = J::Bool(s, "userPaused");
+        mode_->Set(userPaused ? "Paused" : blocked == "" ? "Live" : "Not ready", blocked == "" ? "Ready to copy" : blocked,
+                   blocked == "" && !userPaused ? Theme::Success : Theme::Warning);
         JObj^ h = J::Obj(s, "health");
         bool journalOk = J::Bool(h, "journalHealthy", true);
         health_->Set(journalOk ? "Journal OK" : "Journal FAILED", J::Int(h, "diskFreeMb").ToString("N0") + " MB free" + (J::Arr(h, "staleQuotes")->Length > 0 ? " - stale quotes" : ""),
@@ -269,6 +300,57 @@ private:
     String^ lastFeed_;
     String^ lastErrors_;
     array<Object^>^ feedItems_;
+    GroupBox^ setup_;
+    Panel^ setupWrap_;
+    array<Badge^>^ stepBadges_;
+    array<Label^>^ stepTexts_;
+    array<Button^>^ stepButtons_;
+
+    void AddStep(TableLayoutPanel^ t, int i, String^ text, String^ button, int page) {
+        stepBadges_[i] = gcnew Badge();
+        stepBadges_[i]->Width = 86;
+        stepBadges_[i]->Margin = Windows::Forms::Padding(0, 6, 12, 2);
+        stepTexts_[i] = L::Text((i + 1).ToString() + ".  " + text);
+        stepTexts_[i]->Margin = Windows::Forms::Padding(0, 9, 16, 2);
+        stepButtons_[i] = L::Btn(button, Convert::ToString(page));
+        stepButtons_[i]->Click += gcnew EventHandler(this, &DashboardPage::OnStepClick);
+        t->Controls->Add(stepBadges_[i], 0, i);
+        t->Controls->Add(stepTexts_[i], 1, i);
+        t->Controls->Add(stepButtons_[i], 2, i);
+    }
+    void OnHideSetup(Object^, EventArgs^) {
+        SetupHidden = true;
+        setupWrap_->Visible = false;
+        JObj^ v = J::New();
+        v["ui.setupHidden"] = "true";
+        JObj^ p = J::New();
+        p["values"] = v;
+        if (Client != nullptr) Client->Call("settings.save", p, nullptr);
+    }
+    void OnStepClick(Object^ sender, EventArgs^) {
+        if (Navigate != nullptr) Navigate(Convert::ToInt32(safe_cast<Control^>(sender)->Tag));
+    }
+    void UpdateSetup(JObj^ st) {
+        if (st == nullptr) return;
+        array<Object^>^ missing = J::Arr(st, "parsersMissing");
+        const bool hasSources = J::Int(st, "sources") > 0;
+        array<bool>^ done = {J::Bool(st, "license"), J::Bool(st, "telegram"), hasSources, J::Bool(st, "metatrader"),
+                             hasSources && missing->Length == 0, J::Int(st, "symbolLimits") > 0};
+        bool all = true;
+        for (int i = 0; i < done->Length; ++i) {
+            all = all && done[i];
+            stepBadges_[i]->Set(done[i] ? "Done" : "To do", done[i] ? Theme::Success : Theme::Warning);
+            if (stepButtons_[i]->Visible == done[i]) stepButtons_[i]->Visible = !done[i];
+        }
+        String^ parsers = "5.  Request a parser for each channel. It installs by itself when ready.";
+        for (int i = 0; i < missing->Length; ++i) parsers += (i == 0 ? " Waiting for: " : ", ") + Convert::ToString(missing[i]);
+        SetText(stepTexts_[4], parsers);
+        const bool show = !all && !SetupHidden;
+        if (setupWrap_->Visible != show) {
+            setupWrap_->Visible = show;
+            setup_->Visible = show;
+        }
+    }
 
     static String^ TelegramText(String^ s) {
         if (s == "Ready") return "Connected";
@@ -334,7 +416,7 @@ private:
             String^ tickets = "";
             for each (Object^ tk in J::Arr(f, "tickets")) tickets += (tickets == "" ? "" : ",") + Convert::ToString(tk);
             String^ fill = J::Has(f, "requested") ? J::Fmt(J::Num(f, "requested"), 2) + " / " + J::Fmt(J::Num(f, "filled"), 2) : "";
-            String^ symbol = J::Str(f, "symbol") == "" ? "-" : J::Str(f, "symbol") + (J::Bool(f, "simulated") ? " (sim)" : "");
+            String^ symbol = J::Str(f, "symbol") == "" ? "-" : J::Str(f, "symbol");
             int idx = feed_->Rows->Add(gcnew array<Object^>{J::ShortTime(J::Int(f, "at")), J::Str(f, "source"), symbol, J::Str(f, "side"), J::Has(f, "lots") ? J::Fmt(J::Num(f, "lots"), 2) : "",
                                                               entry, J::Has(f, "sl") ? J::Fmt(J::Num(f, "sl")) : "", tps, J::Str(f, "state"), J::Str(f, "commandState"), fill, tickets,
                                                               J::Has(f, "spread") ? J::Fmt(J::Num(f, "spread")) : "", J::Has(f, "latencyMs") ? J::Fmt(J::Num(f, "latencyMs"), 1) + " ms" : "",

@@ -127,7 +127,6 @@ struct AccountSnapshot {
     MarginMode marginMode = MarginMode::Hedging;
     bool tradeAllowed = false;
     bool connected = false;
-    bool simulated = false;  // true when the peer is the fake terminal harness
     int copierOpenPositions = 0;
     int copierPendingOrders = 0;
     double copierOpenLots = 0;

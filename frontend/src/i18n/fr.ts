@@ -143,7 +143,7 @@ export const fr: Dict = {
     ],
     dashTitle: 'Un tableau de bord qui dit la vérité',
     dashText:
-      'Solde, équité, P/L latent et réalisé net de frais, un flux en direct de chaque signal et de son sort, et les percentiles de latence mesurés sur votre propre PC. Les données du courtier font foi ; les comptes simulés sont signalés.',
+      'Solde, équité, P/L latent et réalisé net de frais, un flux en direct de chaque signal et de son sort, et les percentiles de latence mesurés sur votre propre PC. Les données du courtier font foi.',
     equity: 'Équité',
     floating: 'P/L latent',
     latency: 'Latence p95',
