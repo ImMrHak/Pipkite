@@ -1,4 +1,4 @@
-// og.png + icons. npm run images
+// og.png. npm run images
 import sharp from 'sharp';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,16 +6,8 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pub = (f) => join(root, 'public', f);
 
-const logo = (size, radius) => `
-<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="${radius}" fill="#2f6fde"/>
-  <path d="m9 10 6 6-6 6M17 10l6 6-6 6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>`;
-
-await sharp(Buffer.from(logo(180, 0))).png().toFile(pub('apple-touch-icon.png'));
-await sharp(Buffer.from(logo(192, 7))).png().toFile(pub('icon-192.png'));
-await sharp(Buffer.from(logo(512, 7))).png().toFile(pub('icon-512.png'));
-await sharp(Buffer.from(logo(512, 0))).png().toFile(pub('icon-maskable-512.png'));
+// the icons in public/ come from ../brand (the logo set); this only builds the social image
+const brandLogo = join(root, '..', 'brand', 'svg', 'pipkite-logo-on-dark.svg');
 
 const W = 1200;
 const H = 630;
@@ -30,8 +22,6 @@ const bg = `
   <rect width="${W}" height="${H}" fill="url(#g1)"/>
   <rect width="${W}" height="${H}" fill="url(#g2)"/>
   <g font-family="Segoe UI, Inter, Arial, sans-serif">
-    <g transform="translate(64 64)">${logo(56, 8).replace('<svg', '<svg x="0" y="0"')}</g>
-    <text x="136" y="104" font-size="34" font-weight="600" fill="#eef1f6">Pipkite</text>
     <text x="64" y="232" font-size="64" font-weight="700" fill="#eef1f6" letter-spacing="-1.5">Telegram signals</text>
     <text x="64" y="308" font-size="64" font-weight="700" fill="#eef1f6" letter-spacing="-1.5">to MetaTrader 5</text>
     <text x="64" y="384" font-size="64" font-weight="700" fill="url(#t)" letter-spacing="-1.5">in 4.3 ms</text>
@@ -51,10 +41,11 @@ const frame = Buffer.from(
 
 await sharp(Buffer.from(bg))
   .composite([
+    { input: await sharp(brandLogo, { density: 40 }).resize({ width: 250 }).toBuffer(), left: 64, top: 58 },
     { input: frame, left: 618, top: 168 },
     { input: shot, left: 620, top: 170 },
   ])
   .png({ compressionLevel: 9, palette: false })
   .toFile(pub('og.png'));
 
-console.log('wrote og.png, apple-touch-icon.png, icon-192.png, icon-512.png, icon-maskable-512.png');
+console.log('wrote og.png');

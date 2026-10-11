@@ -353,12 +353,12 @@ protected:
     virtual void OnPaint(PaintEventArgs^ e) override { e->Graphics->FillRectangle(gcnew SolidBrush(Theme::Border), ClientRectangle); }
 };
 
-// Brand mark: accent rounded square with a relay chevron (drawn, no image resources).
+// Brand mark: the Pipkite kite, drawn from the logo's 1000-unit outline (brand/svg/pipkite-symbol.svg).
 public ref class BrandMark : public Control {
 public:
     BrandMark() {
         SetStyle(ControlStyles::OptimizedDoubleBuffer | ControlStyles::AllPaintingInWmPaint | ControlStyles::UserPaint, true);
-        Size = Drawing::Size(26, 26);
+        Size = Drawing::Size(28, 28);
         Tag = "keep";
         TabStop = false;
         AccessibleName = "Pipkite";
@@ -369,15 +369,28 @@ protected:
         Graphics^ g = e->Graphics;
         g->Clear(Parent != nullptr ? Parent->BackColor : Theme::Bg);
         g->SmoothingMode = SmoothingMode::AntiAlias;
-        RectangleF r(0.5f, 0.5f, Width - 1.0f, Height - 1.0f);
-        g->FillPath(Theme::AccentBrush, Theme::RoundRect(r, r.Width * 0.24f));
-        Pen^ p = gcnew Pen(Theme::AccentText, Math::Max(2.0f, Width / 12.0f));
+        const float k = Math::Min(Width, Height) / 990.0f;
+        Fill(g, k, Color::FromArgb(0x2D, 0x72, 0xF4), gcnew array<float>{355, 295, 935, 50, 692, 394, 650, 378});
+        Fill(g, k, Color::FromArgb(0x20, 0x66, 0xEA), gcnew array<float>{355, 295, 650, 378, 318, 612});
+        Fill(g, k, Color::FromArgb(0xA8, 0x8C, 0xF8), gcnew array<float>{935, 50, 880, 585, 692, 394});
+        Fill(g, k, Color::FromArgb(0x71, 0x60, 0xEE), gcnew array<float>{692, 394, 880, 585, 490, 788});
+        Color line = Color::FromArgb(0x4A, 0x78, 0xF6);
+        Pen^ p = gcnew Pen(line, 62 * k);
         p->StartCap = LineCap::Round;
         p->EndCap = LineCap::Round;
-        p->LineJoin = LineJoin::Round;
-        const float w = r.Width;
-        for each (float off in gcnew array<float>{0.26f, 0.48f})
-            g->DrawLines(p, gcnew array<PointF>{PointF(r.X + w * off, r.Y + w * 0.30f), PointF(r.X + w * (off + 0.19f), r.Y + w * 0.50f), PointF(r.X + w * off, r.Y + w * 0.70f)});
+        g->DrawLine(p, At(378, 710, k), At(110, 905, k));
+        SolidBrush^ b = gcnew SolidBrush(line);
+        g->FillEllipse(b, (378 + 5 - 68) * k, (708 - 15 - 68) * k, 136 * k, 136 * k);
+        g->FillEllipse(b, (110 + 5 - 70) * k, (905 - 15 - 70) * k, 140 * k, 140 * k);
+    }
+
+private:
+    // the outline's box starts at (-5, 15)
+    static PointF At(float x, float y, float k) { return PointF((x + 5) * k, (y - 15) * k); }
+    static void Fill(Graphics^ g, float k, Color c, array<float>^ xy) {
+        array<PointF>^ pts = gcnew array<PointF>(xy->Length / 2);
+        for (int i = 0; i < pts->Length; ++i) pts[i] = At(xy[2 * i], xy[2 * i + 1], k);
+        g->FillPolygon(gcnew SolidBrush(c), pts);
     }
 };
 

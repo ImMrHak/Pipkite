@@ -6,15 +6,14 @@ const { class: className = '' } = Astro.props;
 ---
 
 <span class:list={['inline-flex items-center gap-2.5 font-semibold tracking-tight', className]}>
-  <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
-    <rect width="32" height="32" rx="8" fill="var(--accent)"></rect>
-    <path
-      d="m9 10 6 6-6 6M17 10l6 6-6 6"
-      fill="none"
-      stroke="#fff"
-      stroke-width="2.6"
-      stroke-linecap="round"
-      stroke-linejoin="round"></path>
+  <svg width="30" height="30" viewBox="-5 15 990 990" aria-hidden="true">
+    <polygon points="355,295 935,50 692,394 650,378" fill="#2D72F4"></polygon>
+    <polygon points="355,295 650,378 318,612" fill="#2066EA"></polygon>
+    <polygon points="935,50 880,585 692,394" fill="#A88CF8"></polygon>
+    <polygon points="692,394 880,585 490,788" fill="#7160EE"></polygon>
+    <line x1="378" y1="710" x2="110" y2="905" stroke="#4A78F6" stroke-width="62" stroke-linecap="round"></line>
+    <circle cx="378" cy="708" r="68" fill="#4A78F6"></circle>
+    <circle cx="110" cy="905" r="70" fill="#4A78F6"></circle>
   </svg>
-  <span>Pipkite</span>
+  <span>Pip<span class="text-accent">kite</span></span>
 </span>

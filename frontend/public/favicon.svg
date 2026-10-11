@@ -1,1 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#2f6fde"/><path d="m9 10 6 6-6 6M17 10l6 6-6 6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 15 990 990"><defs>
+  <linearGradient id="pkTop" x1="355" y1="295" x2="935" y2="50" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2A66EC"/><stop offset="1" stop-color="#3B8BFF"/></linearGradient>
+  <linearGradient id="pkLeft" x1="318" y1="612" x2="650" y2="378" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1E62E4"/><stop offset="1" stop-color="#2569EC"/></linearGradient>
+  <linearGradient id="pkLight" x1="935" y1="50" x2="790" y2="500" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#B89AFC"/><stop offset="1" stop-color="#9A80F5"/></linearGradient>
+  <linearGradient id="pkLow" x1="490" y1="788" x2="880" y2="585" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6A5DEC"/><stop offset="1" stop-color="#7C66F0"/></linearGradient>
+  <linearGradient id="pkStr" x1="110" y1="905" x2="378" y2="710" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3A72F5"/><stop offset="1" stop-color="#5A7EF8"/></linearGradient></defs>
+  <polygon points="355,295 935,50 692,394 650,378" fill="url(#pkTop)"/>
+  <polygon points="355,295 650,378 318,612" fill="url(#pkLeft)"/>
+  <polygon points="935,50 880,585 692,394" fill="url(#pkLight)"/>
+  <polygon points="692,394 880,585 490,788" fill="url(#pkLow)"/>
+  <line x1="378" y1="710" x2="110" y2="905" stroke="url(#pkStr)" stroke-width="62" stroke-linecap="round"/>
+  <circle cx="378" cy="708" r="68" fill="url(#pkStr)"/>
+  <circle cx="110" cy="905" r="70" fill="url(#pkStr)"/></svg>
