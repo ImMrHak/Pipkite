@@ -3,6 +3,8 @@
 Copy trading signals from Telegram to MetaTrader 5, automatically and fast (about 4 ms from message to order).
 Free for everyone, including the AI review of every signal.
 
+**Website: [pipkite.com](https://pipkite.com)** · [Download](https://github.com/ImMrHak/Pipkite/releases/latest) · [Free license key](https://pipkite.com/license)
+
 ![Dashboard](docs/images/dashboard.png)
 
 ## What it does
@@ -16,8 +18,9 @@ Free for everyone, including the AI review of every signal.
 
 ## Get it
 
-1. Download the installer from the website (or build it, see below). Windows 10/11, 64-bit.
-2. Get a free license key on the website. It unlocks parsers, AI review and updates.
+1. Download the installer from [pipkite.com](https://pipkite.com/download) or
+   [GitHub Releases](https://github.com/ImMrHak/Pipkite/releases/latest) (or build it, see below). Windows 10/11, 64-bit.
+2. Get a free license key at [pipkite.com/license](https://pipkite.com/license). It unlocks parsers, AI review and updates.
 3. Follow the setup wizard: Telegram, MetaTrader 5, your channels, a test message.
 
 Use a demo account first. No copier can guarantee fills or profits.

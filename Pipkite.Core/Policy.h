@@ -42,7 +42,7 @@ struct AccountLimits {
 };
 
 struct AiSettings {
-    std::string endpoint = "http://localhost:8080/api/v1/ai/suggest";
+    std::string endpoint = "https://pipkite.com/api/v1/ai/suggest";
     int backendGateDeadlineMs = 250;
     double gateAcceptThreshold = 0.6;    // minimum score for "Good" to pass a gate
     std::string gateTimeoutAction = "review";  // review | skip

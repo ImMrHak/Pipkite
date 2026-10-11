@@ -5,9 +5,9 @@ export const VERSION = '1.0.0';
 export const CONTENT_UPDATED = '2026-10-11';
 
 // empty = hidden
-export const CONTACT_EMAIL = '';
+export const CONTACT_EMAIL = 'support@pipkite.com';
 // official profiles for schema.org sameAs
-export const SAME_AS: string[] = [];
+export const SAME_AS: string[] = ['https://github.com/ImMrHak/Pipkite'];
 export const RELEASE_DATE = '2026-09-30';
 
 const downloadBase = (import.meta.env.PUBLIC_DOWNLOAD_BASE ?? '/downloads').replace(/\/$/, '');
@@ -20,14 +20,14 @@ export const DOWNLOADS = {
   installer: {
     name: `Pipkite-${VERSION}-setup.exe`,
     url: `${downloadBase}/Pipkite-${VERSION}-setup.exe`,
-    size: '30.9 MB',
-    sha256: 'b9211f78786d8fb7fa1a7564eb1ddd3559f846a672ffe3d11c8d6919cde05fdd',
+    size: '29.2 MB',
+    sha256: 'aa144b106b5199fda34ee9cd3ee30c7a634f4c3bf919aef91ac016a5ffdea087',
   },
   portable: {
     name: `Pipkite-${VERSION}-win-x64.zip`,
     url: `${downloadBase}/Pipkite-${VERSION}-win-x64.zip`,
-    size: '35.1 MB',
-    sha256: 'dd654642d07c76b2c30b0837b7713d8d9de9824059e9edf7981d2d505c4b8631',
+    size: '33.1 MB',
+    sha256: 'a7ede86eb6722e76ad414f9bdd02c091a31fe78d710f4ca72cdf81d6209bcecf',
   },
 } as const;
 

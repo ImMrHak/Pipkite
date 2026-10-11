@@ -10,7 +10,7 @@ import { THEME_SCRIPT } from './src/theme-script.mjs';
 const env = loadEnv(process.env.NODE_ENV ?? 'production', process.cwd(), '');
 
 // must be the real domain in prod (canonicals, sitemap, og)
-const site = (env.SITE_URL || 'https://pipkite.example.com').replace(/\/$/, '');
+const site = (env.SITE_URL || 'https://pipkite.com').replace(/\/$/, '');
 
 // only needed when the API lives on another origin
 const apiOrigin = /^https?:\/\//.test(env.PUBLIC_API_BASE ?? '') ? new URL(env.PUBLIC_API_BASE).origin : null;

@@ -77,6 +77,7 @@ export const es: Dict = {
     guide: 'Cómo copiar señales de Telegram a MT5',
     faq: 'Preguntas frecuentes',
     privacy: 'Privacidad',
+    source: 'Código fuente (GitHub)',
     riskTitle: 'Aviso de riesgo.',
     risk: 'Operar con productos apalancados como forex y CFD conlleva un alto riesgo de pérdida. Pipkite copia señales; no puede garantizar ejecuciones ni beneficios, y la revisión con IA es una primera versión que puede equivocarse. Prueba primero en una cuenta demo.',
     legal: (year: number) =>

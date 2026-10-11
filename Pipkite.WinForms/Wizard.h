@@ -235,7 +235,7 @@ public:
     }
 
 private:
-    static String^ kDefaultPortal = "https://pipkite.example.com/get-license";  // placeholder; set license.portalUrl in Settings
+    static String^ kDefaultPortal = "https://pipkite.com/license";  // license.portalUrl in Settings overrides it
     EngineClient^ client_;
     array<String^, 2>^ steps_;
     int step_;

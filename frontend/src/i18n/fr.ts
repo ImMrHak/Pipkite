@@ -77,6 +77,7 @@ export const fr: Dict = {
     guide: 'Copier les signaux Telegram vers MT5',
     faq: 'FAQ',
     privacy: 'Confidentialité',
+    source: 'Code source (GitHub)',
     riskTitle: 'Avertissement sur les risques.',
     risk: 'Le trading de produits à effet de levier comme le forex et les CFD comporte un risque élevé de perte. Pipkite copie des signaux ; il ne peut garantir ni exécution ni profit, et la revue IA est une première version qui peut se tromper. Testez d’abord sur un compte démo.',
     legal: (year: number) =>

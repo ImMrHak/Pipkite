@@ -78,6 +78,7 @@ export const en = {
     guide: 'How to copy Telegram signals to MT5',
     faq: 'FAQ',
     privacy: 'Privacy',
+    source: 'Source code (GitHub)',
     riskTitle: 'Risk notice.',
     risk: 'Trading leveraged products such as forex and CFDs carries a high risk of loss. Pipkite copies signals; it cannot guarantee fills or profits, and AI reviews are an early version that can be wrong. Test on a demo account first.',
     legal: (year: number) =>
