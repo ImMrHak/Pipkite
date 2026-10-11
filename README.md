@@ -60,4 +60,10 @@ secrets or local data.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Third-party notices: [third_party/THIRD_PARTY_NOTICES.md](third_party/THIRD_PARTY_NOTICES.md).
+Copyright (C) 2026 Mohamed Hakkou & Yassine Belouchi. GPL-3.0, see [LICENSE](LICENSE): you can use, study, change
+and share Pipkite, and any copy you distribute, changed or not, must stay open source under the same license.
+
+The Pipkite name and logo are not covered by the license. If you publish a modified version, give it a different
+name and logo.
+
+Third-party notices: [third_party/THIRD_PARTY_NOTICES.md](third_party/THIRD_PARTY_NOTICES.md).

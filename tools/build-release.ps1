@@ -4,7 +4,7 @@
   (portable zip + Inno Setup installer).
 
 .DESCRIPTION
-  Release protection / compatibility steps (see docs\release-protection.md):
+  Release hardening / compatibility steps:
    - Native Release binaries are built with High-Entropy ASLR, DEP and Control Flow Guard (Pipkite.Native.props).
    - Binaries are Authenticode-signed (tools\sign-release.ps1) so Windows Security (SmartScreen / Smart App
      Control) does not block them. By default this uses a free, persistent self-signed certificate; the
