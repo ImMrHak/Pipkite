@@ -5,8 +5,10 @@
 #include <tlhelp32.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cwctype>
 #include <stdexcept>
+#include <vector>
 
 #include "Pipkite.Protocol/Platform.h"
 
@@ -64,6 +66,100 @@ bool samePath(const fs::path& a, const fs::path& b) {
     return lower(fs::absolute(a, ec).lexically_normal().wstring()) == lower(fs::absolute(b, ec).lexically_normal().wstring());
 }
 
+std::wstring regString(HKEY key, const wchar_t* name) {
+    wchar_t buf[MAX_PATH * 2];
+    DWORD size = sizeof(buf);
+    if (RegGetValueW(key, nullptr, name, RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ, nullptr, buf, &size) != ERROR_SUCCESS) return {};
+    return buf;
+}
+
+// Brokers ship MT5 under their own names (HFM, IC Markets, ...), so every uninstall entry is checked for terminal64.exe.
+void addRegistryInstallDirs(std::vector<fs::path>& dirs) {
+    const struct { HKEY root; REGSAM view; } hives[] = {
+        {HKEY_LOCAL_MACHINE, KEY_WOW64_64KEY}, {HKEY_LOCAL_MACHINE, KEY_WOW64_32KEY}, {HKEY_CURRENT_USER, 0}};
+    for (const auto& h : hives) {
+        HKEY uninstall;
+        if (RegOpenKeyExW(h.root, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", 0, KEY_READ | h.view, &uninstall) != ERROR_SUCCESS) continue;
+        wchar_t name[256];
+        for (DWORD i = 0;; ++i) {
+            DWORD n = static_cast<DWORD>(std::size(name));
+            if (RegEnumKeyExW(uninstall, i, name, &n, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
+            HKEY app;
+            if (RegOpenKeyExW(uninstall, name, 0, KEY_QUERY_VALUE | h.view, &app) != ERROR_SUCCESS) continue;
+            std::wstring location = regString(app, L"InstallLocation");
+            std::wstring icon = regString(app, L"DisplayIcon");  // "C:\...\terminal64.exe,0" when InstallLocation is empty
+            RegCloseKey(app);
+            for (std::wstring* s : {&location, &icon}) s->erase(std::remove(s->begin(), s->end(), L'"'), s->end());
+            if (const auto comma = icon.find(L','); comma != std::wstring::npos) icon.resize(comma);
+            if (!location.empty()) dirs.emplace_back(trim(location));
+            if (lower(fs::path(icon).filename().wstring()) == L"terminal64.exe") dirs.push_back(fs::path(trim(icon)).parent_path());
+        }
+        RegCloseKey(uninstall);
+    }
+}
+
+// Installs without an uninstall entry (copied folders, portable setups) one level under Program Files.
+void addProgramFilesInstallDirs(std::vector<fs::path>& dirs) {
+    for (const KNOWNFOLDERID& id : {FOLDERID_ProgramFiles, FOLDERID_ProgramFilesX86, FOLDERID_UserProgramFiles}) {
+        PWSTR root = nullptr;
+        if (FAILED(SHGetKnownFolderPath(id, 0, nullptr, &root))) continue;
+        const fs::path r(root);
+        CoTaskMemFree(root);
+        std::error_code ec;
+        for (auto& d : fs::directory_iterator(r, ec))
+            if (d.is_directory(ec) && fs::exists(d.path() / L"terminal64.exe", ec)) dirs.push_back(d.path());
+    }
+}
+
+fs::path dataRoot() {
+    fs::path root;
+    PWSTR roaming = nullptr;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &roaming))) root = fs::path(roaming) / L"MetaQuotes" / L"Terminal";
+    CoTaskMemFree(roaming);
+    return root;
+}
+
+// Broker builds keep MetaQuotes' version info ("MetaTrader 5 Client Terminal"); name gets the first name found.
+bool isMt5Program(const fs::path& exe, std::wstring& name) {
+    DWORD handle = 0;
+    const DWORD size = GetFileVersionInfoSizeW(exe.c_str(), &handle);
+    if (size == 0) return false;
+    std::vector<char> info(size);
+    if (!GetFileVersionInfoW(exe.c_str(), 0, size, info.data())) return false;
+    struct Translation { WORD lang, codePage; }* tr = nullptr;
+    UINT len = 0;
+    if (!VerQueryValueW(info.data(), L"\\VarFileInfo\\Translation", reinterpret_cast<void**>(&tr), &len) || len < sizeof(Translation)) return false;
+    for (const wchar_t* field : {L"ProductName", L"InternalName", L"FileDescription"}) {
+        wchar_t query[96];
+        swprintf_s(query, L"\\StringFileInfo\\%04x%04x\\%s", tr->lang, tr->codePage, field);
+        wchar_t* value = nullptr;
+        UINT n = 0;
+        if (!VerQueryValueW(info.data(), query, reinterpret_cast<void**>(&value), &n) || n == 0) continue;
+        if (name.empty()) name = value;
+        if (lower(value).find(L"metatrader 5") != std::wstring::npos) return true;
+    }
+    return false;
+}
+
+bool canWrite(const fs::path& dir) {
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    const fs::path probe = dir / L".pipkite-write-test";
+    const bool ok = platform::writeFileAtomic(probe.wstring(), "ok");
+    fs::remove(probe, ec);
+    return ok;
+}
+
+void start(const fs::path& exe, std::wstring cmd) {
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
+    PROCESS_INFORMATION pi{};
+    if (!CreateProcessW(exe.c_str(), cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, exe.parent_path().c_str(), &si, &pi))
+        throw std::runtime_error("Could not start MetaTrader (error " + std::to_string(GetLastError()) + ").");
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+}
+
 }  // namespace
 
 fs::path exeForDataPath(const fs::path& dataPath) {
@@ -104,27 +200,90 @@ bool activeProfileHasEa(const fs::path& dataPath) {
     return false;
 }
 
-json detectTerminals() {
+json detectTerminals(const fs::path& dataRoot, const std::vector<fs::path>& installDirs) {
     json arr = json::array();
-    PWSTR roaming = nullptr;
-    if (FAILED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &roaming))) return arr;
-    fs::path root = fs::path(roaming) / L"MetaQuotes" / L"Terminal";
-    CoTaskMemFree(roaming);
-    std::error_code ec;
-    for (auto& d : fs::directory_iterator(root, ec)) {
-        if (!d.is_directory() || !fs::exists(d.path() / L"MQL5")) continue;
-        const fs::path exe = exeForDataPath(d.path());
-        arr.push_back({{"dataPath", platform::narrow(d.path().wstring())},
+    std::vector<fs::path> listed;  // terminal64.exe paths already in arr
+    auto add = [&](const fs::path& dataPath, const fs::path& exe, bool portable) {
+        const bool hasData = !dataPath.empty();
+        arr.push_back({{"dataPath", platform::narrow(dataPath.wstring())},
                        {"origin", exe.empty() ? "" : platform::narrow(exe.parent_path().wstring())},
                        {"exePath", platform::narrow(exe.wstring())},
                        {"exeFound", !exe.empty() && fs::exists(exe)},
-                       {"portable", false},
+                       {"portable", portable},
+                       {"needsFirstRun", !hasData},
                        {"running", isRunning(exe)},
-                       {"hasEA", fs::exists(d.path() / L"MQL5\\Experts\\Pipkite\\PipkiteEA.ex5")},
-                       {"hasDll", fs::exists(d.path() / L"MQL5\\Libraries\\MT5BridgeHost.dll")}});
+                       {"hasEA", hasData && fs::exists(dataPath / L"MQL5\\Experts\\Pipkite\\PipkiteEA.ex5")},
+                       {"hasDll", hasData && fs::exists(dataPath / L"MQL5\\Libraries\\MT5BridgeHost.dll")}});
+        if (!exe.empty()) listed.push_back(exe);
+    };
+    std::error_code ec;
+    for (auto& d : fs::directory_iterator(dataRoot, ec)) {
+        if (!d.is_directory() || !fs::exists(d.path() / L"MQL5")) continue;
+        add(d.path(), exeForDataPath(d.path()), false);
+    }
+    // Installs not covered by a data folder: portable ones keep MQL5 beside terminal64.exe, the rest were never opened.
+    for (const fs::path& dir : installDirs) {
+        const fs::path exe = dir / L"terminal64.exe";
+        if (!fs::exists(exe, ec) || std::any_of(listed.begin(), listed.end(), [&](const fs::path& p) { return samePath(p, exe); })) continue;
+        const bool portable = fs::exists(dir / L"MQL5", ec);
+        add(portable ? dir : fs::path(), exe, portable);
     }
     return arr;
 }
+
+json detectTerminals(const std::vector<fs::path>& extraInstallDirs) {
+    std::vector<fs::path> installDirs = extraInstallDirs;
+    addRegistryInstallDirs(installDirs);
+    addProgramFilesInstallDirs(installDirs);
+    return detectTerminals(dataRoot(), installDirs);
+}
+
+json checkFolder(const fs::path& folder, const fs::path& terminalsRoot) {
+    json checks = json::array();
+    bool ok = true;
+    auto check = [&](const char* name, bool passed, const std::string& detail) {
+        checks.push_back({{"name", name}, {"ok", passed}, {"detail", detail}});
+        ok = ok && passed;
+    };
+    fs::path exe = folder / L"terminal64.exe";
+    std::error_code ec;
+    if (!fs::exists(exe, ec)) {
+        const fs::path viaOrigin = exeForDataPath(folder);  // the data folder was chosen instead of the install folder
+        if (!viaOrigin.empty() && fs::exists(viaOrigin, ec)) exe = viaOrigin;
+    }
+    if (!fs::exists(exe, ec)) {
+        check("MetaTrader 5 program", false,
+              fs::exists(folder / L"terminal.exe", ec) ? "This folder has MetaTrader 4 (terminal.exe). Pipkite works with MetaTrader 5 only."
+                                                       : "No terminal64.exe in this folder. Choose the folder MetaTrader 5 is installed in, for example "
+                                                         "C:\\Program Files\\<your broker> MetaTrader 5.");
+        return {{"ok", false}, {"terminal", nullptr}, {"checks", checks}};
+    }
+    check("MetaTrader 5 program", true, platform::narrow(exe.wstring()));
+    std::wstring name;
+    const bool mt5 = isMt5Program(exe, name);
+    check("Is MetaTrader 5", mt5,
+          mt5 ? platform::narrow(name)
+              : name.empty() ? "terminal64.exe has no MetaTrader version information."
+                             : "terminal64.exe reports \"" + platform::narrow(name) + "\", not MetaTrader 5.");
+
+    json terminal = nullptr;
+    for (const json& t : detectTerminals(terminalsRoot, {exe.parent_path()}))
+        if (samePath(platform::widen(t["exePath"].get<std::string>()), exe)) terminal = t;
+    if (terminal.is_null() || terminal["needsFirstRun"].get<bool>()) {
+        check("Data folder", true, "Not created yet: MetaTrader creates it on its first start, which Start MetaTrader does for you.");
+    } else {
+        const std::string dataPath = terminal["dataPath"];
+        check("Data folder", true, dataPath);
+        const bool writable = canWrite(fs::path(platform::widen(dataPath)) / L"MQL5\\Libraries");
+        check("Pipkite can install its EA and bridge", writable,
+              writable ? "The MQL5 folder is writable."
+                       : "Windows refuses writes to " + dataPath + "\\MQL5, so the EA and bridge can't be installed and MetaTrader can't reach Pipkite. "
+                         "Use a MetaTrader folder your Windows account can write to (a portable MetaTrader inside Program Files is not).");
+    }
+    return {{"ok", ok}, {"terminal", terminal}, {"checks", checks}};
+}
+
+json checkFolder(const fs::path& folder) { return checkFolder(folder, dataRoot()); }
 
 json installEa(const fs::path& installDir, const fs::path& dataPath) {
     if (!fs::exists(dataPath / L"MQL5")) throw std::runtime_error("Not an MT5 data folder (MQL5 subfolder missing)");
@@ -153,6 +312,16 @@ json installEa(const fs::path& installDir, const fs::path& dataPath) {
 }
 
 json launch(const LaunchRequest& r) {
+    if (r.dataPath.empty() && !r.exePath.empty()) {
+        // A never-opened install has no data folder yet: MetaTrader creates it on its first start.
+        if (!fs::exists(r.exePath)) throw std::runtime_error("terminal64.exe was not found. Reinstall MetaTrader 5 or choose another terminal.");
+        if (!isRunning(r.exePath)) start(r.exePath, L"\"" + r.exePath.wstring() + L"\"");
+        return {{"state", "firstRun"},
+                {"attached", false},
+                {"exePath", platform::narrow(r.exePath.wstring())},
+                {"message", "MetaTrader is opening for the first time to create its data folder. Log in to your account, close MetaTrader, "
+                            "then click Detect and Start again."}};
+    }
     if (r.dataPath.empty() || !fs::exists(r.dataPath / L"MQL5")) throw std::runtime_error("Choose a MetaTrader 5 terminal first.");
     const fs::path exe = r.exePath.empty() ? exeForDataPath(r.dataPath) : r.exePath;
     if (exe.empty() || !fs::exists(exe)) throw std::runtime_error("terminal64.exe was not found for this data folder. Reinstall MetaTrader 5 or choose another terminal.");
@@ -176,14 +345,7 @@ json launch(const LaunchRequest& r) {
     if (!writeUtf16(iniPath, ini)) throw std::runtime_error("Could not write the MetaTrader startup configuration.");
 
     const bool portable = samePath(exe.parent_path(), r.dataPath);
-    std::wstring cmd = L"\"" + exe.wstring() + L"\" /config:\"" + iniPath.wstring() + L"\"" + (portable ? L" /portable" : L"");
-    STARTUPINFOW si{};
-    si.cb = sizeof(si);
-    PROCESS_INFORMATION pi{};
-    if (!CreateProcessW(exe.c_str(), cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, exe.parent_path().c_str(), &si, &pi))
-        throw std::runtime_error("Could not start MetaTrader (error " + std::to_string(GetLastError()) + ").");
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
+    start(exe, L"\"" + exe.wstring() + L"\" /config:\"" + iniPath.wstring() + L"\"" + (portable ? L" /portable" : L""));
     return {{"state", "started"},
             {"attached", attach},
             {"exePath", platform::narrow(exe.wstring())},

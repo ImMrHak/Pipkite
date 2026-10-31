@@ -88,9 +88,11 @@ public:
         start->Click += gcnew EventHandler(this, &MetaTraderPage::OnStart);
         Button^ detect = L::Btn("Refresh", nullptr, "Look again for open MetaTrader 5 terminals.");
         detect->Click += gcnew EventHandler(this, &MetaTraderPage::OnDetect);
+        Button^ browse = L::Btn("Choose folder...", nullptr, "MetaTrader not listed? Choose the folder it is installed in (the one with terminal64.exe). Pipkite checks it can work with it.");
+        browse->Click += gcnew EventHandler(this, &MetaTraderPage::OnBrowse);
         symbol_ = L::Box(110);  // EA chart symbol: internal only, not shown to the user
         symbol_->Text = "EURUSD";
-        term->Controls->Add(L::Row(start, detect));
+        term->Controls->Add(L::Row(start, detect, browse));
         autoLaunch_ = L::Check("Start MetaTrader automatically when Pipkite starts");
         autoLaunch_->CheckedChanged += gcnew EventHandler(this, &MetaTraderPage::OnAutoLaunchChanged);
         term->Controls->Add(autoLaunch_);
@@ -170,6 +172,15 @@ public:
                       "   " + J::Str(br, "status");
         String^ ts = J::Str(J::Obj(s, "terminal"), "status");
         if (terminalStatus_->Text != ts) terminalStatus_->Text = ts;
+        if (verifyUntil_ != DateTime::MinValue && (connected || DateTime::Now > verifyUntil_)) {
+            verifyUntil_ = DateTime::MinValue;
+            if (connected) ShowInfo("MetaTrader connected", "Connection verified: MetaTrader and the Pipkite EA are talking to Pipkite.");
+            else ShowError("MetaTrader did not connect to Pipkite within 2 minutes. In MetaTrader check that:\n\n"
+                           "  -  you are logged in to your broker account\n"
+                           "  -  the Pipkite EA is on a chart (smiley face at the top right)\n"
+                           "  -  Algo Trading is on and \"Allow DLL imports\" is ticked (Tools > Options > Expert Advisors)\n"
+                           "  -  MetaTrader runs under the same Windows user as Pipkite");
+        }
         if ((DateTime::Now - lastStatus_).TotalSeconds > 2) {
             lastStatus_ = DateTime::Now;
             Client->Call("mt5.status", nullptr, gcnew ResponseHandler(this, &MetaTraderPage::OnStatus));
@@ -182,6 +193,8 @@ private:
     CheckBox^ autoLaunch_;
     Label ^ terminalStatus_, ^pairSteps_;
     String^ savedDataPath_;
+    String^ chosenExe_;     // terminal picked with Choose folder: selected after the next refresh
+    DateTime verifyUntil_;  // after Start: wait for the bridge to connect until then (MinValue = not waiting)
     bool loading_;
     Badge^ bridge_;
     Label ^ bound_, ^pending_, ^impl_, ^chanStatus_;
@@ -209,11 +222,14 @@ private:
         terminals_->Rows->Clear();
         for each (Object^ o in J::Arr(result)) {
             JObj^ t = J::Obj(o);
-            String^ state = !J::Bool(t, "exeFound") ? "terminal64.exe not found" : J::Bool(t, "running") ? "Running" : "Not running";
+            String^ state = !J::Bool(t, "exeFound")       ? "terminal64.exe not found"
+                            : J::Bool(t, "needsFirstRun") ? "Installed, never opened: Start opens it once to finish setup"
+                            : J::Bool(t, "running")       ? "Running"
+                                                          : "Not running";
             if (J::Bool(t, "hasEA") && J::Bool(t, "hasDll")) state += "  ·  EA installed";
             int idx = terminals_->Rows->Add(gcnew array<Object^>{J::Str(t, "origin") == "" ? "(unknown installation)" : J::Str(t, "origin"), state});
             terminals_->Rows[idx]->Tag = t;
-            if (J::Str(t, "dataPath") == savedDataPath_) terminals_->Rows[idx]->Selected = true;
+            if (chosenExe_ != nullptr ? J::Str(t, "exePath") == chosenExe_ : J::Str(t, "dataPath") == savedDataPath_) terminals_->Rows[idx]->Selected = true;
         }
         if (terminals_->Rows->Count == 1) terminals_->Rows[0]->Selected = true;
         terminals_->EmptyText = "No MetaTrader 5 terminal found for this Windows user. Install MetaTrader 5 from your broker and open it once.";
@@ -252,7 +268,10 @@ private:
             terminalStatus_->Text = error;
             return ShowError(error);
         }
-        terminalStatus_->Text = J::Str(J::Obj(result), "message");
+        JObj^ r = J::Obj(result);
+        terminalStatus_->Text = J::Str(r, "message");
+        // first start only creates the data folder; otherwise prove the EA really reaches Pipkite
+        if (J::Str(r, "state") != "firstRun") verifyUntil_ = DateTime::Now.AddMinutes(2);
         OnDetect(nullptr, nullptr);
     }
 
@@ -280,19 +299,27 @@ private:
 
     void OnBrowse(Object^, EventArgs^) {
         FolderBrowserDialog^ d = gcnew FolderBrowserDialog();
-        d->Description = "Select the MT5 data folder (File > Open Data Folder in MetaTrader)";
+        d->Description = "Choose the folder MetaTrader 5 is installed in (it contains terminal64.exe)";
         if (d->ShowDialog(FindForm()) != DialogResult::OK) return;
         JObj^ p = J::New();
-        p["dataPath"] = d->SelectedPath;
-        Client->Call("mt5.installEA", p, gcnew ResponseHandler(this, &MetaTraderPage::OnInstalled));
+        p["folder"] = d->SelectedPath;
+        terminalStatus_->Text = "Checking " + d->SelectedPath + "...";
+        Client->Call("mt5.checkFolder", p, gcnew ResponseHandler(this, &MetaTraderPage::OnFolderChecked));
     }
 
-    void OnInstalled(bool ok, Object^ result, String^ error) {
+    void OnFolderChecked(bool ok, Object^ result, String^ error) {
         if (!ok) return ShowError(error);
         JObj^ r = J::Obj(result);
-        String^ files = "";
-        for each (Object^ f in J::Arr(r, "copied")) files += Convert::ToString(f) + "  ";
-        ShowInfo("EA installed", "Copied: " + files + "\n\n" + J::Str(r, "next"));
+        String^ report = "";
+        for each (Object^ o in J::Arr(r, "checks")) {
+            JObj^ c = J::Obj(o);
+            report += (J::Bool(c, "ok") ? "OK      " : "FAILED  ") + J::Str(c, "name") + "\n          " + J::Str(c, "detail") + "\n";
+        }
+        if (!J::Bool(r, "ok")) return ShowError("Pipkite can't use this folder:\n\n" + report);
+        chosenExe_ = J::Str(J::Obj(r, "terminal"), "exePath");
+        String^ next = J::Bool(r, "bridgeConnected") ? "MetaTrader is already connected to Pipkite."
+                                                      : "Click Start MetaTrader: Pipkite installs its EA, opens MetaTrader and confirms the connection.";
+        ShowInfo("MetaTrader 5 found", report + "\n" + next);
         OnDetect(nullptr, nullptr);
     }
 

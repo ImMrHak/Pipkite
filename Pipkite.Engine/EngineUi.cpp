@@ -115,7 +115,7 @@ void Engine::onUiConnection(std::shared_ptr<ipc::PipeConnection> c) {
             }
             c->send(body, 5000);
         };
-        static const std::set<std::string> slow{"data.backup", "data.importPreview", "data.exportReport", "ai.test", "mt5.installEA", "mt5.launch", "mt5.detectTerminals", "parser.requestCustom", "license.validate", "telegram.deleteSession", "parser.test",
+        static const std::set<std::string> slow{"data.backup", "data.importPreview", "data.exportReport", "ai.test", "mt5.installEA", "mt5.launch", "mt5.detectTerminals", "mt5.checkFolder","parser.requestCustom", "license.validate", "telegram.deleteSession", "parser.test",
                                                  "history.page", "history.count", "history.detail"};
         if (slow.count(method)) std::thread(respond).detach();
         else respond();
@@ -812,7 +812,17 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         }
         return {{"ok", true}};
     }
-    if (method == "mt5.detectTerminals") return mt5::detectTerminals();
+    if (method == "mt5.detectTerminals") {
+        const std::string custom = store_->getSetting("mt5.customFolder").value_or("");
+        return custom.empty() ? mt5::detectTerminals() : mt5::detectTerminals({platform::widen(custom)});
+    }
+    if (method == "mt5.checkFolder") {
+        // A folder that passes is remembered, so the terminal stays listed even where detection can't see it.
+        json r = mt5::checkFolder(platform::widen(params.value("folder", "")));
+        if (r["ok"].get<bool>()) store_->putSetting("mt5.customFolder", r["terminal"]["origin"].get<std::string>());
+        r["bridgeConnected"] = bridge_ != nullptr;
+        return r;
+    }
     if (method == "mt5.manage") {
         const std::string action = params.value("action", "");
         if (action != "cancel_pending" && action != "close_positions") fail("Unknown action");

@@ -5,13 +5,24 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
 namespace sr::mt5 {
 
-// Detected terminals: [{dataPath, origin, exePath, portable, hasEA, hasDll, running}].
-nlohmann::json detectTerminals();
+// Detected terminals: [{dataPath, origin, exePath, exeFound, portable, needsFirstRun, hasEA, hasDll, running}].
+// Any broker's MT5 counts: data folders under %APPDATA%\MetaQuotes\Terminal, then every installed terminal64.exe
+// (uninstall entries, Program Files, extraInstallDirs). needsFirstRun: installed but never opened, so dataPath is empty.
+nlohmann::json detectTerminals(const std::vector<std::filesystem::path>& extraInstallDirs = {});
+// Same, over explicit folders (dataRoot = the MetaQuotes\Terminal folder).
+nlohmann::json detectTerminals(const std::filesystem::path& dataRoot, const std::vector<std::filesystem::path>& installDirs);
+
+// Checks a folder the user chose (the MetaTrader install folder, or its data folder): terminal64.exe present, it is
+// MetaTrader 5, its data folder, and that Pipkite can write the EA and bridge there (without that the EA never connects).
+// Returns {ok, terminal (detectTerminals entry or null), checks: [{name, ok, detail}]}.
+nlohmann::json checkFolder(const std::filesystem::path& folder);
+nlohmann::json checkFolder(const std::filesystem::path& folder, const std::filesystem::path& dataRoot);
 
 // Copies PipkiteEA (.ex5/.mq5) and MT5BridgeHost.dll from installDir into the data folder.
 // Returns {copied:[...]} or throws std::runtime_error with a user-facing message.
@@ -25,8 +36,9 @@ struct LaunchRequest {
     std::string chartSymbol = "EURUSD";
 };
 
-// Installs the EA if needed and starts the terminal. Returns {state: "started"|"running", attached, exePath,
-// message}. Throws std::runtime_error with a user-facing message on failure.
+// Installs the EA if needed and starts the terminal. Returns {state: "started"|"running"|"firstRun", attached, exePath,
+// message}; "firstRun" (empty dataPath) only opens the terminal so it creates its data folder.
+// Throws std::runtime_error with a user-facing message on failure.
 nlohmann::json launch(const LaunchRequest& r);
 
 bool isRunning(const std::filesystem::path& exePath);
