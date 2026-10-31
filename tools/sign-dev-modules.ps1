@@ -3,7 +3,9 @@
   Signs Pipkite module manifests in a build output folder with a LOCAL DEVELOPMENT publisher key.
 
 .DESCRIPTION
-  - Creates the dev key once under %LOCALAPPDATA%\Pipkite\devkeys (never inside the repository).
+  - Creates the dev key once under %LOCALAPPDATA%\PipkitePublisher\devkeys (never inside the repository, and not in
+    the app's data folder %LOCALAPPDATA%\Pipkite, which gets deleted to reset the app). Back it up: installed apps
+    only accept parsers signed with it.
   - Signs bridge\impl\*\manifest.json and plugins\*\*\manifest.json (hash + ECDSA P-256 signature).
   - Installs the dev public key as trusted_keys\dev-publisher.pub in the output folder.
   - Copies the MQL5 EA (source + compiled .ex5) and TDLib (tdjson.dll + dependencies) next to the binaries.
@@ -19,7 +21,7 @@ $OutDir = (Resolve-Path $OutDir).Path
 $tool = Join-Path $OutDir 'Pipkite.SignTool.exe'
 if (-not (Test-Path $tool)) { Write-Host "SignTool not built yet; skipping module signing."; exit 0 }
 
-$keyDir = Join-Path $env:LOCALAPPDATA 'Pipkite\devkeys'
+$keyDir = Join-Path $env:LOCALAPPDATA 'PipkitePublisher\devkeys'
 if (-not (Test-Path (Join-Path $keyDir 'publisher.key'))) { & $tool keygen $keyDir | Out-Host }
 $key = Join-Path $keyDir 'publisher.key'
 

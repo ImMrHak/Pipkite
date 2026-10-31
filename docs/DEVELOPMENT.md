@@ -16,7 +16,10 @@ x64\Release\Pipkite.Benchmarks.exe     # speed numbers for your machine
 ```
 
 In Visual Studio: open `Pipkite.sln`, pick Release/Debug x64, F5. The UI starts the engine by itself.
-The build signs the sample parser and the bridge with a local dev key (`%LOCALAPPDATA%\Pipkite\devkeys`).
+The build signs the sample parser and the bridge with a local dev key (`%LOCALAPPDATA%\PipkitePublisher\devkeys`).
+Installed apps only accept parsers signed with it, so back that folder up. It is kept out of the app's data folder
+(`%LOCALAPPDATA%\Pipkite`) because that one gets deleted to reset the app. Older public keys stay trusted through
+`trusted_keys\` in the repo (e.g. `dev-publisher-2026-10-10.pub`), so modules signed before a key change still load.
 
 ## Test terminal (tests only)
 
