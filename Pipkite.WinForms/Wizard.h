@@ -14,6 +14,7 @@ public:
 
     FirstRunWizard(EngineClient^ client) {
         client_ = client;
+        requestedChats_ = gcnew System::Collections::Generic::HashSet<String^>();
         Text = "Welcome to Pipkite";
         AutoScaleMode = Windows::Forms::AutoScaleMode::Dpi;
         StartPosition = FormStartPosition::CenterParent;
@@ -47,8 +48,8 @@ public:
              "Log in to your account and Pipkite pairs it automatically (demo or real).",
              "2"},
             {"5. Each channel: symbol & parser",
-             "For every source, set the symbol it should capture and request a custom parser for it. The team builds it and it installs automatically "
-             "(hot reload, no restart). Ships with no parsers, so request one per channel.",
+             "For every source, set the symbol it should capture and request a custom parser for it. Once the request is sent you can continue: "
+             "the team builds it and it installs automatically (hot reload, no restart). Ships with no parsers, so request one per channel.",
              "1"},
             {"6. Test a sample",
              "Pick a channel, paste a real message it posted, and Test to see exactly what Pipkite reads from it - nothing is sent. Better to check "
@@ -249,6 +250,9 @@ private:
     CheckedListBox^ chatsList_;
     CheckBox^ mtAuto_;
     Label ^ mtSteps_, ^parserLabel_;
+    // Beta: a channel whose parser request reached the team counts as done; the parser installs itself later.
+    System::Collections::Generic::HashSet<String^>^ requestedChats_;
+    String^ requestingChat_;
     TableLayoutPanel^ parserStep_;
     ComboBox ^ srcCombo_, ^testCombo_, ^symbolCombo_;
     TextBox ^ testBox_, ^exampleBox_;
@@ -558,10 +562,10 @@ private:
         OnSrcChanged(nullptr, nullptr);  // refresh the current channel's parser label
         UpdateNav();
     }
-    bool AllParsersInstalled() {
+    bool AllParsersInstalledOrRequested() {
         if (sources_ == nullptr || sources_->Count == 0) return false;
         for each (JObj ^ b in sources_)
-            if (J::Str(b, "activeParserVersion") == "" && J::Str(b, "template") == "") return false;
+            if (J::Str(b, "activeParserVersion") == "" && J::Str(b, "template") == "" && !requestedChats_->Contains(J::Str(b, "chatId"))) return false;
         return true;
     }
     void OnSymbols(bool ok, Object^ result, String^) {
@@ -587,6 +591,7 @@ private:
         String^ tmpl = J::Str(b, "template");
         if (active != "") { parserLabel_->ForeColor = Theme::Success; parserLabel_->Text = "Parser installed and active (" + active + ")."; }
         else if (tmpl != "") { parserLabel_->ForeColor = Theme::Warning; parserLabel_->Text = "Parser '" + tmpl + "' assigned but not installed yet - waiting for the backend..."; }
+        else if (requestedChats_->Contains(J::Str(b, "chatId"))) { parserLabel_->ForeColor = Theme::Success; parserLabel_->Text = "Parser requested - it installs automatically when it's ready. You can continue."; }
         else { parserLabel_->ForeColor = Theme::TextMuted; parserLabel_->Text = "No parser yet - request a custom one below. The team builds it (up to ~10-15 min) and it installs automatically, no restart."; }
         if (symbolCombo_->Text == "") symbolCombo_->Text = J::Str(b, "captureSymbol");
     }
@@ -602,6 +607,7 @@ private:
         String^ note = sym != "" ? "Capture symbol: " + sym : "Capture: (any symbol this channel posts)";
         if (example != "") note += "\r\nExample message:\r\n" + example;
         p["note"] = note;
+        requestingChat_ = J::Str(b, "chatId");
         client_->Call("parser.requestCustom", p, gcnew ResponseHandler(this, &FirstRunWizard::OnParserRequested));
         // Remember the chosen symbol on the binding so it shows next time.
         if (sym != "") { b["captureSymbol"] = sym; SaveSources("Saved."); }
@@ -612,9 +618,14 @@ private:
         if (!ok) { stepStatus_->ForeColor = Theme::Danger; stepStatus_->Text = "Request failed: " + error; return; }
         JObj^ r = J::Obj(result);
         if (J::Bool(r, "submitted")) {
+            if (requestingChat_ != nullptr) requestedChats_->Add(requestingChat_);
             stepStatus_->ForeColor = Theme::Success;
-            stepStatus_->Text = "Parser requested. Please wait up to 10-15 minutes - it builds on the backend and installs automatically (no restart). "
-                                "I'll keep checking; Next unlocks once every channel's parser is installed.";
+            stepStatus_->Text = AllParsersInstalledOrRequested()
+                                    ? "Parser requested. You can continue: we build it and it installs automatically (no restart) - "
+                                      "until then signals from this channel aren't copied."
+                                    : "Parser requested. Request one for each of your other channels too, then continue.";
+            OnSrcChanged(nullptr, nullptr);
+            UpdateNav();
         } else {
             stepStatus_->ForeColor = Theme::Danger;
             stepStatus_->Text = "Couldn't reach the backend (HTTP " + J::Str(r, "status", "?") + "). Check your license key (step 1) and that the backend is running, then try again.";
@@ -754,7 +765,7 @@ private:
         if (i == 2) return lastSnap_ != nullptr && J::Str(J::Obj(lastSnap_, "telegram"), "state") == "Ready";  // signed in
         if (i == 3) return sources_ != nullptr && sources_->Count > 0;                                         // at least one source
         if (i == 4) return lastSnap_ != nullptr && J::Bool(J::Obj(lastSnap_, "bridge"), "healthy") && J::Obj(lastSnap_, "account") != nullptr;  // MT5 paired
-        if (i == 5) return AllParsersInstalled();  // every channel must have a parser installed before testing
+        if (i == 5) return AllParsersInstalledOrRequested();  // every channel has a parser, or its request reached the team
         return true;  // license / intro / test are not hard gates
     }
     void UpdateNav() {
