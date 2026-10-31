@@ -25,6 +25,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\Pipkite.exe
+SetupIconFile=..\brand\windows\pipkite.ico
 CloseApplications=yes
 
 [Tasks]

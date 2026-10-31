@@ -1,0 +1,4 @@
+// Win32 resources: the Pipkite icon, shown on the Start menu and desktop shortcuts (they open this launcher).
+#include <winres.h>
+
+1 ICON "..\\brand\\windows\\pipkite.ico"
