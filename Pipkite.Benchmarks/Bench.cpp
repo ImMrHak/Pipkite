@@ -68,7 +68,7 @@ int wmain(int argc, wchar_t** argv) {
     GetNativeSystemInfo(&si);
     MEMORYSTATUSEX mem{sizeof mem};
     GlobalMemoryStatusEx(&mem);
-    md << "# Pipkite 1.0.0 benchmark report\n\n";
+    md << "# Pipkite 1.0.1 benchmark report\n\n";
     md << "- CPU: " << cpuName() << " (" << si.dwNumberOfProcessors << " logical processors)\n";
     md << "- RAM: " << mem.ullTotalPhys / (1024 * 1024 * 1024) << " GB\n";
 #ifdef NDEBUG

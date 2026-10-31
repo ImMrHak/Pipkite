@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1
+
+- Finds MetaTrader 5 from any broker (HFM, IC Markets, ...), including portable and never-opened installs.
+- MetaTrader not listed? "Choose folder..." picks its folder and checks Pipkite can work with it; after Start,
+  Pipkite confirms MetaTrader really connected.
+- Setup: once a channel's parser request is sent you can continue; the parser installs itself when ready.
+- New parser signing key. Install this version to receive new parsers; parsers you already have keep working.
+- Pipkite logo on the desktop and Start menu shortcuts and on the installer.
+
 ## 1.0.0
 
 First release.

@@ -1,14 +1,14 @@
 // update on every release
 
 export const SITE_NAME = 'Pipkite';
-export const VERSION = '1.0.0';
+export const VERSION = '1.0.1';
 export const CONTENT_UPDATED = '2026-10-11';
 
 // empty = hidden
 export const CONTACT_EMAIL = 'support@pipkite.com';
 // official profiles for schema.org sameAs
 export const SAME_AS: string[] = ['https://github.com/ImMrHak/Pipkite'];
-export const RELEASE_DATE = '2026-09-30';
+export const RELEASE_DATE = '2026-11-01';
 
 const downloadBase = (import.meta.env.PUBLIC_DOWNLOAD_BASE ?? '/downloads').replace(/\/$/, '');
 export const API_BASE = (import.meta.env.PUBLIC_API_BASE ?? '/api/v1').replace(/\/$/, '');

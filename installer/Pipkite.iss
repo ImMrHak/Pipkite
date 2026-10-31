@@ -1,10 +1,10 @@
-; Pipkite 1.0.0 per-user installer (Inno Setup 6). Built by installer\package.ps1.
+; Pipkite 1.0.1 per-user installer (Inno Setup 6). Built by installer\package.ps1.
 ; No administrator rights are needed for normal use: installs under %LOCALAPPDATA%\Programs.
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.0.1"
 #endif
 #ifndef StageDir
-  #define StageDir "..\dist\Pipkite-1.0.0"
+  #define StageDir "..\dist\Pipkite-1.0.1"
 #endif
 
 [Setup]

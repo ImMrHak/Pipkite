@@ -128,7 +128,7 @@ public:
         nav_->Width = 220;
         nav_->Tag = "surface";
         nav_->Padding = Windows::Forms::Padding(0, 12, 0, 0);
-        Label^ navFooter = L::Text("Version 1.0.0", "muted");
+        Label^ navFooter = L::Text("Version 1.0.1", "muted");
         navFooter->Dock = DockStyle::Bottom;
         navFooter->AutoSize = false;
         navFooter->Height = 34;
@@ -161,7 +161,7 @@ public:
         statusText_ = gcnew ToolStripStatusLabel("Starting...");
         statusText_->Spring = true;
         statusText_->TextAlign = ContentAlignment::MiddleLeft;
-        statusRight_ = gcnew ToolStripStatusLabel("Pipkite 1.0.0");
+        statusRight_ = gcnew ToolStripStatusLabel("Pipkite 1.0.1");
         status_->Items->Add(statusText_);
         status_->Items->Add(statusRight_);
         status_->Renderer = gcnew FlatStripRenderer();
