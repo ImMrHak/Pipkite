@@ -20,7 +20,7 @@ export const fr: Dict = {
     guideDesc:
       'Guide pas à pas pour copier les signaux Telegram vers MetaTrader 5 : connecter Telegram et MT5, obtenir les parsers, régler le risque, tester sans risque.',
     changelogTitle: `Journal des versions Pipkite – Nouveautés ${VERSION}`,
-    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION}, configuration de MetaTrader 5 simplifiée avec tous les courtiers.`,
+    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION}, une revue IA qui lit le graphique MT5 de M1 à H4.`,
     privacyTitle: 'Confidentialité – Ce que Pipkite collecte et pourquoi',
     privacyDesc:
       'Ce que Pipkite garde sur votre PC, ce que reçoivent les services de licence, de revue IA et de parsers, et ce qui n’est jamais collecté. En clair.',
@@ -182,7 +182,7 @@ export const fr: Dict = {
     points: [
       { title: 'Des verdicts clairs et expliqués', text: 'Bon, Mauvais ou Incertain, avec les raisons : placement du stop, gain/risque et largeur de la zone d’entrée.' },
       { title: 'Un conseil, pas un ordre', text: 'Le verdict s’affiche à côté de chaque signal dans le flux en direct pour vous aider à juger un fournisseur. Activez-le ou non dans Execution policy.' },
-      { title: 'Seul le signal est envoyé', text: 'Symbole, sens, entrée, SL et TP. Jamais votre compte, votre solde, vos identifiants courtier, vos discussions ni le texte des messages. Les signaux sont conservés pour aider l’IA à apprendre.' },
+      { title: 'Seuls le signal et les prix du marché', text: 'Symbole, sens, entrée, SL et TP, plus les bougies de prix récentes de ce symbole. Jamais votre compte, votre solde, vos identifiants courtier, vos discussions ni le texte des messages. Les signaux sont conservés pour aider l’IA à apprendre.' },
     ],
     warnStrong: 'Encore jeune : l’IA peut se tromper.',
     warn: 'C’est une première version : elle peut rater des choses, et son score est un indice de confiance, pas une promesse de gain. Nous l’améliorons à chaque version ; prenez-la comme un second avis, jamais comme une garantie.',
@@ -268,11 +268,11 @@ export const fr: Dict = {
       },
       {
         q: 'La revue IA a-t-elle toujours raison ?',
-        a: 'Non. La revue IA est une première version et elle peut se tromper. Elle évalue la construction de chaque signal (placement du stop, gain/risque, largeur d’entrée) et donne un score de confiance, qui n’est pas une promesse de gain. Elle s’affiche comme un conseil à côté de chaque signal et nous l’améliorons au fil du temps.',
+        a: 'Non. La revue IA est une première version et elle peut se tromper. Elle évalue la construction de chaque signal (placement du stop, gain/risque, largeur d’entrée) et, depuis la version 1.0.2, le marché lui-même : la tendance en H4, H1 et M15, le momentum, la position du prix et la volatilité. Elle donne un score de confiance, qui n’est pas une promesse de gain. Elle s’affiche comme un conseil à côté de chaque signal et nous l’améliorons au fil du temps.',
       },
       {
         q: 'L’IA voit-elle mon compte ?',
-        a: 'Non. Seuls les champs du signal sont envoyés : symbole, sens, type d’ordre, entrée, stop-loss et take-profits. Jamais votre numéro de compte, votre solde, vos identifiants courtier, vos discussions ni le texte des messages. Le signal et son verdict sont conservés avec votre clé de licence pour aider l’IA à apprendre.',
+        a: 'Non. Seuls les champs du signal sont envoyés (symbole, sens, type d’ordre, entrée, stop-loss et take-profits), plus les bougies de prix publiques récentes de ce symbole (M1 à H4) pour que la revue lise le marché. Jamais votre numéro de compte, votre solde, vos identifiants courtier, vos discussions ni le texte des messages. Le signal et son verdict sont conservés avec votre clé de licence pour aider l’IA à apprendre.',
       },
       {
         q: 'Quelles langues sont prises en charge ?',
@@ -509,6 +509,32 @@ export const fr: Dict = {
     downloadButton: (v: string) => `Télécharger la ${v}`,
     latest: "Dernière version",
     releases: {
+      '1.0.2': [
+        {
+          h: "Revue IA",
+          items: [
+            "La revue IA lit maintenant le marché : MetaTrader envoie les dernières bougies M1, M5, M15, H1 et H4 avec chaque signal.",
+            "Elle vérifie la tendance en H4, H1 et M15, la position du prix par rapport à l’entrée, la taille du SL face à la volatilité, le spread et les derniers plus hauts et plus bas H1.",
+            "Un signal dont le prix a déjà dépassé le TP1 ou le SL est jugé Mauvais.",
+            "Des raisons plus claires, la plus importante en premier.",
+            "Seuls des prix sont ajoutés : jamais les détails du compte, les discussions ni les messages.",
+          ],
+        },
+        {
+          h: "MetaTrader 5",
+          items: [
+            "Après la mise à jour, fermez MetaTrader et cliquez une fois sur « Start MetaTrader » dans Pipkite pour installer le nouvel EA. D’ici là, la revue ne lit que le signal.",
+          ],
+        },
+        {
+          h: "Tableau de bord et parsers",
+          items: [
+            "« Get started » tient sur une ligne et le tableau de bord défile sur les petits écrans.",
+            "Le verdict IA s’affiche à côté de « Side » dans le flux en direct.",
+            "Un parser demandé arrive pendant que Pipkite tourne (vérifié toutes les 30 minutes), sans redémarrage.",
+          ],
+        },
+      ],
       '1.0.1': [
         {
           h: "MetaTrader 5",
@@ -588,7 +614,7 @@ export const fr: Dict = {
     updated: 'Dernière mise à jour',
     shortTitle: 'En bref',
     short:
-      'Vos données de trading, votre session Telegram et vos identifiants courtier restent sur votre PC. Les services en ligne ne reçoivent que le nécessaire : votre nom et un e-mail facultatif pour la clé de licence, les champs du signal pour la revue IA, et des messages d’exemple expurgés quand vous demandez un parser. Nous ne vendons aucune donnée, et ce site n’a ni publicité, ni cookies, ni pistage : il compte seulement, de façon anonyme, les pages vues et les clics de téléchargement.',
+      'Vos données de trading, votre session Telegram et vos identifiants courtier restent sur votre PC. Les services en ligne ne reçoivent que le nécessaire : votre e-mail (et un nom facultatif) pour la clé de licence, les champs du signal et des bougies de prix récentes pour la revue IA, et des messages d’exemple expurgés quand vous demandez un parser. Nous ne vendons aucune donnée, et ce site n’a ni publicité, ni cookies, ni pistage : il compte seulement, de façon anonyme, les pages vues et les clics de téléchargement.',
     sections: [
       {
         h: 'Ce qui reste sur votre PC',

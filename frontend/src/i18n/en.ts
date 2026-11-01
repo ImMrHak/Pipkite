@@ -21,7 +21,7 @@ export const en = {
     guideDesc:
       'Step-by-step guide to copy Telegram trading signals to MetaTrader 5 automatically: connect Telegram and MT5, get parsers, set risk rules, test safely.',
     changelogTitle: `Pipkite Changelog – What's New in ${VERSION}`,
-    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}, easier MetaTrader 5 setup with any broker.`,
+    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}, an AI review that reads the MT5 chart from M1 to H4.`,
     privacyTitle: 'Privacy – What Pipkite Collects and Why',
     privacyDesc:
       'What Pipkite keeps on your PC, what the license, AI review and custom parser services receive, and what is never collected. Plain language.',
@@ -183,7 +183,7 @@ export const en = {
     points: [
       { title: 'Clear verdicts with reasons', text: 'Good, Bad or Uncertain, plus the reasons behind it: stop placement, reward/risk and entry width.' },
       { title: 'Advice, not orders', text: 'The verdict appears next to each signal in the live feed to help you judge a provider. Turn it on or off in Execution policy.' },
-      { title: 'Only the signal is sent', text: 'Symbol, side, entry, SL and TPs. Never your account, balance, broker login, chat or message text. Signals are kept to help the AI learn.' },
+      { title: 'Only the signal and market prices', text: 'Symbol, side, entry, SL and TPs, plus recent price candles of that symbol. Never your account, balance, broker login, chat or message text. Signals are kept to help the AI learn.' },
     ],
     warnStrong: 'Early days: the AI can be wrong.',
     warn: "It's a first version, so it can miss things, and its score is a confidence rating, not a promise of profit. We're improving it with every release; treat it as a second opinion, never as a guarantee.",
@@ -269,11 +269,11 @@ export const en = {
       },
       {
         q: 'Is the AI review always right?',
-        a: 'No. The AI review is an early version and it can be wrong. It weighs how each signal is built (stop placement, reward/risk, entry width) and gives a confidence score, which is not a promise of profit. It’s shown as advice next to each signal, and we’re improving it over time.',
+        a: 'No. The AI review is an early version and it can be wrong. It weighs how each signal is built (stop placement, reward/risk, entry width) and, from version 1.0.2, the market itself: the trend on H4, H1 and M15, momentum, where price is now and volatility. It gives a confidence score, which is not a promise of profit. It’s shown as advice next to each signal, and we’re improving it over time.',
       },
       {
         q: 'Does the AI see my account?',
-        a: 'No. Only the signal fields are sent: symbol, side, order type, entry, stop-loss and take-profits. Never your account number, balance, broker login, chat or message text. The signal and its verdict are kept with your license key to help the AI learn.',
+        a: 'No. Only the signal fields are sent (symbol, side, order type, entry, stop-loss and take-profits), plus recent public price candles of that symbol (M1 to H4) so the review can read the market. Never your account number, balance, broker login, chat or message text. The signal and its verdict are kept with your license key to help the AI learn.',
       },
       {
         q: 'Which languages are supported?',
@@ -510,6 +510,32 @@ export const en = {
     downloadButton: (v: string) => `Download ${v}`,
     latest: "Latest",
     releases: {
+      '1.0.2': [
+        {
+          h: "AI review",
+          items: [
+            "The AI review now reads the market: MetaTrader sends the latest M1, M5, M15, H1 and H4 candles with each signal.",
+            "It checks the trend on H4, H1 and M15, where price is against the entry, the SL size against volatility, the spread and the recent H1 highs and lows.",
+            "A signal whose price already passed TP1 or the SL is marked Bad.",
+            "Clearer reasons, the most important first.",
+            "Only prices are added: never your account details, chats or messages.",
+          ],
+        },
+        {
+          h: "MetaTrader 5",
+          items: [
+            "After updating, close MetaTrader and press Start MetaTrader in Pipkite once to install the new EA. Until then the review reads the signal only.",
+          ],
+        },
+        {
+          h: "Dashboard and parsers",
+          items: [
+            "Get started takes one line, and the dashboard scrolls on small screens.",
+            "The AI verdict sits next to Side in the live feed.",
+            "A parser you requested arrives while Pipkite runs (checked every 30 minutes), no restart needed.",
+          ],
+        },
+      ],
       '1.0.1': [
         {
           h: "MetaTrader 5",
@@ -589,7 +615,7 @@ export const en = {
     updated: 'Last updated',
     shortTitle: 'In short',
     short:
-      "Your trading data, Telegram session and broker login stay on your PC. The online services receive only what they need: your name and optional email for a license key, the signal fields for an AI review, and redacted sample messages when you ask for a custom parser. We don't sell data, and this website has no ads, cookies or tracking: it only counts page views and download clicks anonymously.",
+      "Your trading data, Telegram session and broker login stay on your PC. The online services receive only what they need: your email (and optional name) for a license key, the signal fields and recent price candles for an AI review, and redacted sample messages when you ask for a custom parser. We don't sell data, and this website has no ads, cookies or tracking: it only counts page views and download clicks anonymously.",
     sections: [
       {
         h: 'What stays on your PC',

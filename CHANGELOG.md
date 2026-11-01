@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2
+
+- The AI review reads the market: MetaTrader sends the latest M1, M5, M15, H1 and H4 candles with each signal.
+  It checks the trend, where price is against the entry, the SL against volatility, the spread and the recent
+  H1 highs and lows. Signals whose price already passed TP1 or the SL are marked Bad. Only prices are added.
+- After updating, close MetaTrader and press Start MetaTrader in Pipkite once to install the new EA.
+- Dashboard: Get started takes one line, the page scrolls on small screens, the AI verdict sits next to Side.
+- A requested parser arrives while Pipkite runs (checked every 30 minutes), no restart needed.
+
 ## 1.0.1
 
 - Finds MetaTrader 5 from any broker (HFM, IC Markets, ...), including portable and never-opened installs.

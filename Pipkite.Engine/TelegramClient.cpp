@@ -220,7 +220,7 @@ void TelegramClient::onAuthState(const json& st) {
               {"system_language_code", "en"},
               {"device_model", "Windows PC"},
               {"system_version", "Windows"},
-              {"application_version", "Pipkite 1.0.1"}});
+              {"application_version", "Pipkite 1.0.2"}});
     } else if (t == "authorizationStateWaitPhoneNumber") {
         state_ = TelegramAuthState::WaitPhone;
     } else if (t == "authorizationStateWaitCode") {

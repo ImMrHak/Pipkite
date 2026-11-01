@@ -20,7 +20,7 @@ export const es: Dict = {
     guideDesc:
       'Guía paso a paso para copiar señales de Telegram a MetaTrader 5: conecta Telegram y MT5, consigue los parsers, fija tus reglas de riesgo y prueba seguro.',
     changelogTitle: `Novedades de Pipkite – Versión ${VERSION}`,
-    changelogDesc: `Notas de versión de Pipkite, el copiador gratuito de Telegram a MT5. Última versión: ${VERSION}, configuración de MetaTrader 5 más sencilla con cualquier bróker.`,
+    changelogDesc: `Notas de versión de Pipkite, el copiador gratuito de Telegram a MT5. Última versión: ${VERSION}, una revisión con IA que lee el gráfico de MT5 de M1 a H4.`,
     privacyTitle: 'Privacidad – Qué recoge Pipkite y por qué',
     privacyDesc:
       'Qué guarda Pipkite en tu PC, qué reciben los servicios de licencia, revisión con IA y parsers, y qué no se recoge nunca. Explicado con claridad.',
@@ -182,7 +182,7 @@ export const es: Dict = {
     points: [
       { title: 'Veredictos claros y razonados', text: 'Buena, Mala o Incierta, con los motivos: posición del stop, beneficio/riesgo y amplitud de la entrada.' },
       { title: 'Consejo, no órdenes', text: 'El veredicto aparece junto a cada señal en el feed en directo para ayudarte a juzgar a un proveedor. Actívalo o desactívalo en Execution policy.' },
-      { title: 'Solo se envía la señal', text: 'Símbolo, dirección, entrada, SL y TP. Nunca tu cuenta, saldo, acceso al bróker, chats ni el texto de los mensajes. Las señales se guardan para que la IA aprenda.' },
+      { title: 'Solo la señal y los precios del mercado', text: 'Símbolo, dirección, entrada, SL y TP, más las velas de precio recientes de ese símbolo. Nunca tu cuenta, saldo, acceso al bróker, chats ni el texto de los mensajes. Las señales se guardan para que la IA aprenda.' },
     ],
     warnStrong: 'Aún es pronto: la IA puede equivocarse.',
     warn: 'Es una primera versión, así que se le pueden escapar cosas, y su puntuación es un índice de confianza, no una promesa de beneficio. La mejoramos en cada versión; tómala como una segunda opinión, nunca como una garantía.',
@@ -268,11 +268,11 @@ export const es: Dict = {
       },
       {
         q: '¿La revisión con IA siempre acierta?',
-        a: 'No. La revisión con IA es una primera versión y puede equivocarse. Evalúa cómo está construida cada señal (posición del stop, beneficio/riesgo, amplitud de entrada) y da una puntuación de confianza, que no es una promesa de beneficio. Se muestra como consejo junto a cada señal y la vamos mejorando con el tiempo.',
+        a: 'No. La revisión con IA es una primera versión y puede equivocarse. Evalúa cómo está construida cada señal (posición del stop, beneficio/riesgo, amplitud de entrada) y, desde la versión 1.0.2, el propio mercado: la tendencia en H4, H1 y M15, el momentum, dónde está el precio y la volatilidad. Da una puntuación de confianza, que no es una promesa de beneficio. Se muestra como consejo junto a cada señal y la vamos mejorando con el tiempo.',
       },
       {
         q: '¿La IA ve mi cuenta?',
-        a: 'No. Solo se envían los campos de la señal: símbolo, dirección, tipo de orden, entrada, stop-loss y take-profits. Nunca tu número de cuenta, saldo, acceso al bróker, chats ni el texto de los mensajes. La señal y su veredicto se guardan con tu clave de licencia para ayudar a la IA a aprender.',
+        a: 'No. Solo se envían los campos de la señal (símbolo, dirección, tipo de orden, entrada, stop-loss y take-profits), más las velas de precio públicas recientes de ese símbolo (M1 a H4) para que la revisión lea el mercado. Nunca tu número de cuenta, saldo, acceso al bróker, chats ni el texto de los mensajes. La señal y su veredicto se guardan con tu clave de licencia para ayudar a la IA a aprender.',
       },
       {
         q: '¿Qué idiomas están disponibles?',
@@ -509,6 +509,32 @@ export const es: Dict = {
     downloadButton: (v: string) => `Descargar ${v}`,
     latest: "Última versión",
     releases: {
+      '1.0.2': [
+        {
+          h: "Revisión con IA",
+          items: [
+            "La revisión con IA ahora lee el mercado: MetaTrader envía las últimas velas M1, M5, M15, H1 y H4 con cada señal.",
+            "Comprueba la tendencia en H4, H1 y M15, dónde está el precio respecto a la entrada, el tamaño del SL frente a la volatilidad, el spread y los últimos máximos y mínimos de H1.",
+            "Una señal cuyo precio ya pasó el TP1 o el SL se marca como Mala.",
+            "Motivos más claros, el más importante primero.",
+            "Solo se añaden precios: nunca datos de la cuenta, chats ni mensajes.",
+          ],
+        },
+        {
+          h: "MetaTrader 5",
+          items: [
+            "Tras actualizar, cierra MetaTrader y pulsa una vez «Start MetaTrader» en Pipkite para instalar el nuevo EA. Hasta entonces la revisión solo lee la señal.",
+          ],
+        },
+        {
+          h: "Panel y parsers",
+          items: [
+            "«Get started» ocupa una sola línea y el panel se desplaza en pantallas pequeñas.",
+            "El veredicto de la IA aparece junto a «Side» en el feed en directo.",
+            "Un parser que pediste llega mientras Pipkite está abierto (se comprueba cada 30 minutos), sin reiniciar.",
+          ],
+        },
+      ],
       '1.0.1': [
         {
           h: "MetaTrader 5",
@@ -588,7 +614,7 @@ export const es: Dict = {
     updated: 'Última actualización',
     shortTitle: 'En resumen',
     short:
-      'Tus datos de trading, tu sesión de Telegram y tu acceso al bróker se quedan en tu PC. Los servicios en línea solo reciben lo necesario: tu nombre y un correo opcional para la clave de licencia, los campos de la señal para la revisión con IA y mensajes de ejemplo depurados cuando pides un parser. No vendemos datos, y esta web no tiene anuncios, cookies ni seguimiento: solo cuenta de forma anónima las páginas vistas y los clics de descarga.',
+      'Tus datos de trading, tu sesión de Telegram y tu acceso al bróker se quedan en tu PC. Los servicios en línea solo reciben lo necesario: tu correo (y un nombre opcional) para la clave de licencia, los campos de la señal y velas de precio recientes para la revisión con IA y mensajes de ejemplo depurados cuando pides un parser. No vendemos datos, y esta web no tiene anuncios, cookies ni seguimiento: solo cuenta de forma anónima las páginas vistas y los clics de descarga.',
     sections: [
       {
         h: 'Lo que se queda en tu PC',
