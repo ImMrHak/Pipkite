@@ -206,6 +206,25 @@ TEST(parser_required_fixture_suite_passes) {
     CHECK(suite.passed >= 14);
 }
 
+TEST(fixture_results_report_what_the_parser_read) {
+    TemplateSignalParser p(gold());
+    Fixture sig;
+    sig.id = "signal";
+    sig.text = "XAUUSD BUY 3940/3936\nTP 3944\nTP 3948\nSL 3928";
+    Fixture chat;
+    chat.id = "chatter";
+    chat.text = "Good morning traders";
+    chat.expect = "ignore";
+    auto suite = runFixtures(p, {sig, chat});
+    const auto& read = suite.results[0].read;
+    CHECK_EQ(read.value("side", ""), std::string("BUY"));
+    CHECK_EQ(read.value("symbol", ""), std::string("XAUUSD"));
+    CHECK(read.value("entryLow", 0.0) == 3936 && read.value("entryHigh", 0.0) == 3940 && read.value("stopLoss", 0.0) == 3928);
+    CHECK(read["takeProfits"] == nlohmann::json::array({3944, 3948}));
+    CHECK(suite.results[1].read.is_null());  // nothing read from chatter
+    CHECK(suite.toJson()["results"][0].contains("read"));
+}
+
 TEST(parser_throughput_over_1000_per_second) {
     TemplateSignalParser p(gold());
     auto fixtures = requiredSpecFixtures();

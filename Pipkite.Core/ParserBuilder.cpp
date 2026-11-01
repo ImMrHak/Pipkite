@@ -159,7 +159,8 @@ Fixture Fixture::fromJson(const json& j) {
 json SuiteResult::toJson() const {
     json arr = json::array();
     for (auto& r : results)
-        arr.push_back({{"id", r.id}, {"passed", r.passed}, {"actual", r.actualOutcome}, {"status", r.status}, {"differences", r.differences}, {"micros", r.micros}});
+        arr.push_back({{"id", r.id}, {"passed", r.passed}, {"actual", r.actualOutcome}, {"status", r.status}, {"differences", r.differences}, {"micros", r.micros},
+                       {"read", r.read}});
     return {{"passed", passed}, {"failed", failed}, {"worstMicros", worstMicros}, {"results", arr}};
 }
 
@@ -193,6 +194,18 @@ SuiteResult runFixtures(const ISignalParser& parser, const std::vector<Fixture>&
         r.actualOutcome = outcomeOf(s);
         r.status = toString(s.status);
         if (r.actualOutcome != f.expect) r.differences.push_back("outcome: expected " + f.expect + ", got " + r.actualOutcome + (s.diagnostics.empty() ? "" : " (" + s.diagnostics.back() + ")"));
+        if (r.actualOutcome == "signal") {
+            // lets tools/make-parser.ps1 show the reading and write it into the kit as the expected result
+            json tps = json::array();
+            for (auto& t : s.targets) tps.push_back(t.price);
+            r.read = {{"symbol", s.symbol}, {"takeProfits", tps}};
+            if (s.side) r.read["side"] = toString(*s.side);
+            if (s.entry) {
+                r.read["entryLow"] = s.entry->low;
+                r.read["entryHigh"] = s.entry->high;
+            }
+            if (s.stopLoss) r.read["stopLoss"] = *s.stopLoss;
+        }
         if (f.expect == "signal" && r.actualOutcome == "signal") {
             if (f.side && (!s.side || *f.side != toString(*s.side))) r.differences.push_back("side: expected " + *f.side + ", got " + (s.side ? toString(*s.side) : "none"));
             if (f.symbol && *f.symbol != s.symbol) r.differences.push_back("symbol: expected " + *f.symbol + ", got " + s.symbol);

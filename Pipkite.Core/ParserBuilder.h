@@ -53,6 +53,7 @@ struct FixtureResult {
     std::string status;
     std::vector<std::string> differences;
     double micros = 0;
+    nlohmann::json read;  // what the parser read when it found a signal: side, symbol, entryLow/High, stopLoss, takeProfits
 };
 
 struct SuiteResult {
