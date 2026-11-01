@@ -31,6 +31,8 @@ inline constexpr const char* ERROR_ = "ERROR";
 inline constexpr const char* MANAGE = "MANAGE";  // cancel copier pending / close copier positions (explicit user action)
 inline constexpr const char* RECONCILE_REQUEST = "RECONCILE_REQUEST";
 inline constexpr const char* RECONCILE_REPORT = "RECONCILE_REPORT";
+inline constexpr const char* RATES_REQUEST = "RATES_REQUEST";  // engine -> EA: recent candles of one symbol, for the AI review
+inline constexpr const char* RATES = "RATES";                  // EA -> engine: bid/ask and bars.<M1|M5|M15|H1|H4>="t,o,h,l,c,v;..."
 // UI <-> engine
 inline constexpr const char* REQUEST = "REQUEST";
 inline constexpr const char* RESPONSE = "RESPONSE";

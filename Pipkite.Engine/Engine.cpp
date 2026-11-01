@@ -184,6 +184,7 @@ void Engine::decisionLoop() {
             }
         }
         const std::int64_t now = clock_.nowMs();
+        if (!pendingRates_.empty()) flushPendingRates(now);  // every pass, not each 100 ms tick: a gate's wait is short
         if (now - lastTick >= 100) {
             lastTick = now;
             reevaluateWaiting();
@@ -574,7 +575,7 @@ void Engine::applyDecision(Signal s, const SourceBinding& b, Decision d, json ti
     // Ask the backend about every valid signal when "always assess" is on (advisory, non-blocking), unless
     // the source is already doing a backend gate (which contacts the backend anyway).
     if (s.status == ParseStatus::Valid && (b.aiMode == AiMode::Advisory || (policy_.ai.alwaysAssess && b.aiMode != AiMode::BackendGate)))
-        requestAi(s, AiMode::Advisory, now + 5000);
+        requestAi(s, AiMode::Advisory, now + 5000, aiSymbol(s, b, d));
 
     auto persist = [&](SignalState st) {
         item["state"] = toString(st);
@@ -600,7 +601,7 @@ void Engine::applyDecision(Signal s, const SourceBinding& b, Decision d, json ti
             } else if (b.aiMode == AiMode::BackendGate) {
                 const std::int64_t deadline = now + policy_.ai.backendGateDeadlineMs;
                 gates_[key] = Gate{s, s.source.chatId, deadline, timeline, AiMode::BackendGate};
-                requestAi(s, AiMode::BackendGate, deadline);
+                requestAi(s, AiMode::BackendGate, deadline, aiSymbol(s, b, d));
                 d.reason = "Waiting for backend AI gate (up to " + std::to_string(policy_.ai.backendGateDeadlineMs) + " ms)";
                 item["reason"] = d.reason;
                 persist(SignalState::Validated);
@@ -854,15 +855,51 @@ void Engine::stopRemainingChildren(const std::string& planId, const std::string&
 
 // AI
 
-void Engine::requestAi(const Signal& s, AiMode mode, std::int64_t deadlineMs) {
+void Engine::requestAi(const Signal& s, AiMode mode, std::int64_t deadlineMs, const std::string& brokerSymbol) {
     const std::string key = signalKey(s.source.chatId, s.source.messageId);
     if (licenseKey_.empty()) {
         // The backend requires a license key; without one, never call it. Show that in the feed.
         feed_[key]["ai"] = "No license";
         return;
     }
-    AiJob job{key, s, policy_.ai.endpoint, licenseKey_, deadlineMs, mode};
+    AiJob job{key, s, policy_.ai.endpoint, licenseKey_, deadlineMs, mode, nullptr};
+    // With MetaTrader connected, first ask the EA for recent candles so the review can read the market. Execution
+    // never waits for this (a gate only briefly); an EA that can't answer (older version) means a signal-only review.
+    if (bridge_ && !brokerSymbol.empty()) {
+        const std::int64_t now = clock_.nowMs();
+        const std::int64_t wait = mode == AiMode::BackendGate ? std::min<std::int64_t>(80, (deadlineMs - now) / 3) : 1500;
+        if (wait > 0) {
+            const std::string rid = newUuid();
+            sendToBridge(ipc::msg::RATES_REQUEST, {{"requestId", rid}, {"symbol", brokerSymbol}, {"count", 100}});
+            pendingRates_[rid] = PendingRates{std::move(job), now + wait};
+            return;
+        }
+    }
+    queueAi(std::move(job));
+}
+
+// The broker's name for the signal's symbol (XAUUSD.m, GOLD...) so the EA finds its candles: resolved as the
+// planner does, also when there is no plan (copying paused, signal rejected).
+std::string Engine::aiSymbol(const Signal& s, const SourceBinding& b, const Decision& d) const {
+    if (d.plan) return d.plan->brokerSymbol;
+    std::string reason;
+    return ExecutionPlanner::resolveBrokerSymbol(s, policy_, b, reason).value_or(s.symbol);
+}
+
+void Engine::queueAi(AiJob job) {
+    const std::string key = job.key;
     if (!aiQueue_.tryPush(std::move(job))) feed_[key]["ai"] = "Unavailable";
+}
+
+void Engine::flushPendingRates(std::int64_t now) {
+    for (auto it = pendingRates_.begin(); it != pendingRates_.end();) {
+        if (now < it->second.sendWithoutAtMs) {
+            ++it;
+            continue;
+        }
+        queueAi(std::move(it->second.job));
+        it = pendingRates_.erase(it);
+    }
 }
 
 void Engine::aiLoop() {
@@ -875,9 +912,18 @@ void Engine::aiLoop() {
             a.unavailableReason = "expired before sending (discarded, never queued for later)";
         } else {
             const std::string reqId = newUuid();
-            const std::string body = buildAiRequest(job->signal, reqId).dump();  // signal-only payload
-            const unsigned timeout = static_cast<unsigned>(std::max<std::int64_t>(50, job->deadlineMs - now));
-            auto r = httpRequest("POST", job->endpoint, body, "application/json", timeout, 64 * 1024, {{"X-License-Key", job->licenseKey}});
+            auto send = [&](const json& market) {
+                const std::string body = buildAiRequest(job->signal, reqId, market).dump();  // signal + candles, nothing else
+                const unsigned timeout = static_cast<unsigned>(std::max<std::int64_t>(50, job->deadlineMs - clock_.nowMs()));
+                return httpRequest("POST", job->endpoint, body, "application/json", timeout, 64 * 1024, {{"X-License-Key", job->licenseKey}});
+            };
+            auto r = send(job->market);
+            // A server from before candles (1.0.2) refuses them (body too large, schema 2 unknown): review the signal alone.
+            if ((r.status == 400 || r.status == 413) && !job->market.is_null() && clock_.nowMs() < job->deadlineMs) {
+                const double first = r.elapsedMs;
+                r = send(nullptr);
+                r.elapsedMs += first;
+            }
             if (r.status == 200) {
                 a = parseAiResponse(r.body, reqId);
             } else if (r.status == 401) {
@@ -1132,6 +1178,14 @@ void Engine::onBridgeEnvelope(const ipc::Envelope& e) {
         // Waiting ranges react to the new price immediately instead of on the next 100 ms tick.
         if (!waiting_.empty()) reevaluateWaiting();
         return;
+    }
+    if (e.type == ipc::msg::RATES) {  // candles for an AI review; a late answer finds nothing (it went without them)
+        auto it = pendingRates_.find(p.value("requestId", ""));
+        if (it == pendingRates_.end()) return;
+        AiJob job = std::move(it->second.job);
+        pendingRates_.erase(it);
+        job.market = marketFromEa(p);
+        return queueAi(std::move(job));
     }
     if (e.type == ipc::msg::COMMAND_STATUS) return handleCommandStatus(p);
     if (e.type == ipc::msg::TRADE_EVENT) return handleTradeEvent(p);

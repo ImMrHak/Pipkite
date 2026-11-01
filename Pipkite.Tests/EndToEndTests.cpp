@@ -288,6 +288,69 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     fs::remove_all(data, ec);
 }
 
+// Live check against a REAL MetaTrader 5 (demo account): connects to an already running isolated instance,
+// starts the terminal with the EA, keeps copying paused (no trade), injects one gold signal and prints the
+// AI review, which must show the market (candles from the EA, read by the backend's multi-timeframe review).
+// Runs only when PIPKITE_LIVE_MT5=1, with PIPKITE_LIVE_MT5_DATA / _EXE (terminal) and _AI (review URL) set.
+TEST(live_mt5_ai_review_reads_candles) {
+    wchar_t flag[8];
+    if (GetEnvironmentVariableW(L"PIPKITE_LIVE_MT5", flag, 8) == 0) return;
+    auto env = [](const wchar_t* name) {
+        wchar_t buf[1024];
+        DWORD n = GetEnvironmentVariableW(name, buf, 1024);
+        return n ? platform::narrow(std::wstring(buf, n)) : std::string();
+    };
+    UiClient ui;
+    bool connected = false;
+    for (int i = 0; i < 40 && !connected; ++i) {
+        connected = ui.connect();
+        if (!connected) Sleep(250);
+    }
+    CHECK(connected);
+    ui.call("settings.save", {{"values", {{"license.key", env(L"PIPKITE_LIVE_LICENSE")}, {"ui.firstRunComplete", "true"}}}});
+    json policy = ui.call("policy.get");
+    policy["ai"]["endpoint"] = env(L"PIPKITE_LIVE_MT5_AI");
+    policy["ai"]["alwaysAssess"] = true;
+    ui.call("policy.save", {{"policy", policy}});
+    const std::string chat = "-1000000000001";
+    ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Live check"}, {"chatType", "channel"}, {"template", "gold_parser_native"},
+                                                        {"entryMode", "wait_for_range"}, {"aiMode", "advisory"}}})}});
+    ui.call("engine.pause");  // never trade: the review is asked for even while copying is paused
+
+    json launched = ui.call("mt5.launch", {{"dataPath", env(L"PIPKITE_LIVE_MT5_DATA")}, {"exePath", env(L"PIPKITE_LIVE_MT5_EXE")}, {"chartSymbol", "EURUSD"}}, 60000);
+    std::printf("        launch: %s\n", launched.value("message", "").c_str());
+    CHECK(ui.waitFor([](const json& s) { return !s["bridge"]["pairingPending"].is_null() || s["bridge"].value("paired", false); }, 120000));
+    json s0 = ui.call("getSnapshot");
+    if (!s0["bridge"].value("paired", false)) {
+        const std::string login = s0["bridge"]["pairingPending"].value("login", "");
+        CHECK(!login.empty());
+        ui.call("mt5.approvePairing", {{"confirmLogin", login}});
+    }
+    CHECK(ui.waitFor([](const json& s) { return s["bridge"].value("paired", false) && s["bridge"].value("connected", false); }, 30000));
+    ui.call("engine.pause");
+
+    json catalog = ui.call("mt5.status")["catalog"];
+    bool hasGold = false;
+    for (auto& n : catalog) hasGold = hasGold || n.get<std::string>() == "XAUUSD";
+    std::printf("        broker symbols: %zu, XAUUSD listed: %s\n", catalog.size(), hasGold ? "yes" : "no");
+
+    std::string text = env(L"PIPKITE_LIVE_SIGNAL");  // a signal near today's price; '|' separates lines
+    if (text.empty()) text = "#GOLD BUY 4300 4295|TP1 4305|TP2 4310|SL 4287";
+    for (auto& ch : text)
+        if (ch == '|') ch = '\n';
+    json inj = ui.call("test.injectMessage", {{"chatId", chat}, {"text", text}});
+    const std::string msgId = inj.value("messageId", "");
+    json ai;
+    for (int i = 0; i < 60 && (ai.is_null() || ai.value("verdict", "") == ""); ++i) {
+        Sleep(250);
+        json d = ui.call("history.detail", {{"chatId", chat}, {"messageId", msgId}, {"revision", 0}});
+        if (d.contains("ai") && d["ai"].is_object()) ai = d["ai"];
+        else if (d.contains("signal") && d["signal"].contains("ai")) ai = d["signal"]["ai"];
+    }
+    std::printf("        AI review: %s\n", ai.dump(2).c_str());
+    CHECK(ai.value("modelVersion", "") == "pk-mtf-1.1");  // the backend got candles: only then this model answers
+}
+
 // Demo seeding for manual UI walkthroughs: connects to an ALREADY RUNNING isolated instance (same
 // PIPKITE_DATA_DIR / PIPKITE_INSTANCE), configures demo sources, approves the test
 // terminal, enables Automatic and injects sample signals. Runs only when PIPKITE_DEMO_SEED=1.

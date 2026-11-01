@@ -1,15 +1,65 @@
 #include "AiContract.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 
 namespace sr {
 
 using nlohmann::json;
 
 const std::vector<std::string>& allowedAiRequestKeys() {
-    static const std::vector<std::string> k{"schemaVersion", "requestId", "signal"};
+    static const std::vector<std::string> k{"schemaVersion", "requestId", "signal", "market"};
     return k;
+}
+
+const std::vector<std::string>& allowedAiMarketKeys() {
+    static const std::vector<std::string> k{"bid", "ask", "candles"};
+    return k;
+}
+
+const std::vector<std::string>& aiTimeframes() {
+    static const std::vector<std::string> k{"M1", "M5", "M15", "H1", "H4"};
+    return k;
+}
+
+json marketFromEa(const json& p) {
+    constexpr std::size_t kMaxBars = 200;
+    json candles = json::object();
+    const json bars = p.value("bars", json::object());
+    for (const std::string& tf : aiTimeframes()) {
+        if (!bars.contains(tf) || !bars[tf].is_string()) continue;
+        const std::string text = bars[tf].get<std::string>();
+        json list = json::array();
+        std::size_t start = 0;
+        while (start < text.size() && list.size() < kMaxBars) {
+            std::size_t end = text.find(';', start);
+            if (end == std::string::npos) end = text.size();
+            json bar = json::array();
+            std::size_t f = start;
+            while (f < end && bar.size() < 6) {  // time, open, high, low, close, volume
+                std::size_t comma = std::min(text.find(',', f), end);
+                const std::string field = text.substr(f, comma - f);
+                char* stop = nullptr;
+                const double v = std::strtod(field.c_str(), &stop);
+                if (field.empty() || stop != field.c_str() + field.size() || !std::isfinite(v)) {
+                    bar = json::array();
+                    break;
+                }
+                bar.push_back(v);
+                f = comma + 1;
+            }
+            if (bar.size() == 6 && bar[2].get<double>() >= bar[3].get<double>()) list.push_back(bar);  // high >= low
+            start = end + 1;
+        }
+        if (!list.empty()) candles[tf] = list;
+    }
+    if (candles.empty()) return nullptr;
+    json m = {{"candles", candles}};
+    for (const char* k : {"bid", "ask"})
+        if (p.contains(k) && p[k].is_number() && std::isfinite(p[k].get<double>()) && p[k].get<double>() > 0) m[k] = p[k];
+    return m;
 }
 
 const std::vector<std::string>& allowedAiSignalKeys() {
@@ -17,7 +67,7 @@ const std::vector<std::string>& allowedAiSignalKeys() {
     return k;
 }
 
-json buildAiRequest(const Signal& s, const std::string& requestId) {
+json buildAiRequest(const Signal& s, const std::string& requestId, const json& market) {
     json sig;
     sig["symbol"] = s.symbol;
     sig["side"] = s.side ? toString(*s.side) : "";
@@ -29,6 +79,7 @@ json buildAiRequest(const Signal& s, const std::string& requestId) {
     json tps = json::array();
     for (auto& t : s.targets) tps.push_back(t.price);
     sig["takeProfits"] = tps;
+    if (market.is_object() && market.contains("candles")) return {{"schemaVersion", 2}, {"requestId", requestId}, {"signal", sig}, {"market", market}};
     return {{"schemaVersion", 1}, {"requestId", requestId}, {"signal", sig}};
 }
 

@@ -69,7 +69,10 @@ Sleep, shutdown or a closed MT5 also pause copying. For 24/7, run it on a Window
 
 Each signal gets a verdict (Good, Uncertain or Bad) with reasons and a confidence score. It's advice: it doesn't
 block trades. It's an early version, it can be wrong, and the score is not a promise of profit.
-Only the signal fields are sent (symbol, side, entry, SL, TPs), never your account or messages. The signal and its
+With MetaTrader connected, the review also reads the market: the trend on H4, H1 and M15, momentum, where price is
+now against the entry, SL and TP1, and the SL distance against volatility.
+Only the signal fields (symbol, side, entry, SL, TPs) and recent price candles of that symbol (M1 to H4) are sent,
+never your account or messages. The signal and its
 verdict are kept with your license key to help the AI learn.
 
 ## Your data

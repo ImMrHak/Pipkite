@@ -346,6 +346,37 @@ TEST(ai_request_contains_only_the_signal) {
     CHECK(dump.find("5550001") == std::string::npos);        // no account login
 }
 
+TEST(ai_request_adds_only_market_prices_from_the_ea) {
+    // as the bridge delivers the EA's RATES payload: packed bars per timeframe
+    nlohmann::json rates = {{"requestId", "r1"},
+                            {"symbol", "XAUUSD.m"},
+                            {"bid", 3940.1},
+                            {"ask", 3940.4},
+                            {"login", 5550001},  // anything else the EA might add is dropped
+                            {"bars",
+                             {{"M1", "1793486880,3939.5,3941.2,3939.1,3940.8,152;1793486940,3940.8,3941.9,3940.2,3941.0,98"},
+                              {"H1", "1793484000,3930,3945,3925,3940,5000;bad,1,2,3,4,5;1793487600,3940,3939,3941,3940,10"},  // bad number, high < low
+                              {"W1", "1793484000,1,2,0.5,1.5,7"},  // not a timeframe the review reads
+                              {"M5", ""}}}};
+    auto market = marketFromEa(rates);
+    CHECK(market.is_object());
+    CHECK(market["candles"]["M1"].size() == 2);
+    CHECK(market["candles"]["M1"][0] == nlohmann::json::array({1793486880, 3939.5, 3941.2, 3939.1, 3940.8, 152}));
+    CHECK(market["candles"]["H1"].size() == 1);
+    CHECK(!market["candles"].contains("W1") && !market["candles"].contains("M5"));
+    CHECK(market["bid"] == 3940.1 && market["ask"] == 3940.4);
+    for (auto& [k, v] : market.items())
+        CHECK(std::find(allowedAiMarketKeys().begin(), allowedAiMarketKeys().end(), k) != allowedAiMarketKeys().end());
+
+    Fixture f;
+    auto req = buildAiRequest(f.signal(kBuyRange), "11111111-2222-4333-8444-555555555555", market);
+    CHECK(req["schemaVersion"] == 2);
+    CHECK(req.dump().find("5550001") == std::string::npos);  // no account login
+    CHECK(req.dump().find("XAUUSD.m") == std::string::npos);  // the broker's symbol name is not needed either
+    CHECK(buildAiRequest(f.signal(kBuyRange), "x")["schemaVersion"] == 1);  // no candles: the old format
+    CHECK(marketFromEa({{"bars", {{"M1", ""}}}}).is_null());
+}
+
 TEST(ai_response_validation_and_gates) {
     const std::string id = "11111111-2222-4333-8444-555555555555";
     auto good = parseAiResponse(R"({"requestId":"11111111-2222-4333-8444-555555555555","verdict":"Good","reasons":["RR 1:2"],"modelVersion":"sr-review-1.0","score":0.8})", id);

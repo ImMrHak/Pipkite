@@ -1,6 +1,7 @@
 #pragma once
-// AI assessment contract. Only the canonical signal is transmitted: never chat/message/sender IDs,
-// account data, balances, history, fixtures or logs. AI can never override deterministic checks.
+// AI assessment contract. Only the canonical signal and public market prices (candles of the signal's
+// symbol) are transmitted: never chat/message/sender IDs, account data, balances, history, fixtures or
+// logs. AI can never override deterministic checks.
 
 #include <optional>
 #include <string>
@@ -25,12 +26,20 @@ struct AiAssessment {
     std::string unavailableReason;
 };
 
-// Builds the exact request body sent to POST /api/v1/ai/suggest.
-nlohmann::json buildAiRequest(const Signal& s, const std::string& requestId);
+// Builds the exact request body sent to POST /api/v1/ai/suggest. With market data (marketFromEa) it is
+// schema 2, which adds "market"; without it schema 1, which every backend version understands.
+nlohmann::json buildAiRequest(const Signal& s, const std::string& requestId, const nlohmann::json& market = nullptr);
+
+// The timeframes the EA sends and the AI review reads, shortest first.
+const std::vector<std::string>& aiTimeframes();
+// Turns the EA's RATES payload into {bid, ask, candles: {M1: [[time, open, high, low, close, volume], ...]}}.
+// Only the known timeframes and finite numbers are kept (oldest bar first); null when nothing usable came.
+nlohmann::json marketFromEa(const nlohmann::json& ratesPayload);
 
 // Keys allowed in the request; used by tests to prove nothing else is transmitted.
 const std::vector<std::string>& allowedAiRequestKeys();
 const std::vector<std::string>& allowedAiSignalKeys();
+const std::vector<std::string>& allowedAiMarketKeys();
 
 // Validates structured backend output; malformed output becomes Unavailable with a reason.
 AiAssessment parseAiResponse(const std::string& body, const std::string& expectedRequestId);

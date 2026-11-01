@@ -42,10 +42,21 @@ www.{$SITE_DOMAIN:localhost} {
 
 	# only the endpoints the site and the app use, the rest 404s
 	handle /api/* {
-		@small path /api/v1/licenses/generate /api/v1/licenses/unsubscribe /api/v1/licenses/validate /api/v1/metrics/download /api/v1/metrics/pageview /api/v1/metrics/downloads /api/v1/ai/suggest /api/v1/updates/manifest /api/v1/updates/files/*
+		@small path /api/v1/licenses/generate /api/v1/licenses/unsubscribe /api/v1/licenses/validate /api/v1/metrics/download /api/v1/metrics/pageview /api/v1/metrics/downloads /api/v1/updates/manifest /api/v1/updates/files/*
 		handle @small {
 			request_body {
 				max_size 16KB
+			}
+			reverse_proxy {$API_UPSTREAM:localhost:8080} {
+				header_up X-Real-IP {client_ip}
+				header_down -Server
+			}
+		}
+		# AI reviews carry the market candles of 5 timeframes (about 30 KB)
+		@aiSuggest path /api/v1/ai/suggest
+		handle @aiSuggest {
+			request_body {
+				max_size 128KB
 			}
 			reverse_proxy {$API_UPSTREAM:localhost:8080} {
 				header_up X-Real-IP {client_ip}

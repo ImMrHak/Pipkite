@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| PipkiteEA.mq5 - Pipkite 1.0.0 copier Expert Advisor       |
+//| PipkiteEA.mq5 - Pipkite 1.0.2 copier Expert Advisor       |
 //|                                                                  |
 //| Owns: authoritative account identity, fresh quotes, final broker |
 //| validation, order submission and transaction reporting.          |
@@ -11,8 +11,8 @@
 //| enable Algo Trading and "Allow DLL imports" (MT5BridgeHost.dll). |
 //+------------------------------------------------------------------+
 #property copyright   "Pipkite"
-#property version     "1.00"
-#property description "Pipkite 1.0.0 - executes commands from the local Pipkite engine."
+#property version     "1.02"
+#property description "Pipkite 1.0.2 - executes commands from the local Pipkite engine."
 #property description "Requires 'Allow DLL imports' for MT5BridgeHost.dll. Attach to ONE chart only."
 
 #import "MT5BridgeHost.dll"
@@ -750,7 +750,7 @@ int OnInit()
    for(int i = 0; i < n; i++) { StringTrimLeft(extra[i]); StringTrimRight(extra[i]); Subscribe(extra[i]); }
    EventSetMillisecondTimer(MathMax(10, InpTimerMs));
    g_ready = true;
-   PrintFormat("Pipkite EA 1.0.0 started: terminal %s, account %I64d @ %s, host ABI %d", g_terminalId, login, AccountInfoString(ACCOUNT_SERVER), BridgeVersion());
+   PrintFormat("Pipkite EA 1.0.2 started: terminal %s, account %I64d @ %s, host ABI %d", g_terminalId, login, AccountInfoString(ACCOUNT_SERVER), BridgeVersion());
    return INIT_SUCCEEDED;
 }
 
@@ -760,6 +760,38 @@ void OnDeinit(const int reason)
    if(g_ready) BridgeShutdown();
    if(g_ownerKey != "" && GlobalVariableCheck(g_ownerKey) && (long)GlobalVariableGet(g_ownerKey) == ChartID()) GlobalVariableDel(g_ownerKey);
    Comment("");
+}
+
+// RATES_REQUEST: recent candles of one symbol for the AI review. One line per timeframe,
+// "time,open,high,low,close,tickVolume;..." oldest bar first (the last one is still forming).
+// 5 x 100 bars is about 28 KB, well under the bridge's 64 KB message limit.
+void SendRates()
+{
+   string sym = Get("payload.symbol");
+   int count = (int)GetL("payload.count");
+   if(count <= 0 || count > 150) count = 100;
+   Msg m("RATES");
+   m.S("requestId", Get("payload.requestId"));
+   m.S("symbol", sym);
+   MqlTick tick;
+   if(SymbolSelect(sym, true) && SymbolInfoTick(sym, tick) && tick.bid > 0) { m.N("bid", tick.bid, 10); m.N("ask", tick.ask, 10); }
+   int digits = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
+   ENUM_TIMEFRAMES tfs[] = {PERIOD_M1, PERIOD_M5, PERIOD_M15, PERIOD_H1, PERIOD_H4};
+   string names[] = {"M1", "M5", "M15", "H1", "H4"};
+   for(int k = 0; k < ArraySize(tfs); k++)
+   {
+      MqlRates r[];
+      int n = CopyRates(sym, tfs[k], 0, count, r);   // -1 while the terminal still loads history: sent empty
+      string s = "";
+      for(int i = 0; i < n; i++)
+      {
+         if(i > 0) s += ";";
+         s += IntegerToString((long)r[i].time) + "," + D(r[i].open, digits) + "," + D(r[i].high, digits) + "," +
+              D(r[i].low, digits) + "," + D(r[i].close, digits) + "," + IntegerToString(r[i].tick_volume);
+      }
+      m.S("bars." + names[k], s);
+   }
+   Send(m);
 }
 
 // Drains the bridge queue (bounded batch). Called from OnTimer and OnTick so commands are picked up on
@@ -785,6 +817,7 @@ void ProcessInbound()
       else if(type == "RECONCILE_REQUEST") Reconcile();
       else if(type == "PAUSE") { g_paused = Get("payload.paused") == "true"; PrintFormat("Pipkite: pause=%s", g_paused ? "on" : "off"); }
       else if(type == "MANAGE") Manage();
+      else if(type == "RATES_REQUEST") SendRates();
       else if(type == "WELCOME" || type == "ERROR") Print("Pipkite: ", text);
    }
 }
@@ -817,7 +850,7 @@ void OnTimer()
       string text;
       StringInit(text, 512, 0);
       BridgeStatusText(text, 512);
-      Comment("Pipkite 1.0.0\n", text, g_paused ? "\nPAUSED" : "", "\nMagic ", COPIER_MAGIC);
+      Comment("Pipkite 1.0.2\n", text, g_paused ? "\nPAUSED" : "", "\nMagic ", COPIER_MAGIC);
       g_lastStatusMs = now;
    }
 }

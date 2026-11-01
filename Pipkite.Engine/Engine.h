@@ -77,7 +77,9 @@ private:
 
     // AI
     void aiLoop();
-    void requestAi(const Signal& s, AiMode mode, std::int64_t deadlineMs);
+    void requestAi(const Signal& s, AiMode mode, std::int64_t deadlineMs, const std::string& brokerSymbol);
+    std::string aiSymbol(const Signal& s, const SourceBinding& b, const Decision& d) const;
+    void flushPendingRates(std::int64_t now);
     void onAiResult(const std::string& key, AiAssessment a);
 
     // bridge
@@ -148,8 +150,16 @@ private:
         std::string licenseKey;
         std::int64_t deadlineMs;
         AiMode mode;
+        nlohmann::json market;  // candles from the EA (marketFromEa), null for a signal-only review
     };
     BoundedQueue<AiJob> aiQueue_{64};
+    // AI reviews waiting for the EA's candles (RATES), by request id; sent without them once the wait is over
+    struct PendingRates {
+        AiJob job;
+        std::int64_t sendWithoutAtMs;
+    };
+    std::map<std::string, PendingRates> pendingRates_;
+    void queueAi(AiJob job);
     std::thread aiThread_;
     std::thread autoLaunchThread_;
     std::mutex terminalMu_;
