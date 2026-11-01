@@ -1,6 +1,6 @@
 ---
 import Logo from './Logo.astro';
-import { VERSION } from '../config';
+import { GITHUB_URL, IDEAS_URL, VERSION } from '../config';
 import { localize, t, type Lang } from '../i18n';
 
 interface Props {
@@ -35,7 +35,8 @@ const year = new Date().getFullYear();
         <li><a class="hover:text-fg" href={L('/telegram-to-mt5-copier')}>{d.footer.guide}</a></li>
         <li><a class="hover:text-fg" href={L('/#faq')}>{d.footer.faq}</a></li>
         <li><a class="hover:text-fg" href={L('/privacy')}>{d.footer.privacy}</a></li>
-        <li><a class="hover:text-fg" href="https://github.com/ImMrHak/Pipkite" rel="noopener">{d.footer.source}</a></li>
+        <li><a class="hover:text-fg" href={GITHUB_URL} rel="noopener">{d.footer.source}</a></li>
+        <li><a class="hover:text-fg" href={IDEAS_URL} rel="noopener">{d.ideas.suggest}</a></li>
       </ul>
     </div>
   </div>

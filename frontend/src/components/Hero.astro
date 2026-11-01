@@ -1,7 +1,7 @@
 ---
 import Icon from './Icon.astro';
 import ThemedShot from './ThemedShot.astro';
-import { BENCH, VERSION } from '../config';
+import { BENCH, GITHUB_URL, VERSION } from '../config';
 import { localize, t, type Lang } from '../i18n';
 import { num } from '../i18n/format';
 
@@ -50,6 +50,10 @@ const ms = num(lang, BENCH.ownOverheadP50Ms, 1);
       <a href={L('/license')} class="btn-ghost w-full !px-7 !py-3.5 text-base sm:w-auto">
         <Icon name="key" size={18} />
         {d.common.getFreeKey}
+      </a>
+      <a href={GITHUB_URL} target="_blank" rel="noopener" class="btn-ghost w-full !px-7 !py-3.5 text-base sm:w-auto">
+        <Icon name="github" size={18} />
+        {d.common.sourceCode}
       </a>
     </div>
 

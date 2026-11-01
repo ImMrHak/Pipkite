@@ -1,9 +1,15 @@
-# env: SITE_DOMAIN, API_UPSTREAM (default localhost:8080), SITE_ROOT (default /srv)
+# env: SITE_DOMAIN, API_UPSTREAM (default localhost:8080), SITE_ROOT (default /srv),
+# ADMIN_DOMAIN and ADMIN_UPSTREAM (default localhost:4321) for the admin panel
 # not using `precompressed`: caddy 2.10 sends 206 for those even without a Range header
 
 {
 	servers {
 		protocols h1 h2 h3
+		# The site is behind Cloudflare: take the visitor's address from CF-Connecting-IP, only when
+		# the request really comes from Cloudflare (https://www.cloudflare.com/ips/).
+		# shortcut: a fixed copy of Cloudflare's ranges, refresh it if they publish new ones.
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
 	}
 }
 
@@ -21,7 +27,7 @@ www.{$SITE_DOMAIN:localhost} {
 		X-Frame-Options "DENY"
 		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 		Cross-Origin-Opener-Policy "same-origin"
 		Cross-Origin-Resource-Policy "same-origin"
 		X-Permitted-Cross-Domain-Policies "none"
@@ -36,13 +42,13 @@ www.{$SITE_DOMAIN:localhost} {
 
 	# only the endpoints the site and the app use, the rest 404s
 	handle /api/* {
-		@small path /api/v1/licenses/generate /api/v1/licenses/validate /api/v1/metrics/download /api/v1/metrics/pageview /api/v1/metrics/downloads /api/v1/ai/suggest /api/v1/updates/manifest /api/v1/updates/files/*
+		@small path /api/v1/licenses/generate /api/v1/licenses/unsubscribe /api/v1/licenses/validate/api/v1/metrics/download /api/v1/metrics/pageview /api/v1/metrics/downloads /api/v1/ai/suggest /api/v1/updates/manifest /api/v1/updates/files/*
 		handle @small {
 			request_body {
 				max_size 16KB
 			}
 			reverse_proxy {$API_UPSTREAM:localhost:8080} {
-				header_up X-Real-IP {remote_host}
+				header_up X-Real-IP {client_ip}
 				header_down -Server
 			}
 		}
@@ -53,12 +59,15 @@ www.{$SITE_DOMAIN:localhost} {
 				max_size 512KB
 			}
 			reverse_proxy {$API_UPSTREAM:localhost:8080} {
-				header_up X-Real-IP {remote_host}
+				header_up X-Real-IP {client_ip}
 				header_down -Server
 			}
 		}
 		respond 404
 	}
+
+	# search consoles try /sitemap.xml first, astro names it sitemap-index.xml
+	rewrite /sitemap.xml /sitemap-index.xml
 
 	handle {
 		try_files {path} {path}.html
@@ -79,4 +88,24 @@ www.{$SITE_DOMAIN:localhost} {
 		file_server
 	}
 
+}
+
+# Admin panel (frontend-admin). It sets its own security headers and CSP; its API stays on
+# localhost and is reached only through it.
+{$ADMIN_DOMAIN:admin.localhost} {
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		-Server
+	}
+	# parser packages are uploaded here (up to 8 MB)
+	request_body {
+		max_size 10MB
+	}
+	# Astro checks a form's Origin against the URL it was served from, which behind this proxy is
+	# http://localhost:4321: map our own origin to it. Other origins pass unchanged and are refused.
+	@ownOrigin header Origin https://{$ADMIN_DOMAIN:admin.localhost}
+	request_header @ownOrigin Origin http://localhost:4321
+	reverse_proxy {$ADMIN_UPSTREAM:localhost:4321} {
+		header_down -Server
+	}
 }

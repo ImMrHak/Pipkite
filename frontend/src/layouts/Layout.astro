@@ -116,12 +116,11 @@ const jsonLd = JSON.stringify(graph(organization(site), website(site, lang), ...
         });
       });
 
-      // anonymous counters, skipped with GPC / DNT
+      // anonymous counters; page views skipped with GPC / DNT, download clicks always counted
       const body = document.body.dataset;
       const nav = navigator as Navigator & { globalPrivacyControl?: boolean };
       const optedOut = nav.globalPrivacyControl === true || navigator.doNotTrack === '1';
       const send = (endpoint: string, data: object) => {
-        if (optedOut) return;
         fetch(`${body.api}/metrics/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -131,7 +130,7 @@ const jsonLd = JSON.stringify(graph(organization(site), website(site, lang), ...
           referrerPolicy: 'no-referrer',
         }).catch(() => {});
       };
-      if (body.page) send('pageview', { path: body.page, lang: body.lang });
+      if (body.page && !optedOut) send('pageview', { path: body.page, lang: body.lang });
       document.addEventListener('click', (ev) => {
         const link = (ev.target as HTMLElement).closest<HTMLElement>('[data-dl]');
         if (link) send('download', { kind: link.dataset.dl });
@@ -143,7 +142,7 @@ const jsonLd = JSON.stringify(graph(organization(site), website(site, lang), ...
           .then((r) => (r.ok ? r.json() : null))
           .then((data) => {
             const total = Number(data?.total);
-            if (!Number.isFinite(total) || total < Number(body.downloadsMin ?? 500)) return;
+            if (!Number.isFinite(total) || total < Number(body.downloadsMin ?? 0)) return;
             const locale = body.lang === 'ar' ? 'ar-u-nu-latn' : body.lang;
             const n = total.toLocaleString(locale);
             counters.forEach((el) => {

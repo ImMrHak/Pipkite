@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
 import { createHash } from 'node:crypto';
 import { THEME_SCRIPT } from './src/theme-script.mjs';
+import { CONTENT_UPDATED } from './src/config';
 
 const env = loadEnv(process.env.NODE_ENV ?? 'production', process.cwd(), '');
 
@@ -72,11 +73,15 @@ export default defineConfig({
   integrations: [
     sitemap({
       filter: (page) => !page.includes('/get-license') && !/\/404$/.test(page),
-      lastmod: new Date(),
+      // the real content date, google ignores lastmod that changes on every build
+      lastmod: new Date(CONTENT_UPDATED),
       i18n: { defaultLocale: 'en', locales: LOCALES },
       serialize(item) {
         const path = new URL(item.url).pathname.replace(/^\/(fr|es|ar)(?=\/|$)/, '') || '/';
         item.priority = path === '/' ? 1.0 : ['/download', '/telegram-to-mt5-copier'].includes(path) ? 0.9 : 0.7;
+        const en = item.links?.find((l) => l.lang === 'en');
+        // links is shared by all languages of a page, so copy it instead of pushing
+        if (en) item.links = [...(item.links ?? []), { lang: 'x-default', url: en.url }];
         return item;
       },
     }),

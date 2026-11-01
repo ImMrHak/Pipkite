@@ -6,15 +6,18 @@ export const CONTENT_UPDATED = '2026-10-11';
 
 // empty = hidden
 export const CONTACT_EMAIL = 'support@pipkite.com';
+export const GITHUB_URL = 'https://github.com/ImMrHak/Pipkite';
+// ideas and improvement requests arrive as GitHub issues
+export const IDEAS_URL = `${GITHUB_URL}/issues/new`;
 // official profiles for schema.org sameAs
-export const SAME_AS: string[] = ['https://github.com/ImMrHak/Pipkite'];
+export const SAME_AS: string[] = [GITHUB_URL];
 export const RELEASE_DATE = '2026-11-01';
 
 const downloadBase = (import.meta.env.PUBLIC_DOWNLOAD_BASE ?? '/downloads').replace(/\/$/, '');
-export const API_BASE = (import.meta.env.PUBLIC_API_BASE ?? '/api/v1').replace(/\/$/, '');
+export const API_BASE = (import.meta.env.PUBLIC_API_BASE || '/api/v1').replace(/\/$/, '');
 
 // hide the public download counter until it reaches this (0 = always show)
-export const DOWNLOADS_PUBLIC_MIN = Number(import.meta.env.PUBLIC_DOWNLOADS_MIN ?? 500);
+export const DOWNLOADS_PUBLIC_MIN = Number(import.meta.env.PUBLIC_DOWNLOADS_MIN ?? 0);
 
 export const DOWNLOADS = {
   installer: {

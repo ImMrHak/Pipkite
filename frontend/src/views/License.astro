@@ -59,19 +59,27 @@ const e = lc.errors;
           data-err-bad={e.bad}
           data-err-rate={e.rate}
           data-err-server={e.server}
+          data-err-mail={e.mail}
           data-err-unexpected={e.unexpected}
           data-err-network={e.network}
         >
           <div>
-            <label for="name" class="text-sm font-medium">{lc.name}</label>
-            <input id="name" name="name" class="field mt-2" required maxlength="120" autocomplete="name" placeholder={lc.namePh} />
+            <label for="email" class="text-sm font-medium">{lc.email}</label>
+            <input id="email" name="email" type="email" class="field mt-2" required maxlength="200" autocomplete="email" placeholder={lc.emailPh} dir="ltr" />
           </div>
           <div>
-            <label for="email" class="text-sm font-medium">
-              {lc.email} <span class="font-normal text-muted">{lc.emailOpt}</span>
+            <label for="name" class="text-sm font-medium">
+              {lc.name} <span class="font-normal text-muted">{lc.nameOpt}</span>
             </label>
-            <input id="email" name="email" type="email" class="field mt-2" maxlength="200" autocomplete="email" placeholder={lc.emailPh} dir="ltr" />
+            <input id="name" name="name" class="field mt-2" maxlength="120" autocomplete="name" placeholder={lc.namePh} />
           </div>
+          <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3.5 text-sm">
+            <input id="updates" name="updates" type="checkbox" class="mt-0.5 size-4 shrink-0 accent-accent" />
+            <span>
+              <span class="font-medium">{lc.updates}</span>
+              <span class="mt-0.5 block text-xs text-muted">{lc.updatesHint}</span>
+            </span>
+          </label>
           <!-- honeypot -->
           <div class="hidden" aria-hidden="true">
             <label for="website">Website</label>
@@ -96,18 +104,10 @@ const e = lc.errors;
     class="card m-auto w-[calc(100%-2rem)] max-w-lg p-6 text-fg shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-md sm:p-8"
   >
     <div class="flex items-center gap-2 text-good">
-      <Icon name="check" />
+      <Icon name="send" />
       <h2 id="result-title" class="font-semibold">{lc.ready}</h2>
     </div>
-    <div class="mt-5 rounded-xl border border-line bg-bg p-4">
-      <code id="key" class="block font-mono text-sm break-all select-all" dir="ltr"></code>
-    </div>
-    <button type="button" data-copy-target="#key" class="btn-primary mt-4 w-full">
-      <Icon name="copy" size={16} /> <span data-copy-label>{lc.copyKey}</span>
-    </button>
-    <p id="email-sent" class="mt-4 hidden rounded-xl bg-accent-soft px-4 py-3 text-sm [&_strong]:font-medium [&_strong]:break-all" set:html={lc.emailSentHtml} />
-    <p id="email-none" class="mt-4 hidden rounded-xl bg-bad/10 px-4 py-3 text-sm text-bad">{lc.emailNone}</p>
-    <p class="mt-3 text-center text-xs text-muted">{lc.saveIt}</p>
+    <p id="email-sent" class="mt-5 rounded-xl bg-accent-soft px-4 py-3 text-sm [&_strong]:font-medium [&_strong]:break-all" set:html={lc.emailSentHtml} />
 
     <ol class="mt-8 space-y-3 text-sm">
       {
@@ -146,8 +146,8 @@ const e = lc.errors;
 
     const name = field('name').value.replace(/\s+/g, ' ').trim().slice(0, 120);
     const email = field('email').value.trim().slice(0, 200);
-    if (!name) return showError(msg.errName);
-    if (email && !field('email').checkValidity()) return showError(msg.errEmail);
+    // the key is only ever emailed, so a real address is required
+    if (!email || !field('email').checkValidity()) return showError(msg.errEmail);
     if (field('website').value) return; // bot
 
     submit.disabled = true;
@@ -161,18 +161,21 @@ const e = lc.errors;
         credentials: 'omit',
         referrerPolicy: 'no-referrer',
         signal: ctrl.signal,
-        body: JSON.stringify({ requestId: crypto.randomUUID(), customerName: name, customerEmail: email || undefined }),
+        body: JSON.stringify({
+          requestId: crypto.randomUUID(),
+          customerName: name || undefined,
+          customerEmail: email,
+          productUpdates: field('updates').checked,
+        }),
       });
       if (res.status === 400) throw new Error(msg.errBad);
       if (res.status === 429) throw new Error(msg.errRate);
+      if (res.status === 503) throw new Error(msg.errMail);
       if (!res.ok) throw new Error(msg.errServer);
 
       const data = await res.json();
-      if (typeof data?.licenseKey !== 'string' || data.licenseKey.length > 200) throw new Error(msg.errUnexpected);
-      document.getElementById('key')!.textContent = data.licenseKey;
+      if (data?.status !== 'ACTIVE') throw new Error(msg.errUnexpected);
       document.querySelector('#email-sent strong')!.textContent = email;
-      document.getElementById('email-sent')!.classList.toggle('hidden', !email);
-      document.getElementById('email-none')!.classList.toggle('hidden', !!email);
       form.reset();
       (document.getElementById('result') as HTMLDialogElement).showModal();
     } catch (err) {
