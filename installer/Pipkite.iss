@@ -32,6 +32,12 @@ CloseApplications=yes
 Name: "autostart"; Description: "Start Pipkite when I sign in to Windows (opt-in)"; Flags: unchecked
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 
+[InstallDelete]
+; files from the project's old name that earlier versions installed (the same key ships as pipkite-backend.pub)
+Type: files; Name: "{app}\mql5\SignalRelayEA.ex5"
+Type: files; Name: "{app}\mql5\SignalRelayEA.mq5"
+Type: files; Name: "{app}\trusted_keys\signalrelay-backend.pub"
+
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 

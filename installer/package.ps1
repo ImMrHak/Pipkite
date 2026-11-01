@@ -80,6 +80,9 @@ if (-not (Test-Path "$stage\Pipkite-publisher.cer")) { throw "Publisher certific
 # Release hygiene checks: no source, no private keys, no build intermediates, no symbols.
 $forbidden = Get-ChildItem $stage -Recurse -Include *.key, *.pfx, *.pdb, *.lib, *.exp, *.obj, *.cpp, *.h, *.ilk, *.metagen
 if ($forbidden) { throw "Forbidden files in package: $($forbidden.FullName -join ', ')" }
+# leftovers from the project's old name in x64\<config> (the copies above take whole folders)
+$oldName = Get-ChildItem $stage -Recurse | Where-Object { $_.Name -match 'signalrelay' }
+if ($oldName) { throw "Files from the old SignalRelay name in package (delete them from $bin): $($oldName.FullName -join ', ')" }
 if (Test-Path "$stage\trusted_keys\dev-publisher.pub") {
     Write-Warning "Package contains the LOCAL DEVELOPMENT publisher key. Production releases must replace trusted_keys with the real publisher key and re-sign modules on the protected build machine."
 }
