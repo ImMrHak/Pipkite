@@ -91,6 +91,9 @@ public:
         DataGridViewTextBoxColumn^ reason = feed_->AddCol("reason", "Reason", 320);
         reason->AutoSizeMode = DataGridViewAutoSizeColumnMode::Fill;
         reason->MinimumWidth = 200;
+        // the AI verdict right after Side, so it's visible without scrolling the table (display order only:
+        // rows are filled by position)
+        feed_->Columns["ai"]->DisplayIndex = feed_->Columns["side"]->DisplayIndex + 1;
         feed_->CellDoubleClick += gcnew DataGridViewCellEventHandler(this, &DashboardPage::OnFeedDoubleClick);
         feed_->KeyDown += gcnew KeyEventHandler(this, &DashboardPage::OnFeedKey);
         feed_->CellFormatting += gcnew DataGridViewCellFormattingEventHandler(this, &DashboardPage::OnCellFormatting);
@@ -150,7 +153,8 @@ public:
         right->Controls->Add(realizedChart_);
         split->Panel2->Controls->Add(right);
 
-        // setup checklist: only shown while something is missing, so a fresh install says what to do next
+        // setup checklist, only while something is missing: one compact line (progress and the next step to do),
+        // the full list of steps on demand, so it never takes over the dashboard
         TableLayoutPanel^ steps = gcnew TableLayoutPanel();
         steps->ColumnCount = 3;
         steps->AutoSize = true;
@@ -159,16 +163,37 @@ public:
         stepBadges_ = gcnew array<Badge^>(6);
         stepTexts_ = gcnew array<Label^>(6);
         stepButtons_ = gcnew array<Button^>(6);
+        stepLabels_ = gcnew array<String^>(6);
+        stepPages_ = gcnew array<int>(6);
         AddStep(steps, 0, "Add your free license key. It unlocks parsers, AI review and updates.", "Open Settings", 6);
         AddStep(steps, 1, "Sign in to Telegram with your own account.", "Open Telegram sources", 1);
         AddStep(steps, 2, "Tick the channels or groups you want to copy.", "Choose channels", 1);
         AddStep(steps, 3, "Start MetaTrader 5, log in to your broker and approve the pairing.", "Open MetaTrader", 2);
         AddStep(steps, 4, "Request a parser for each channel. It installs by itself when ready.", "Open Signal rules", 3);
         AddStep(steps, 5, "Set the max spread and slippage for each symbol you trade.", "Open Execution policy", 4);
-        Button^ hide = L::Btn("Hide this list", nullptr, "Hide the Get started list. You can show it again in Settings.");
+        steps->Visible = false;
+        steps_ = steps;
+        setupProgress_ = L::Text("");
+        setupProgress_->Font = Theme::BodyBold;
+        setupNext_ = L::Text("");
+        setupGo_ = L::Btn("Open", "accent");
+        setupGo_->Click += gcnew EventHandler(this, &DashboardPage::OnSetupGo);
+        setupToggle_ = L::Btn("Show all steps", nullptr, "Show or hide every setup step.");
+        setupToggle_->Click += gcnew EventHandler(this, &DashboardPage::OnSetupToggle);
+        Button^ hide = L::Btn("Hide", nullptr, "Hide the Get started list. You can show it again in Settings.");
         hide->Click += gcnew EventHandler(this, &DashboardPage::OnHideSetup);
-        steps->Controls->Add(hide, 2, 6);
-        setup_ = L::Group("Get started", steps);
+        FlowLayoutPanel^ line = gcnew FlowLayoutPanel();
+        line->AutoSize = true;
+        line->WrapContents = true;
+        line->Controls->AddRange(gcnew array<Control^>{setupProgress_, setupNext_, setupGo_, setupToggle_, hide});
+        setupLine_ = line;
+        FlowLayoutPanel^ body = gcnew FlowLayoutPanel();
+        body->FlowDirection = FlowDirection::TopDown;
+        body->WrapContents = false;
+        body->AutoSize = true;
+        body->Controls->Add(line);
+        body->Controls->Add(steps);
+        setup_ = L::Group("Get started", body);
         setup_->Dock = DockStyle::Top;
         setup_->Visible = false;
         setupWrap_ = gcnew Panel();
@@ -177,6 +202,7 @@ public:
         setupWrap_->Padding = Windows::Forms::Padding(Theme::Gutter, 4, Theme::Gutter, 0);
         setupWrap_->Visible = false;
         setupWrap_->Controls->Add(setup_);
+        setupWrap_->SizeChanged += gcnew EventHandler(this, &DashboardPage::OnSetupResized);
 
         Controls->Add(split);
         Controls->Add(profit_);
@@ -184,6 +210,8 @@ public:
         Controls->Add(cards_);
         Controls->Add(setupWrap_);
         Header("Dashboard", "Live status of copying, your account and every signal.", this);
+        // small screens: the page scrolls rather than squeezing the feed and charts (see UpdateScrollArea)
+        AutoScroll = true;
 
         chartTimer_ = gcnew Windows::Forms::Timer();
         chartTimer_->Interval = 10000;
@@ -192,6 +220,7 @@ public:
     }
 
     virtual void OnActivated() override {
+        AutoScrollPosition = Drawing::Point(0, 0);  // open at the top: status, Get started and cards first
         OnChartTimer(nullptr, nullptr);
         try {
             if (split_->Width > 700) split_->SplitterDistance = Math::Max(300, split_->Width - 396);
@@ -285,6 +314,10 @@ public:
         UpdateFeed(J::Arr(s, "feed"));
     }
 
+protected:
+    // keep the scroll position when a child (the feed) takes focus: WinForms would jump to it and hide the top
+    virtual Drawing::Point ScrollToControl(Control^) override { return DisplayRectangle.Location; }
+
 private:
     StatCard ^ telegram_, ^account_, ^mode_, ^health_, ^latency_, ^balance_, ^equity_, ^free_, ^floating_, ^today_, ^week_, ^exposure_;
     array<StatCard^> ^ statusCards_, ^profitCards_;
@@ -305,6 +338,12 @@ private:
     array<Badge^>^ stepBadges_;
     array<Label^>^ stepTexts_;
     array<Button^>^ stepButtons_;
+    array<String^>^ stepLabels_;
+    array<int>^ stepPages_;
+    Control ^ steps_, ^setupLine_;
+    Label ^ setupProgress_, ^setupNext_;
+    Button ^ setupGo_, ^setupToggle_;
+    int nextPage_;
 
     void AddStep(TableLayoutPanel^ t, int i, String^ text, String^ button, int page) {
         stepBadges_[i] = gcnew Badge();
@@ -314,6 +353,8 @@ private:
         stepTexts_[i]->Margin = Windows::Forms::Padding(0, 9, 16, 2);
         stepButtons_[i] = L::Btn(button, Convert::ToString(page));
         stepButtons_[i]->Click += gcnew EventHandler(this, &DashboardPage::OnStepClick);
+        stepLabels_[i] = button;
+        stepPages_[i] = page;
         t->Controls->Add(stepBadges_[i], 0, i);
         t->Controls->Add(stepTexts_[i], 1, i);
         t->Controls->Add(stepButtons_[i], 2, i);
@@ -321,6 +362,7 @@ private:
     void OnHideSetup(Object^, EventArgs^) {
         SetupHidden = true;
         setupWrap_->Visible = false;
+        UpdateScrollArea();
         JObj^ v = J::New();
         v["ui.setupHidden"] = "true";
         JObj^ p = J::New();
@@ -337,19 +379,52 @@ private:
         array<bool>^ done = {J::Bool(st, "license"), J::Bool(st, "telegram"), hasSources, J::Bool(st, "metatrader"),
                              hasSources && missing->Length == 0, J::Int(st, "symbolLimits") > 0};
         bool all = true;
+        int doneCount = 0, next = -1;
         for (int i = 0; i < done->Length; ++i) {
             all = all && done[i];
+            if (done[i]) ++doneCount;
+            else if (next < 0) next = i;
             stepBadges_[i]->Set(done[i] ? "Done" : "To do", done[i] ? Theme::Success : Theme::Warning);
             if (stepButtons_[i]->Visible == done[i]) stepButtons_[i]->Visible = !done[i];
         }
         String^ parsers = "5.  Request a parser for each channel. It installs by itself when ready.";
         for (int i = 0; i < missing->Length; ++i) parsers += (i == 0 ? " Waiting for: " : ", ") + Convert::ToString(missing[i]);
         SetText(stepTexts_[4], parsers);
+        SetText(setupProgress_, doneCount.ToString() + " of " + done->Length.ToString() + " done");
+        if (next >= 0) {
+            SetText(setupNext_, "Next: " + stepTexts_[next]->Text->Substring(4));  // without the "N.  " prefix
+            if (setupGo_->Text != stepLabels_[next]) setupGo_->Text = stepLabels_[next];
+            nextPage_ = stepPages_[next];
+        }
         const bool show = !all && !SetupHidden;
         if (setupWrap_->Visible != show) {
             setupWrap_->Visible = show;
             setup_->Visible = show;
         }
+        UpdateScrollArea();
+    }
+    // Scroll instead of squeezing: the page is never shorter than its top rows plus room for the feed and charts.
+    void UpdateScrollArea() {
+        int tops = 0;
+        for each (Control^ c in Controls)
+            if (c->Visible && c->Dock == DockStyle::Top) tops += c->Height;
+        Drawing::Size want(0, tops + 460);
+        if (AutoScrollMinSize != want) AutoScrollMinSize = want;
+    }
+    // an auto-sized FlowLayoutPanel only wraps within a maximum width: give it the box's, so narrow windows wrap
+    // the buttons onto a second row instead of cutting them off
+    void OnSetupResized(Object^, EventArgs^) {
+        Drawing::Size max(Math::Max(320, setupWrap_->ClientSize.Width - setupWrap_->Padding.Horizontal - 40), 0);
+        if (setupLine_->MaximumSize != max) setupLine_->MaximumSize = max;
+        UpdateScrollArea();
+    }
+    void OnSetupGo(Object^, EventArgs^) {
+        if (Navigate != nullptr) Navigate(nextPage_);
+    }
+    void OnSetupToggle(Object^, EventArgs^) {
+        steps_->Visible = !steps_->Visible;
+        setupToggle_->Text = steps_->Visible ? "Hide steps" : "Show all steps";
+        UpdateScrollArea();
     }
 
     static String^ TelegramText(String^ s) {
