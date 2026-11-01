@@ -24,3 +24,5 @@ docs/BACKEND.md
 backend/
 # Built installer
 installer/Output/
+# Server deploy (needs the private backend)
+docker-compose.yml
