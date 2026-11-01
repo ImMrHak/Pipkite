@@ -12,6 +12,11 @@ export const IDEAS_URL = `${GITHUB_URL}/issues/new`;
 // official profiles for schema.org sameAs
 export const SAME_AS: string[] = [GITHUB_URL];
 export const RELEASE_DATE = '2026-11-01';
+// every release, newest first: the changelog page lists them with the notes in i18n changelog.releases
+export const RELEASES = [
+  { version: '1.0.1', date: '2026-11-01' },
+  { version: '1.0.0', date: '2026-09-30' },
+] as const;
 
 const downloadBase = (import.meta.env.PUBLIC_DOWNLOAD_BASE ?? '/downloads').replace(/\/$/, '');
 export const API_BASE = (import.meta.env.PUBLIC_API_BASE || '/api/v1').replace(/\/$/, '');

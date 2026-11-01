@@ -21,7 +21,7 @@ export const en = {
     guideDesc:
       'Step-by-step guide to copy Telegram trading signals to MetaTrader 5 automatically: connect Telegram and MT5, get parsers, set risk rules, test safely.',
     changelogTitle: `Pipkite Changelog – What's New in ${VERSION}`,
-    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Version ${VERSION}: execution engine, parsers, AI review, speed work, dashboard and security.`,
+    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}, easier MetaTrader 5 setup with any broker.`,
     privacyTitle: 'Privacy – What Pipkite Collects and Why',
     privacyDesc:
       'What Pipkite keeps on your PC, what the license, AI review and custom parser services receive, and what is never collected. Plain language.',
@@ -508,52 +508,79 @@ export const en = {
     version: (v: string) => `Version ${v}`,
     firstRelease: 'First release',
     downloadButton: (v: string) => `Download ${v}`,
-    groups: [
-      {
-        h: 'Execution',
-        items: [
-          'Native C++ engine that never silently drops a signal, even under load.',
-          'Entry handling: wait for the range, enter within tolerance, or pending orders only. BUY at ask, SELL at bid.',
-          'Fixed-lot or risk-percent sizing that always rounds down, spread and deviation caps, split targets, trading hours and account limits.',
-          'Durable journal before every order; unknown outcomes are reconciled, never blindly retried.',
-          'Force-enter option for trades that slip just past the entry range.',
-          'Copying is live as soon as an MT5 account is paired; Pause / Resume copying in one click (top bar or tray).',
-        ],
-      },
-      {
-        h: 'Speed',
-        items: [
-          `One disk flush per order instead of four: Telegram-to-MT5 overhead down from ${num(L, BENCH.ownOverheadBeforeP50Ms, 1)} ms to ${ms} ms (median).`,
-          'Entry ranges react to every price quote; the EA picks up orders on ticks as well as its 10 ms timer.',
-          'Keeps Windows awake while copying (optional).',
-        ],
-      },
-      {
-        h: 'Parsers and sources',
-        items: [
-          'Copy from many channels and groups, each with its own parser, entry policy and sizing overrides.',
-          'Parsers are built by the Pipkite team: request one per channel from inside the app and it arrives as a signed update that loads without a restart.',
-          'Parsers handle emojis, Markdown, odd dashes, Arabic-Indic and superscript digits, and detect commentary and edits.',
-        ],
-      },
-      {
-        h: 'AI review',
-        items: [
-          'Good / Uncertain / Bad opinion with reasons for every signal, shown as advice in the live feed.',
-          'First version: it can be wrong and will improve over time.',
-          'Only the signal fields are sent: never account details, chats or message text.',
-        ],
-      },
-      {
-        h: 'Dashboard, data and security',
-        items: [
-          'Live feed, account and copier profit cards, equity and P/L charts, latency percentiles.',
-          'Local database with checksummed backups and optional password encryption.',
-          'Signed (ECDSA P-256) modules and updates, DPAPI-protected secrets, no credential logging.',
-          'Clean dark and light themes, tooltips on every button, built-in user guide.',
-        ],
-      },
-    ],
+    latest: "Latest",
+    releases: {
+      '1.0.1': [
+        {
+          h: "MetaTrader 5",
+          items: [
+            "Finds MetaTrader 5 from any broker (HFM, IC Markets, …), including portable installs and installs never opened yet.",
+            "MetaTrader not listed? Choose folder… picks its folder and checks Pipkite can work with it. After Start, Pipkite confirms MetaTrader really connected.",
+          ],
+        },
+        {
+          h: "Setup and parsers",
+          items: [
+            "Once a channel’s parser request is sent you can finish the setup: the parser installs itself when it’s ready.",
+            "New parser signing key: install this version to receive new parsers. Parsers you already have keep working.",
+          ],
+        },
+        {
+          h: "Licenses and look",
+          items: [
+            "License keys now start with PK- and are sent to your email.",
+            "Optional email when a new version is out.",
+            "Pipkite logo on the desktop and Start menu shortcuts and on the installer.",
+          ],
+        },
+      ],
+      '1.0.0': [
+        {
+          h: 'Execution',
+          items: [
+            'Native C++ engine that never silently drops a signal, even under load.',
+            'Entry handling: wait for the range, enter within tolerance, or pending orders only. BUY at ask, SELL at bid.',
+            'Fixed-lot or risk-percent sizing that always rounds down, spread and deviation caps, split targets, trading hours and account limits.',
+            'Durable journal before every order; unknown outcomes are reconciled, never blindly retried.',
+            'Force-enter option for trades that slip just past the entry range.',
+            'Copying is live as soon as an MT5 account is paired; Pause / Resume copying in one click (top bar or tray).',
+          ],
+        },
+        {
+          h: 'Speed',
+          items: [
+            `One disk flush per order instead of four: Telegram-to-MT5 overhead down from ${num(L, BENCH.ownOverheadBeforeP50Ms, 1)} ms to ${ms} ms (median).`,
+            'Entry ranges react to every price quote; the EA picks up orders on ticks as well as its 10 ms timer.',
+            'Keeps Windows awake while copying (optional).',
+          ],
+        },
+        {
+          h: 'Parsers and sources',
+          items: [
+            'Copy from many channels and groups, each with its own parser, entry policy and sizing overrides.',
+            'Parsers are built by the Pipkite team: request one per channel from inside the app and it arrives as a signed update that loads without a restart.',
+            'Parsers handle emojis, Markdown, odd dashes, Arabic-Indic and superscript digits, and detect commentary and edits.',
+          ],
+        },
+        {
+          h: 'AI review',
+          items: [
+            'Good / Uncertain / Bad opinion with reasons for every signal, shown as advice in the live feed.',
+            'First version: it can be wrong and will improve over time.',
+            'Only the signal fields are sent: never account details, chats or message text.',
+          ],
+        },
+        {
+          h: 'Dashboard, data and security',
+          items: [
+            'Live feed, account and copier profit cards, equity and P/L charts, latency percentiles.',
+            'Local database with checksummed backups and optional password encryption.',
+            'Signed (ECDSA P-256) modules and updates, DPAPI-protected secrets, no credential logging.',
+            'Clean dark and light themes, tooltips on every button, built-in user guide.',
+          ],
+        },
+      ],
+    },
   },
 
   privacy: {

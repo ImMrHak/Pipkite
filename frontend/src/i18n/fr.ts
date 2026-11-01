@@ -20,7 +20,7 @@ export const fr: Dict = {
     guideDesc:
       'Guide pas à pas pour copier les signaux Telegram vers MetaTrader 5 : connecter Telegram et MT5, obtenir les parsers, régler le risque, tester sans risque.',
     changelogTitle: `Journal des versions Pipkite – Nouveautés ${VERSION}`,
-    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Version ${VERSION} : moteur d’exécution, parsers, revue IA, vitesse, tableau de bord.`,
+    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION}, configuration de MetaTrader 5 simplifiée avec tous les courtiers.`,
     privacyTitle: 'Confidentialité – Ce que Pipkite collecte et pourquoi',
     privacyDesc:
       'Ce que Pipkite garde sur votre PC, ce que reçoivent les services de licence, de revue IA et de parsers, et ce qui n’est jamais collecté. En clair.',
@@ -507,52 +507,79 @@ export const fr: Dict = {
     version: (v: string) => `Version ${v}`,
     firstRelease: 'Première version',
     downloadButton: (v: string) => `Télécharger la ${v}`,
-    groups: [
-      {
-        h: 'Exécution',
-        items: [
-          'Moteur C++ natif qui ne perd jamais un signal en silence, même sous charge.',
-          'Gestion de l’entrée : attendre la zone, entrer dans une tolérance, ou ordres en attente uniquement. BUY au ask, SELL au bid.',
-          'Taille en lots fixes ou en % de risque toujours arrondie à l’inférieur, plafonds de spread et de déviation, objectifs fractionnés, horaires et limites de compte.',
-          'Journal durable avant chaque ordre ; les résultats incertains sont réconciliés, jamais renvoyés à l’aveugle.',
-          'Option d’entrée forcée pour les trades qui dépassent de peu la zone d’entrée.',
-          'La copie est active dès qu’un compte MT5 est associé ; pause / reprise en un clic (barre du haut ou barre des tâches).',
-        ],
-      },
-      {
-        h: 'Vitesse',
-        items: [
-          `Une écriture disque par ordre au lieu de quatre : délai Telegram vers MT5 réduit de ${num(L, BENCH.ownOverheadBeforeP50Ms, 1)} ms à ${ms} ms (médiane).`,
-          'Les zones d’entrée réagissent à chaque cotation ; l’EA récupère les ordres à chaque tick ainsi qu’avec son minuteur de 10 ms.',
-          'Garde Windows éveillé pendant la copie (facultatif).',
-        ],
-      },
-      {
-        h: 'Parsers et sources',
-        items: [
-          'Copie depuis de nombreux canaux et groupes, chacun avec son parser, sa politique d’entrée et ses réglages de taille.',
-          'Les parsers sont créés par l’équipe Pipkite : demandez-en un par canal depuis l’application, il arrive en mise à jour signée qui se charge sans redémarrage.',
-          'Les parsers gèrent emojis, Markdown, tirets inhabituels, chiffres arabes-indiens et en exposant, et détectent commentaires et modifications.',
-        ],
-      },
-      {
-        h: 'Revue IA',
-        items: [
-          'Avis Bon / Incertain / Mauvais avec raisons pour chaque signal, affiché comme un conseil dans le flux en direct.',
-          'Première version : elle peut se tromper et s’améliorera avec le temps.',
-          'Seuls les champs du signal sont envoyés : jamais les détails du compte, les discussions ni le texte des messages.',
-        ],
-      },
-      {
-        h: 'Tableau de bord, données et sécurité',
-        items: [
-          'Flux en direct, cartes de compte et de profits du copieur, graphiques d’équité et de P/L, percentiles de latence.',
-          'Base locale avec sauvegardes vérifiées et chiffrement facultatif par mot de passe.',
-          'Modules et mises à jour signés (ECDSA P-256), secrets protégés par DPAPI, aucun identifiant journalisé.',
-          'Thèmes sombre et clair soignés, info-bulles sur chaque bouton, guide utilisateur intégré.',
-        ],
-      },
-    ],
+    latest: "Dernière version",
+    releases: {
+      '1.0.1': [
+        {
+          h: "MetaTrader 5",
+          items: [
+            "Trouve MetaTrader 5 de n’importe quel courtier (HFM, IC Markets, …), y compris les installations portables et celles jamais ouvertes.",
+            "MetaTrader n’apparaît pas ? « Choose folder… » permet de choisir son dossier et vérifie que Pipkite peut l’utiliser. Après « Start », Pipkite confirme que MetaTrader est bien connecté.",
+          ],
+        },
+        {
+          h: "Configuration et parsers",
+          items: [
+            "Une fois la demande de parser envoyée pour un canal, vous pouvez terminer la configuration : le parser s’installe tout seul dès qu’il est prêt.",
+            "Nouvelle clé de signature des parsers : installez cette version pour recevoir les nouveaux parsers. Ceux que vous avez déjà continuent de fonctionner.",
+          ],
+        },
+        {
+          h: "Licences et apparence",
+          items: [
+            "Les clés de licence commencent désormais par PK- et sont envoyées par e-mail.",
+            "E-mail facultatif à chaque nouvelle version.",
+            "Logo Pipkite sur les raccourcis du bureau et du menu Démarrer, et sur l’installateur.",
+          ],
+        },
+      ],
+      '1.0.0': [
+        {
+          h: 'Exécution',
+          items: [
+            'Moteur C++ natif qui ne perd jamais un signal en silence, même sous charge.',
+            'Gestion de l’entrée : attendre la zone, entrer dans une tolérance, ou ordres en attente uniquement. BUY au ask, SELL au bid.',
+            'Taille en lots fixes ou en % de risque toujours arrondie à l’inférieur, plafonds de spread et de déviation, objectifs fractionnés, horaires et limites de compte.',
+            'Journal durable avant chaque ordre ; les résultats incertains sont réconciliés, jamais renvoyés à l’aveugle.',
+            'Option d’entrée forcée pour les trades qui dépassent de peu la zone d’entrée.',
+            'La copie est active dès qu’un compte MT5 est associé ; pause / reprise en un clic (barre du haut ou barre des tâches).',
+          ],
+        },
+        {
+          h: 'Vitesse',
+          items: [
+            `Une écriture disque par ordre au lieu de quatre : délai Telegram vers MT5 réduit de ${num(L, BENCH.ownOverheadBeforeP50Ms, 1)} ms à ${ms} ms (médiane).`,
+            'Les zones d’entrée réagissent à chaque cotation ; l’EA récupère les ordres à chaque tick ainsi qu’avec son minuteur de 10 ms.',
+            'Garde Windows éveillé pendant la copie (facultatif).',
+          ],
+        },
+        {
+          h: 'Parsers et sources',
+          items: [
+            'Copie depuis de nombreux canaux et groupes, chacun avec son parser, sa politique d’entrée et ses réglages de taille.',
+            'Les parsers sont créés par l’équipe Pipkite : demandez-en un par canal depuis l’application, il arrive en mise à jour signée qui se charge sans redémarrage.',
+            'Les parsers gèrent emojis, Markdown, tirets inhabituels, chiffres arabes-indiens et en exposant, et détectent commentaires et modifications.',
+          ],
+        },
+        {
+          h: 'Revue IA',
+          items: [
+            'Avis Bon / Incertain / Mauvais avec raisons pour chaque signal, affiché comme un conseil dans le flux en direct.',
+            'Première version : elle peut se tromper et s’améliorera avec le temps.',
+            'Seuls les champs du signal sont envoyés : jamais les détails du compte, les discussions ni le texte des messages.',
+          ],
+        },
+        {
+          h: 'Tableau de bord, données et sécurité',
+          items: [
+            'Flux en direct, cartes de compte et de profits du copieur, graphiques d’équité et de P/L, percentiles de latence.',
+            'Base locale avec sauvegardes vérifiées et chiffrement facultatif par mot de passe.',
+            'Modules et mises à jour signés (ECDSA P-256), secrets protégés par DPAPI, aucun identifiant journalisé.',
+            'Thèmes sombre et clair soignés, info-bulles sur chaque bouton, guide utilisateur intégré.',
+          ],
+        },
+      ],
+    },
   },
 
   privacy: {
