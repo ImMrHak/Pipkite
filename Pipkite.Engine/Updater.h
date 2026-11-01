@@ -1,5 +1,5 @@
 #pragma once
-// update check on every launch, in the background (3s timeout, then backoff).
+// update check on every launch, in the background (3s timeout, then backoff), and every 30 minutes after.
 // manifest signature and file hashes are verified. parser/bridge modules hot-reload, core releases
 // go through the launcher. never touches copying mode, risk or sources.
 

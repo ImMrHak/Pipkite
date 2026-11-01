@@ -111,13 +111,22 @@ void Updater::checkNowAsync() {
 }
 
 void Updater::run(bool once) {
+    // Parsers are delivered while the app runs (setup lets users continue right after requesting one), so after a
+    // successful check keep checking every 30 minutes; failures retry sooner, backing off up to an hour.
+    constexpr int kRecheckSec = 30 * 60;
     int backoffSec = 30;
     while (running_) {
         auto st = checkOnce();
-        if (st || once) break;
-        setStatus("retrying", st.error().message + "; next attempt in " + std::to_string(backoffSec) + " s");
-        for (int i = 0; i < backoffSec * 10 && running_; ++i) Sleep(100);
-        backoffSec = std::min(backoffSec * 2, 3600);
+        if (once) break;
+        int waitSec = kRecheckSec;
+        if (st) {
+            backoffSec = 30;
+        } else {
+            setStatus("retrying", st.error().message + "; next attempt in " + std::to_string(backoffSec) + " s");
+            waitSec = backoffSec;
+            backoffSec = std::min(backoffSec * 2, 3600);
+        }
+        for (int i = 0; i < waitSec * 10 && running_; ++i) Sleep(100);
     }
 }
 
