@@ -38,7 +38,7 @@ Copy `.env.example` to `.env` and fill it in:
 |---|---|
 | `SITE_URL` | Your domain, e.g. `https://pipkite.com`. Used for links, the sitemap and social previews. |
 | `PUBLIC_API_BASE` | Where the API is. Leave empty to use `/api/v1` on the same domain (recommended). |
-| `PUBLIC_DOWNLOAD_BASE` | Where the installer and zip are hosted. Leave empty to serve them from `/downloads`. |
+| `PUBLIC_DOWNLOAD_BASE` | Where the installer and zip are hosted. Leave empty to serve them from `/downloads`. `{version}` is replaced with the site version, e.g. `https://github.com/ImMrHak/Pipkite/releases/download/v{version}`. |
 | `PUBLIC_DOWNLOADS_MIN` | The download counter only appears from this number on (default 500, `0` = always). |
 
 ## Project layout
