@@ -20,7 +20,7 @@ export const es: Dict = {
     guideDesc:
       'Guía paso a paso para copiar señales de Telegram a MetaTrader 5: conecta Telegram y MT5, elige el formato de cada canal, fija tus reglas de riesgo y prueba seguro.',
     changelogTitle: `Novedades de Pipkite – Versión ${VERSION}`,
-    changelogDesc: `Notas de versión de Pipkite, el copiador gratuito de Telegram a MT5. Última versión: ${VERSION}: detecta, enseña y comparte formatos de señales, con ayuda de la IA.`,
+    changelogDesc: `Notas de versión de Pipkite, el copiador gratuito de Telegram a MT5. Última versión: ${VERSION}: actualiza Pipkite desde la propia app.`,
     privacyTitle: 'Privacidad – Qué recoge Pipkite y por qué',
     privacyDesc:
       'Qué guarda Pipkite en tu PC, qué reciben los servicios de licencia, revisión con IA y parsers, y qué no se recoge nunca. Explicado con claridad.',
@@ -526,6 +526,23 @@ export const es: Dict = {
     downloadButton: (v: string) => `Descargar ${v}`,
     latest: "Última versión",
     releases: {
+      '1.0.4': [
+        {
+          h: "Actualizaciones",
+          items: [
+            "Pipkite te avisa cuando sale una versión nueva: aparece una barra en la parte superior de la ventana. Lo comprueba en cada inicio y cada pocas horas.",
+            "Update now descarga la versión nueva, comprueba que está firmada por Pipkite, la instala y vuelve a abrir Pipkite. Se conservan tus ajustes y tu historial, y las operaciones abiertas no se tocan.",
+            "Las copias portables tienen un botón Download que abre la página de la versión.",
+            "Instala esta versión a mano una vez: la 1.0.3 y anteriores no pueden actualizarse solas. Las versiones siguientes se actualizan desde la app.",
+          ],
+        },
+        {
+          h: "Guía",
+          items: [
+            "La guía de la web explica cómo lee Pipkite una señal, paso a paso, con un ejemplo.",
+          ],
+        },
+      ],
       '1.0.3': [
         {
           h: "Formatos de señales",

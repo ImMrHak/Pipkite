@@ -21,7 +21,7 @@ export const en = {
     guideDesc:
       'Step-by-step guide to copy Telegram trading signals to MetaTrader 5 automatically: connect Telegram and MT5, pick each channel’s format, set risk rules, test safely.',
     changelogTitle: `Pipkite Changelog – What's New in ${VERSION}`,
-    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}: detect, teach and share signal formats, with AI help.`,
+    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}: update Pipkite from inside the app.`,
     privacyTitle: 'Privacy – What Pipkite Collects and Why',
     privacyDesc:
       'What Pipkite keeps on your PC, what the license, AI review and custom parser services receive, and what is never collected. Plain language.',
@@ -527,6 +527,23 @@ export const en = {
     downloadButton: (v: string) => `Download ${v}`,
     latest: "Latest",
     releases: {
+      '1.0.4': [
+        {
+          h: "Updates",
+          items: [
+            "Pipkite tells you when a new version is out: a bar slides in at the top of the window. It checks at every start and every few hours.",
+            "Update now downloads the new version, checks it is signed by Pipkite, installs it and opens Pipkite again. Your settings and history are kept, and open trades are not touched.",
+            "Portable copies get a Download button that opens the release page.",
+            "Install this version by hand once: 1.0.3 and older can’t update themselves. Later versions update from inside the app.",
+          ],
+        },
+        {
+          h: "Guide",
+          items: [
+            "The website guide explains how Pipkite reads a signal, step by step, with an example.",
+          ],
+        },
+      ],
       '1.0.3': [
         {
           h: "Signal formats",

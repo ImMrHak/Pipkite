@@ -1,12 +1,15 @@
 # Changelog
 
-## Unreleased
+## 1.0.4
 
 - **Update from inside the app.** When a new version is out, a bar at the top says so. **Update now** downloads it,
   checks it is signed by Pipkite, closes Pipkite, installs it and opens it again. Open trades are not touched.
   Portable copies get a **Download** button instead. Pipkite asks GitHub for the latest version each time it
   starts and every few hours after. The bar slides in, with a light running along its edge while it downloads.
 - Removed the old, unused "staged core update" code; the launcher now just starts Pipkite.
+- This version has to be installed by hand once (1.0.3 and older can't update themselves); later versions
+  update from inside the app.
+- Website guide: a new section explains how Pipkite reads a signal, step by step, with an example.
 
 ## 1.0.3
 

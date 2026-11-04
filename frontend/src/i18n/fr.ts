@@ -20,7 +20,7 @@ export const fr: Dict = {
     guideDesc:
       'Guide pas à pas pour copier les signaux Telegram vers MetaTrader 5 : connecter Telegram et MT5, choisir le format de chaque canal, régler le risque, tester sans risque.',
     changelogTitle: `Journal des versions Pipkite – Nouveautés ${VERSION}`,
-    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION} : détecter, apprendre et partager des formats de signaux, avec l’aide de l’IA.`,
+    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION} : mettez Pipkite à jour depuis l’application.`,
     privacyTitle: 'Confidentialité – Ce que Pipkite collecte et pourquoi',
     privacyDesc:
       'Ce que Pipkite garde sur votre PC, ce que reçoivent les services de licence, de revue IA et de parsers, et ce qui n’est jamais collecté. En clair.',
@@ -526,6 +526,23 @@ export const fr: Dict = {
     downloadButton: (v: string) => `Télécharger la ${v}`,
     latest: "Dernière version",
     releases: {
+      '1.0.4': [
+        {
+          h: "Mises à jour",
+          items: [
+            "Pipkite vous prévient quand une nouvelle version sort : une barre apparaît en haut de la fenêtre. Il vérifie à chaque démarrage et toutes les quelques heures.",
+            "Update now télécharge la nouvelle version, vérifie qu’elle est signée par Pipkite, l’installe et rouvre Pipkite. Vos réglages et votre historique sont conservés, et les trades ouverts ne sont pas touchés.",
+            "Les copies portables ont un bouton Download qui ouvre la page de la version.",
+            "Installez cette version à la main une fois : la 1.0.3 et les précédentes ne peuvent pas se mettre à jour seules. Les versions suivantes se mettent à jour depuis l’application.",
+          ],
+        },
+        {
+          h: "Guide",
+          items: [
+            "Le guide du site explique comment Pipkite lit un signal, étape par étape, avec un exemple.",
+          ],
+        },
+      ],
       '1.0.3': [
         {
           h: "Formats de signaux",

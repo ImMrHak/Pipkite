@@ -1,7 +1,7 @@
 // update on every release
 
 export const SITE_NAME = 'Pipkite';
-export const VERSION = '1.0.3';
+export const VERSION = '1.0.4';
 export const CONTENT_UPDATED = '2026-11-04';
 
 // empty = hidden
@@ -14,6 +14,7 @@ export const SAME_AS: string[] = [GITHUB_URL];
 export const RELEASE_DATE = '2026-11-04';
 // every release, newest first: the changelog page lists them with the notes in i18n changelog.releases
 export const RELEASES = [
+  { version: '1.0.4', date: '2026-11-04' },
   { version: '1.0.3', date: '2026-11-04' },
   { version: '1.0.2', date: '2026-11-01' },
   { version: '1.0.1', date: '2026-11-01' },
@@ -31,13 +32,13 @@ export const DOWNLOADS = {
     name: `Pipkite-${VERSION}-setup.exe`,
     url: `${downloadBase}/Pipkite-${VERSION}-setup.exe`,
     size: '29.2 MB',
-    sha256: 'a6b2243773b618340848fd53849818436af79ff7a6b1cf03a2fffbd2b2e894b7',
+    sha256: 'f0c94c8f116f9cae2b77a2b5074c007cc99d502dc031c4d439bb16571ef301f1',
   },
   portable: {
     name: `Pipkite-${VERSION}-win-x64.zip`,
     url: `${downloadBase}/Pipkite-${VERSION}-win-x64.zip`,
-    size: '33.2 MB',
-    sha256: 'aa47d32e80ebfb041d2442522f097cad128c1cb182c2802bc871c6faea5341ae',
+    size: '33.0 MB',
+    sha256: 'a744bc3953b67383f36d3dfa6396c02bbb52535df94d31cb80d10405c6b71793',
   },
 } as const;
 
