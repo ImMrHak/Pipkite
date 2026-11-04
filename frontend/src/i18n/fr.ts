@@ -10,15 +10,15 @@ export const fr: Dict = {
   meta: {
     homeTitle: 'Copieur de signaux Telegram vers MT5 gratuit | Pipkite',
     homeDesc:
-      'Copiez automatiquement les signaux de trading Telegram vers MetaTrader 5 en 4 ms environ. Appli Windows gratuite, parsers faits pour vous, revue IA.',
+      'Copiez automatiquement les signaux de trading Telegram vers MetaTrader 5 en 4 ms environ. Appli Windows gratuite qui lit la plupart des formats, avec revue IA.',
     downloadTitle: `Télécharger Pipkite ${VERSION} – Copieur Telegram MT5`,
     downloadDesc: `Téléchargez Pipkite ${VERSION} pour Windows 10/11 : un copieur gratuit de signaux Telegram vers MetaTrader 5. Installeur ou zip portable, avec SHA-256.`,
     licenseTitle: 'Clé de licence Pipkite gratuite (sans carte, à vie)',
     licenseDesc:
-      'Générez une clé de licence Pipkite gratuite en quelques secondes. Elle n’expire jamais et débloque les parsers, la revue IA et les mises à jour signées.',
+      'Générez une clé de licence Pipkite gratuite en quelques secondes. Elle n’expire jamais et débloque la revue IA, les formats partagés, les parsers sur mesure et les mises à jour signées.',
     guideTitle: 'Copier les signaux Telegram vers MT5 automatiquement (2026)',
     guideDesc:
-      'Guide pas à pas pour copier les signaux Telegram vers MetaTrader 5 : connecter Telegram et MT5, obtenir les parsers, régler le risque, tester sans risque.',
+      'Guide pas à pas pour copier les signaux Telegram vers MetaTrader 5 : connecter Telegram et MT5, choisir le format de chaque canal, régler le risque, tester sans risque.',
     changelogTitle: `Journal des versions Pipkite – Nouveautés ${VERSION}`,
     changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION}, une revue IA qui lit le graphique MT5 de M1 à H4.`,
     privacyTitle: 'Confidentialité – Ce que Pipkite collecte et pourquoi',
@@ -28,11 +28,11 @@ export const fr: Dict = {
     notFoundDesc: 'Cette page n’existe pas. Revenez à Pipkite, le copieur de signaux Telegram vers MT5 gratuit.',
     ogAlt: `Pipkite : signaux Telegram vers MetaTrader 5 en ${ms} ms`,
     appDescription:
-      'Application Windows gratuite qui copie les signaux de trading des canaux et groupes Telegram vers MetaTrader 5. Chaque canal reçoit un parser conçu par l’équipe Pipkite ; les signaux sont vérifiés selon vos règles de risque et passés en 4 ms environ.',
+      'Application Windows gratuite qui copie les signaux de trading des canaux et groupes Telegram vers MetaTrader 5. Elle lit la plupart des formats de signaux et en apprend de nouveaux à partir d’un exemple ; les signaux sont vérifiés selon vos règles de risque et passés en 4 ms environ.',
     featureList: [
       'Copie automatique des signaux de canaux et groupes Telegram vers MetaTrader 5',
       `Environ ${ms} ms du message Telegram à l’ordre envoyé (médiane, mesurée)`,
-      'Parsers conçus pour chaque canal par l’équipe Pipkite, livrés en mises à jour automatiques',
+      'Formats de signaux intégrés en plusieurs langues, plus des formats appris à partir d’un exemple ou suggérés par l’IA',
       'Revue IA consultative de chaque signal : verdict Bon, Mauvais ou Incertain avec explications',
       'Taille en lots fixes ou en % de risque, plafonds de spread et de slippage, horaires de trading',
       'Attend les zones d’entrée et peut forcer l’entrée si le prix les dépasse de peu',
@@ -68,7 +68,7 @@ export const fr: Dict = {
   nav: { how: 'Fonctionnement', features: 'Fonctionnalités', speed: 'Vitesse', ai: 'IA', guide: 'Guide', faq: 'FAQ' },
 
   footer: {
-    tagline: 'Copieur gratuit de signaux Telegram vers MetaTrader 5 pour Windows, avec des parsers conçus pour vos canaux.',
+    tagline: 'Copieur gratuit de signaux Telegram vers MetaTrader 5 pour Windows. Lit la plupart des formats, apprend les autres.',
     versionLine: (v: string) => `Version ${v} · Windows 10 / 11, 64 bits`,
     product: 'Produit',
     help: 'Aide',
@@ -92,7 +92,7 @@ export const fr: Dict = {
     unit: 'ms',
     lead: 'Pipkite lit les canaux que vous choisissez, comprend chaque signal, le vérifie selon vos règles et passe l’ordre dans MT5 avant même que vous ayez déverrouillé votre téléphone.',
     leadStrong: '100 % gratuit.',
-    checks: ['Gratuit à vie, sans carte', 'Parsers faits pour vous', 'Pas de droits admin', 'Windows 10 / 11'],
+    checks: ['Gratuit à vie, sans carte', 'Lit la plupart des formats', 'Pas de droits admin', 'Windows 10 / 11'],
     shotAlt: 'Le tableau de bord Pipkite : connexions, compte et profits, flux en direct et latence',
     cardNow: 'à l’instant',
     aiReview: 'Revue IA',
@@ -119,7 +119,7 @@ export const fr: Dict = {
     steps: [
       { title: 'Connectez Telegram', text: 'Connectez-vous avec votre propre compte Telegram et cochez les canaux ou groupes à copier. Les codes de connexion ne sont jamais stockés.' },
       { title: 'Connectez MetaTrader 5', text: 'Cliquez sur « Start MetaTrader ». Pipkite installe son Expert Advisor, ouvre votre terminal et s’y associe.' },
-      { title: 'Demandez vos parsers', text: 'Un clic par canal. Notre équipe crée un parser pour le format exact de ce canal ; il s’installe automatiquement, sans redémarrage.' },
+      { title: 'Choisissez le format de chaque canal', text: 'Detect format essaie chaque format sur les messages récents du canal. Choisissez celui qui les lit bien, ou apprenez-le à Pipkite avec un seul signal.' },
       { title: 'Fixez vos règles', text: 'Lots ou % de risque, spread max, horaires, zones d’entrée. La copie démarre dès que MT5 est associé ; pause ou reprise en un clic.' },
     ],
   },
@@ -130,7 +130,7 @@ export const fr: Dict = {
     lead: 'Du C++ natif sous Windows. Pas d’extension de navigateur, pas de relais cloud entre vous et votre courtier, pas d’abonnement.',
     parserTitle: 'Comprend les signaux désordonnés',
     parserText:
-      'Emojis, Markdown, chiffres arabes-indiens ou en exposant, tirets bizarres, plusieurs take-profits. Chaque canal reçoit un parser conçu par notre équipe pour son format ; il normalise le message, rattache chaque valeur au texte d’origine et refuse de deviner sur les commentaires, les modifications ou les « TP1 atteint ».',
+      'Emojis, Markdown, chiffres arabes-indiens ou en exposant, tirets bizarres, plusieurs take-profits, de nombreuses langues. Pipkite rattache chaque valeur au texte d’origine et refuse de deviner sur les commentaires, les modifications ou les « TP1 atteint ».',
     legend: { symbol: 'symbole', side: 'sens', label: 'libellé', ignored: 'ignoré' },
     entry: 'entrée',
     valid: 'Valide',
@@ -141,7 +141,7 @@ export const fr: Dict = {
       { title: 'Exécute selon vos règles', text: 'Lots fixes ou % de risque (toujours arrondi à l’inférieur), plafonds de spread et de slippage, horaires, limites de compte, take-profits fractionnés.' },
       { title: 'Résistant aux pannes', text: 'Chaque ordre est inscrit sur disque avant de partir. Après un plantage ou une coupure, les ordres incertains sont réconciliés, jamais renvoyés à l’aveugle.' },
       { title: 'Pause et reprise en un clic', text: 'La copie tourne dès que MT5 est associé. Un clic stoppe immédiatement les nouveaux trades et les relance aussi vite. La pause ne ferme jamais les positions ouvertes.' },
-      { title: 'Des parsers faits pour vous', text: 'Rien à configurer : demandez un parser pour un canal et notre équipe le crée pour ce format précis. Il arrive en mise à jour signée et se charge sans redémarrage.' },
+      { title: 'Apprend de nouveaux formats', text: 'Aucun format ne convient à un canal ? Marquez les parties d’un signal, ou laissez l’IA suggérer un format, puis vérifiez-le sur les messages récents. Ou demandez un parser sur mesure à notre équipe.' },
     ],
     dashTitle: 'Un tableau de bord qui dit la vérité',
     dashText:
@@ -199,7 +199,7 @@ export const fr: Dict = {
       history: { label: 'Historique', text: 'Chaque message, comment il a été lu et ce qui a été fait, avec la raison. Export CSV ou JSON.' },
       metatrader: { label: 'MetaTrader', text: 'Lancez MT5 avec l’EA, validez l’association et choisissez le symbole de chaque canal.' },
       'execution-policy': { label: 'Règles d’exécution', text: 'Taille, take-profits, timing et limites. Chaque option a un « ? » qui l’explique.' },
-      'signal-rules': { label: 'Parsers', text: 'Voyez quel parser lit chaque canal et demandez-en un sur mesure en un clic.' },
+      'signal-rules': { label: 'Formats', text: 'Le format qui lit chaque canal. Détectez-le, apprenez-le ou demandez-le à l’IA en un clic.' },
     },
     note: 'L’interface de l’application est en anglais.',
   },
@@ -213,7 +213,7 @@ export const fr: Dict = {
     included: [
       'L’application complète, sans limite',
       'Canaux et signaux Telegram illimités',
-      'Des parsers faits pour vos canaux',
+      'Des formats pour tous vos canaux',
       'Revue IA de chaque signal',
       'Mises à jour automatiques signées',
       'Tableau de bord des profits et de la latence',
@@ -235,15 +235,15 @@ export const fr: Dict = {
     items: [
       {
         q: 'Qu’est-ce que Pipkite ?',
-        a: `Pipkite est une application Windows gratuite qui copie les signaux de trading des canaux et groupes Telegram vers MetaTrader 5. Elle lit chaque nouveau message avec un parser conçu pour ce canal, extrait le symbole, le sens, l’entrée, le stop-loss et les take-profits, les vérifie selon vos règles de risque et passe l’ordre dans votre propre terminal MT5 en ${ms} ms environ. Une revue IA facultative donne un second avis sur chaque signal.`,
+        a: `Pipkite est une application Windows gratuite qui copie les signaux de trading des canaux et groupes Telegram vers MetaTrader 5. Elle lit chaque nouveau message, trouve le symbole, le sens, l’entrée, le stop-loss et les take-profits, les vérifie selon vos règles de risque et passe l’ordre dans votre propre terminal MT5 en ${ms} ms environ. Une revue IA facultative donne un second avis sur chaque signal.`,
       },
       {
         q: 'Pipkite est-il vraiment gratuit ?',
-        a: 'Oui. L’application, les parsers, la revue IA et les mises à jour sont gratuits, sans abonnement, sans essai et sans carte. La clé de licence est gratuite aussi ; elle identifie votre installation auprès des services de parsers, d’IA et de mise à jour.',
+        a: 'Oui. L’application, les formats, la revue IA et les mises à jour sont gratuits, sans abonnement, sans essai et sans carte. La clé de licence est gratuite aussi ; elle identifie votre installation auprès des services en ligne (IA, formats partagés, parsers sur mesure, mises à jour).',
       },
       {
         q: 'Comment copier automatiquement les signaux Telegram vers MT5 ?',
-        a: 'Installez Pipkite, connectez-vous avec votre compte Telegram et cochez les canaux à copier, cliquez sur « Start MetaTrader » pour attacher l’Expert Advisor de Pipkite et validez l’association, demandez un parser pour chaque canal et réglez votre taille de lot ou votre % de risque. Dès que le parser d’un canal est installé, ses nouveaux signaux sont passés dans MT5 tout seuls. Mettez en pause ou reprenez la copie en un clic.',
+        a: 'Installez Pipkite, connectez-vous avec votre compte Telegram et cochez les canaux à copier, cliquez sur « Start MetaTrader » pour attacher l’Expert Advisor de Pipkite et validez l’association, puis choisissez le format de chaque canal avec « Detect format » et réglez votre taille de lot ou votre % de risque. Vérifiez les premiers signaux dans l’historique et cliquez sur « Start copying » : dès lors, les nouveaux signaux sont passés dans MT5 tout seuls. Mettez en pause ou reprenez la copie en un clic.',
       },
       {
         q: 'Quelle est sa vitesse, honnêtement ?',
@@ -276,7 +276,7 @@ export const fr: Dict = {
       },
       {
         q: 'Quelles langues sont prises en charge ?',
-        a: 'Ce site est disponible en anglais, français, espagnol et arabe. L’application Pipkite elle-même est pour l’instant en anglais. Les parsers fonctionnent avec des signaux écrits dans n’importe quelle langue, puisque chacun est créé pour son canal.',
+        a: 'Ce site est disponible en anglais, français, espagnol et arabe. L’application Pipkite elle-même est pour l’instant en anglais. Les signaux peuvent être en plusieurs langues : le format Universal lit l’anglais, le français, l’allemand, l’italien, l’espagnol, le portugais, l’arabe, le persan et le russe, un autre lit le turc et l’indonésien, et vous pouvez apprendre à Pipkite n’importe quel autre.',
       },
       {
         q: 'Mon PC doit-il rester allumé ?',
@@ -312,7 +312,7 @@ export const fr: Dict = {
     steps: [
       { title: 'Lancez l’installeur', text: `Ouvrez ${DOWNLOADS.installer.name}. Si SmartScreen apparaît, choisissez « Informations complémentaires → Exécuter quand même ».` },
       { title: 'Ajoutez votre clé gratuite', text: 'L’assistant d’accueil demande votre clé de licence. Collez-la et cliquez sur « Validate & save ».' },
-      { title: 'Suivez l’assistant', text: 'Connectez Telegram, lancez MetaTrader, choisissez vos canaux, demandez leurs parsers et testez un signal.' },
+      { title: 'Suivez l’assistant', text: 'Connectez Telegram, lancez MetaTrader, choisissez vos canaux et leur format, puis testez un signal.' },
     ],
     noKey: 'Pas encore de clé ? Obtenez-en une gratuitement',
     reqTitle: 'Configuration requise',
@@ -330,8 +330,8 @@ export const fr: Dict = {
     breadcrumb: 'Clé de licence gratuite',
     h1: 'Votre clé, gratuite et à vie',
     lead: 'Aucun paiement, aucune carte. La clé relie votre installation aux services en ligne de Pipkite :',
-    unlocks: ['Des parsers faits pour vos canaux', 'Revue IA de chaque signal', 'Mises à jour automatiques signées'],
-    skipHtml: 'L’application s’ouvre sans clé, mais les parsers, la revue IA et les mises à jour en ont besoin. Ajoutez-la dans l’assistant d’accueil ou plus tard dans <strong>Settings → AI and licensing</strong>.',
+    unlocks: ['Revue IA de chaque signal', 'Formats partagés par d’autres utilisateurs et aide de l’IA pour les formats', 'Parsers sur mesure et mises à jour automatiques signées'],
+    skipHtml: 'L’application s’ouvre sans clé et lit les signaux avec ses formats intégrés, mais la revue IA, les formats partagés, les parsers sur mesure et les mises à jour en ont besoin. Ajoutez-la dans l’assistant d’accueil ou plus tard dans <strong>Settings → AI and licensing</strong>.',
     name: 'Votre nom',
     namePh: 'Jeanne Trader',
     email: 'E-mail',
@@ -372,10 +372,10 @@ export const fr: Dict = {
     by: 'Par l’équipe Pipkite',
     readTime: '7 min de lecture',
     shortTitle: 'En bref',
-    short: `Pour copier automatiquement les signaux Telegram vers MT5, installez un copieur Telegram vers MT5 comme Pipkite, connectez-vous avec votre compte Telegram, choisissez les canaux à copier, attachez l’Expert Advisor du copieur à votre terminal MetaTrader 5, demandez un parser pour chaque canal et réglez votre taille de lot ou votre % de risque. Chaque nouveau signal est alors analysé et passé en ordre tout seul, en ${ms} ms environ. Un clic met la copie en pause ou la relance.`,
+    short: `Pour copier automatiquement les signaux Telegram vers MT5, installez un copieur Telegram vers MT5 comme Pipkite, connectez-vous avec votre compte Telegram, choisissez les canaux à copier, attachez l’Expert Advisor du copieur à votre terminal MetaTrader 5, choisissez le format de signal de chaque canal et réglez votre taille de lot ou votre % de risque. Chaque nouveau signal est alors lu et passé en ordre tout seul, en ${ms} ms environ. Un clic met la copie en pause ou la reprend.`,
     figures: {
       metatrader: { alt: 'Écran MetaTrader de Pipkite avec la liste des terminaux, le bouton Start MetaTrader et l’état de l’association', caption: 'L’écran MetaTrader : lancer le terminal, valider l’association, associer les symboles.' },
-      'signal-rules': { alt: 'Écran Signal rules de Pipkite listant les canaux, l’état de leur parser et le bouton Request a custom parser', caption: 'Signal rules : le parser de chaque canal et le bouton pour en demander un.' },
+      'signal-rules': { alt: 'Écran Signal rules de Pipkite listant les canaux et le format qui lit chacun', caption: 'Signal rules : le format qui lit chaque canal.' },
       'execution-policy': { alt: 'Écran Execution policy de Pipkite avec la taille de position, les take-profits et le timing', caption: 'Execution policy : quelle taille, quels objectifs et quand ne pas trader.' },
     },
     sections: [
@@ -393,7 +393,7 @@ export const fr: Dict = {
 <li>MetaTrader 5 (version bureau) connecté à votre courtier. Un compte démo est idéal pour le premier essai.</li>
 <li>Votre compte Telegram, membre des canaux ou groupes que vous voulez copier.</li>
 <li>Un API ID et un hash Telegram gratuits sur <code>my.telegram.org</code> (une minute).</li>
-<li>Pipkite et une <a href="/license">clé de licence gratuite</a>, nécessaire pour demander des parsers, les recevoir en mise à jour (et pour la revue IA).</li>
+<li>Pipkite et une <a href="/license">clé de licence gratuite</a> pour la revue IA, les formats partagés, les parsers sur mesure et les mises à jour.</li>
 </ul>`,
       },
       {
@@ -451,7 +451,7 @@ export const fr: Dict = {
       {
         id: 'step-6',
         title: 'Étape 6 : tester, puis laisser copier',
-        html: `<p>Il n’y a pas de mode aperçu séparé : dès que MT5 est associé et qu’un canal a son parser, les signaux valides sont copiés. Testez donc avant d’engager de l’argent :</p>
+        html: `<p>Il n’y a pas de mode aperçu séparé : dès que MT5 est associé et que vous avez cliqué sur « Start copying » pour un canal, ses signaux valides sont copiés. Testez donc avant d’engager de l’argent :</p>
 <ul>
 <li>Dans l’étape <strong>Test a sample</strong> de l’assistant, collez un vrai message du canal pour voir exactement ce que Pipkite en lit. Rien n’est envoyé.</li>
 <li>Commencez sur un <strong>compte démo</strong> et observez quelques vrais signaux dans le tableau de bord et l’historique. Chaque ligne explique sa décision : un signal rejeté vous dit pourquoi (pas de stop-loss, symbole non associé, spread trop large, etc.).</li>
@@ -461,7 +461,7 @@ export const fr: Dict = {
       {
         id: 'formats',
         title: 'Quels formats de signaux fonctionnent ?',
-        html: `<p>Pratiquement tout format qu’un fournisseur utilise de façon régulière, dans n’importe quelle langue, puisque le parser de chaque canal est conçu pour son style. Les parsers gèrent les emojis, le Markdown, les tirets inhabituels, les chiffres arabes-indiens ou en exposant et les take-profits multiples, et ignorent les commentaires comme « TP1 atteint » au lieu de deviner. Si un fournisseur change sa façon de publier, redemandez le parser et la version à jour arrive automatiquement.</p>`,
+        html: `<p>La plupart des formats qu’un fournisseur utilise de façon régulière. Les formats intégrés lisent de nombreuses langues, les emojis, le Markdown, les tirets inhabituels, les chiffres arabes-indiens ou en exposant, les décimales à virgule et les take-profits multiples, et ignorent les commentaires comme « TP1 atteint » au lieu de deviner. Pour le reste, apprenez le format à Pipkite à partir d’un signal ou laissez l’IA en suggérer un. Si un fournisseur change sa façon de publier, Pipkite vous prévient quand il ne lit plus ses signaux : relancez « Detect format ».</p>`,
       },
       {
         id: 'ai',
@@ -490,9 +490,25 @@ export const fr: Dict = {
         html: `<dl>
 <dt>« Telegram: Not set up »</dt><dd>Saisissez votre API ID et votre hash, puis connectez-vous avec votre numéro.</dd>
 <dt>« MT5 offline »</dt><dd>MetaTrader n’est pas ouvert ou l’Expert Advisor n’est pas sur un graphique. Cliquez sur Start MetaTrader ; si MT5 est déjà ouvert, fermez-le et cliquez à nouveau sur Start.</dd>
-<dt>Un signal indique « Unsupported »</dt><dd>Ce canal n’a pas encore de parser. Demandez-en un dans l’écran Signal rules.</dd>
+<dt>Un signal indique « Unsupported »</dt><dd>Ce canal n’a pas encore de format. Cliquez sur « Detect format » dans l’écran Signal rules.</dd>
 <dt>Un signal indique Rejected ou Review</dt><dd>Ouvrez la ligne dans l’historique pour voir pourquoi. Rien n’a été envoyé.</dd>
 <dt>La demande d’association n’apparaît jamais</dt><dd>Lancez MetaTrader et connectez-vous d’abord à votre courtier, puis validez l’association.</dd>
+</dl>`,
+      },
+      {
+        id: 'words',
+        title: 'Les mots à connaître',
+        html: `<dl>
+<dt>Signal</dt><dd>Une idée de trade publiée dans un canal : quoi acheter ou vendre, à quel prix, avec un stop-loss et des take-profits.</dd>
+<dt>Symbole</dt><dd>Ce qui est tradé, comme XAUUSD (l’or) ou EURUSD. Les courtiers le nomment parfois autrement.</dd>
+<dt>Entrée</dt><dd>Le prix d’ouverture du trade. Une fourchette comme 4299–4295 veut dire n’importe où entre les deux.</dd>
+<dt>Stop-loss (SL)</dt><dd>Le prix où le trade se ferme pour limiter une perte.</dd>
+<dt>Take-profit (TP)</dt><dd>Le prix où le trade se ferme en gain. Un signal peut en avoir plusieurs.</dd>
+<dt>Lot</dt><dd>La taille d’un trade dans MetaTrader.</dd>
+<dt>Spread</dt><dd>L’écart entre le prix d’achat et le prix de vente. Un spread large rend le trade plus cher.</dd>
+<dt>Format</dt><dd>La façon dont Pipkite lit la manière d’écrire les signaux d’un canal.</dd>
+<dt>Expert Advisor (EA)</dt><dd>Un petit module dans MetaTrader. L’EA de Pipkite passe les ordres.</dd>
+<dt>Compte démo</dt><dd>Un compte d’entraînement avec de l’argent fictif. Testez d’abord dessus.</dd>
 </dl>`,
       },
     ],
@@ -653,7 +669,7 @@ export const fr: Dict = {
       {
         h: 'Vos choix',
         html: `<ul>
-<li>L’application s’ouvre sans clé de licence ; les parsers, la revue IA et les mises à jour en ont besoin.</li>
+<li>L’application s’ouvre sans clé de licence et lit les signaux avec ses formats intégrés ; la revue IA, les formats partagés, les parsers sur mesure et les mises à jour ont besoin d’une clé.</li>
 <li>La revue IA peut être désactivée dans Execution policy.</li>
 <li>Vous pouvez effacer l’historique local à tout moment dans Settings.</li>
 <li>La recherche et le partage de formats se désactivent dans Settings, sous Signal formats and AI help.</li>

@@ -1,5 +1,16 @@
 # Development
 
+## New here?
+
+1. Install Visual Studio 2026 with the parts listed below.
+2. Open `Pipkite.sln`, pick **Release x64**, build, and run `x64\Release\Pipkite.Tests.exe`. Everything should pass.
+3. Read [AGENTS.md](../AGENTS.md): the project's rules and the mistakes that break things.
+4. Try the app safely with the test terminal (below). Never test on a real trading account.
+5. Make one small change, add a test, run the tests again, and open a pull request.
+
+Most common change: a channel's signals aren't read right. Add the message to
+`Pipkite.Tests/FormatCorpusTests.cpp` with what it should read, then fix the format (see "How it fits together").
+
 ## Requirements
 
 - Windows 10/11 x64
