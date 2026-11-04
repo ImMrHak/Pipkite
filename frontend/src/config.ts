@@ -21,7 +21,8 @@ export const RELEASES = [
   { version: '1.0.0', date: '2026-09-30' },
 ] as const;
 
-const downloadBase = (import.meta.env.PUBLIC_DOWNLOAD_BASE ?? '/downloads').replace(/\/$/, '');
+// "{version}" becomes VERSION, so a GitHub base like .../releases/download/v{version} follows every release
+const downloadBase = (import.meta.env.PUBLIC_DOWNLOAD_BASE ?? '/downloads').replace(/\{version\}/g, VERSION).replace(/\/$/, '');
 export const API_BASE = (import.meta.env.PUBLIC_API_BASE || '/api/v1').replace(/\/$/, '');
 
 // hide the public download counter until it reaches this (0 = always show)
