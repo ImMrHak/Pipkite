@@ -188,6 +188,43 @@ std::string numStr(double v) {
 
 }  // namespace
 
+std::vector<std::string> marksDisagree(const ParserTemplate& t, const Signal& s, const std::string& sample, const std::vector<HighlightLabel>& labels) {
+    std::vector<std::string> out;
+    TokenizeOptions opt;
+    opt.numberFormat = t.numberFormat;
+    opt.allowThousandsSeparator = t.allowThousandsSeparator;
+    for (auto& lab : labels) {
+        if (lab.end <= lab.begin || lab.end > sample.size()) continue;
+        const std::string text = trim(std::string_view(sample).substr(lab.begin, lab.end - lab.begin));
+        if (text.empty()) continue;
+        if (lab.field == "buy" || lab.field == "sell") {
+            const Side want = lab.field == "buy" ? Side::Buy : Side::Sell;
+            if (!s.side || *s.side != want) out.push_back("You marked " + toUpperAscii(lab.field) + " but it reads " + (s.side ? toString(*s.side) : "no side"));
+            continue;
+        }
+        if (lab.field == "symbol") {
+            std::string key;
+            for (auto& tok : phraseTokens(text)) key += tok;
+            std::string want = toUpperAscii(lab.canonical);
+            if (want.empty()) {
+                auto it = t.symbolAliases.find(key);
+                want = it != t.symbolAliases.end() ? it->second : key;
+            }
+            if (s.symbol != want) out.push_back("You marked the symbol " + want + " but it reads " + (s.symbol.empty() ? "none" : s.symbol));
+            continue;
+        }
+        auto v = parseStrictNumber(text, opt);
+        if (!v) continue;  // a range like "2350-2355" or a non-number: the parser's own checks cover it
+        if (lab.field == "sl" && (!s.stopLoss || !near(*v, *s.stopLoss)))
+            out.push_back("You marked SL " + numStr(*v) + " but it reads " + (s.stopLoss ? numStr(*s.stopLoss) : "none"));
+        if (lab.field == "tp" && std::none_of(s.targets.begin(), s.targets.end(), [&](const TakeProfit& tp) { return near(*v, tp.price); }))
+            out.push_back("You marked TP " + numStr(*v) + " but it doesn't read it as a TP");
+        if (lab.field == "entry" && (!s.entry || (!near(*v, s.entry->low) && !near(*v, s.entry->high))))
+            out.push_back("You marked entry " + numStr(*v) + " but it reads " + (s.entry ? numStr(s.entry->low) + "-" + numStr(s.entry->high) : "no entry"));
+    }
+    return out;
+}
+
 json readOf(const Signal& s) {
     json tps = json::array();
     for (auto& t : s.targets) tps.push_back(t.price);

@@ -1,6 +1,6 @@
 # Pipkite user guide
 
-## Setup in 5 steps
+## Setup in 6 steps
 
 The setup wizard opens on first launch and walks you through these. You can redo any of it later from the menu.
 
@@ -13,15 +13,25 @@ The setup wizard opens on first launch and walks you through these. You can redo
 5. **Signal format.** On **Signal rules**, select each channel and click **Detect format**.
    - Paste one of the channel's signals under **Your example** and click **Check example**. Every format shows what
      it reads from it: symbol, side, entry, SL and TPs. The channel's recent messages are checked the same way below.
+   - Formats other Pipkite users made for the same channel are listed too, with how many use them. They're checked
+     on your own messages like any other.
    - Pick the format whose rows marked Signal are right, then click **Use this format**. Messages marked Review or
-     Ignored are never traded.
+     Ignored are never traded. **Check price** means the price is far from today's market: that reading is wrong.
    - Formats that come with Pipkite: **Universal** (English, French, German, Italian, Spanish, Portuguese, Arabic,
      Persian, Russian; gold, forex, indices, crypto), **Emoji labels** (🎯 TP, 🛑 SL), **Comma decimals** (1,0850),
      **Thousands separators** (18,250), **Turkish & Indonesian** and **Strict labels only**.
    - None reads it right? Under **Teach Pipkite**, select each part of your example (symbol, Buy or Sell, entry, SL,
-     each TP), press its button, then **Test on recent messages**. If the result looks right, use it.
+     each TP), press its button, then **Test on recent messages**. If the result looks right, use it. Pipkite only
+     saves it if it reads your example the way you marked it.
+   - Or click **Ask AI for a format**: the AI suggests words to add (from your example and the recent messages, with
+     links, @names, phone numbers and emails removed), and you check the result the same way. It uses Pipkite's AI
+     with your license key, or your own key (Settings). The AI never places or decides a trade.
+   - Tick **Offer this format to other Pipkite users of this channel** to share what you taught or picked.
    - Still no luck? Click **Request a custom parser**. We build one and it installs by itself, no restart.
    Until a channel has a format, its messages aren't traded.
+6. **Start copying.** A new format doesn't trade right away. The channel's signals show in History with what
+   Pipkite would have done. When they read right, select the channel on **Signal rules** and click
+   **Start copying**. The same happens when a channel's format changes or gets a new version.
 
 Until all of this is done, the Dashboard shows a **Get started** list with what's still missing and a button
 to each step, and the top bar says **Not ready**.
@@ -45,7 +55,8 @@ the measured latency.
 
 ![MetaTrader](images/metatrader.png)
 
-**Signal rules.** Which format reads each channel. Detect or teach one, or request a custom parser.
+**Signal rules.** Which format reads each channel. Detect, teach or ask the AI for one, or request a custom parser.
+A channel marked **Not copying yet** has a new format: check its signals in History, then click **Start copying**.
 
 ![Signal rules](images/signal-rules.png)
 
@@ -62,11 +73,14 @@ Every symbol you trade needs a max spread and deviation, otherwise it isn't trad
 
 ![Execution policy](images/execution-policy.png)
 
-**History.** Every message, how it was read and what was done, with the reason. Export to CSV or JSON.
+**History.** Every message, how it was read and what was done, with the reason. Export to CSV or JSON. Open a
+message Pipkite couldn't read and click **Teach Pipkite from this message** to fix its channel's format from it.
 
 ![History](images/history.png)
 
-**Settings.** Theme, start with Windows, data retention, backups, license key, updates.
+**Settings.** Theme, start with Windows, data retention, backups, license key, updates. Under **Signal formats and
+AI help**: whether to look up and share formats with other users of a channel, and which AI helps with formats
+(Pipkite's, or your own OpenAI, DeepSeek or other OpenAI-compatible key, stored encrypted on your PC).
 
 ## Pausing
 
@@ -98,6 +112,10 @@ password stays in MetaTrader, Pipkite never asks for it.
   already open).
 - **Signal shows Unsupported**: that channel has no format yet. Detect or teach one on Signal rules.
 - **Signal shows Rejected or Review**: open the row in History to see why. Nothing was sent.
+- **"New format for this channel, not copied yet"**: the channel's format is new or changed. If the reading is
+  right, click **Start copying** on Signal rules.
+- **"Couldn't fully read 3 of its last 4 signals"**: the channel may have changed how it writes signals. Run
+  **Detect format** again.
 - **Pairing never shows up**: start MetaTrader and log in to your broker first.
 - **SmartScreen warning on install**: More info, Run anyway.
 

@@ -1,8 +1,10 @@
 #pragma once
 // Find the format a channel writes its signals in. The user pastes an example and sees what every format
 // (the ones shipped with the app, delivered ones, the channel's own) reads from it, and the same on the
-// channel's recent messages. If none reads it right, the user marks the parts of the example to teach
-// Pipkite. Nothing here trades: a channel only switches when the user presses "Use this format".
+// channel's recent messages. Formats other Pipkite users made for the same channel are listed too. If none reads
+// it right, the user marks the parts of the example to teach Pipkite, or asks the AI for a format. Nothing here
+// trades: a channel only switches when the user presses "Use this format", and even then its signals are only
+// shown until the user presses Start copying in Signal rules.
 
 #include "Controls.h"
 #include "EngineClient.h"
@@ -78,6 +80,14 @@ public:
         Button^ clear = L::Btn("Clear marks");
         clear->Click += gcnew EventHandler(this, &FormatDialog::OnClearMarks);
         s->Controls->Add(L::Row(test, clear));
+        s->Controls->Add(L::Wrap("Or let the AI suggest a format: it reads your example and the recent messages (links, @names, phone numbers and emails "
+                                 "removed) and suggests words to add. You then check what that format reads, like a taught one. The AI never places or "
+                                 "decides a trade.",
+                                 "muted", 980));
+        askAi_ = L::Btn("Ask AI for a format", nullptr,
+                        "Ask the AI chosen in Settings (Pipkite's, or your own key) to suggest a format for this channel. Nothing is saved yet.");
+        askAi_->Click += gcnew EventHandler(this, &FormatDialog::OnAskAi);
+        s->Controls->Add(L::Row(askAi_));
 
         // 3. the channel's recent messages, read by one format at a time
         s->Controls->Add(L::Text("Recent messages in the channel", "h2"));
@@ -94,14 +104,21 @@ public:
         use2_ = UseButton();
         Button^ close = L::Btn("Close");
         close->DialogResult = Windows::Forms::DialogResult::Cancel;
-        s->Controls->Add(L::Row(use2_, close));
+        share_ = L::Check("Offer this format to other Pipkite users of this channel");
+        L::Tip(share_, "When you use a taught, AI or shared format, offer it to others who copy this channel: the format and examples with links, @names, "
+                       "phone numbers and emails removed. They still check it on their own messages before using it.");
+        s->Controls->Add(L::Row(use2_, close, share_));
+        s->Controls->Add(L::Wrap("After you pick a format, this channel's signals are shown in History but not copied until you press Start copying in "
+                                 "Signal rules.",
+                                 "muted", 980));
         Controls->Add(s);
         CancelButton = close;
         Theme::Apply(this);
         BackColor = Theme::Bg;
         HandleCreated += gcnew EventHandler(&Prompt::OnDialogHandle);
         if (!String::IsNullOrWhiteSpace(example)) example_->Text = example->Replace("\r\n", "\n")->Replace("\n", "\r\n");
-        Detect(nullptr);
+        client_->Call("settings.get", nullptr, gcnew ResponseHandler(this, &FormatDialog::OnSettings));
+        Detect(nullptr, nullptr);
     }
 
 private:
@@ -110,14 +127,20 @@ private:
     Label ^ status_, ^marks_;
     ComboBox^ formats_;
     BufferedGrid ^ exampleGrid_, ^recentGrid_;
-    Button ^ use_, ^use2_;
+    Button ^ use_, ^use2_, ^askAi_;
+    CheckBox^ share_;
     TextBox ^ example_, ^canonical_;
     List<Object^>^ labels_;
     array<Object^>^ texts_;
     array<Object^>^ candidates_;
     String^ current_;
-    JObj^ taught_;         // template built from the marks, when the lists show it
+    JObj^ taught_;         // template built from the marks or suggested by the AI, when the lists show it
     JObj^ pendingTaught_;  // template sent with the request in flight
+    // the marks and the example they point into, as tested: "Use" sends these, never the text edited since
+    array<Object^>^ taughtLabels_;
+    String^ taughtSample_;
+    array<Object^>^ pendingLabels_;
+    String^ pendingSample_;
     String^ pendingExample_;
     bool hasExample_;      // texts_[0] is the user's example
     bool filling_;
@@ -148,11 +171,16 @@ private:
         return b;
     }
 
-    void Detect(JObj^ tmpl) {
+    void Detect(JObj^ tmpl, String^ name) {
         JObj^ p = J::New();
         p["chatId"] = chatId_;
         p["limit"] = 8;
         if (tmpl != nullptr) p["template"] = tmpl;
+        if (name != nullptr) p["templateName"] = name;
+        if (tmpl == nullptr) {
+            pendingLabels_ = nullptr;
+            pendingSample_ = nullptr;
+        }
         pendingExample_ = example_->Text->Trim() == "" ? nullptr : example_->Text;
         if (pendingExample_ != nullptr) p["samples"] = gcnew array<Object^>{pendingExample_};
         pendingTaught_ = tmpl;
@@ -167,7 +195,7 @@ private:
             return;
         }
         status_->Text = "Checking your example with every format...";
-        Detect(nullptr);
+        Detect(nullptr, nullptr);
     }
 
     int RecentStart() { return hasExample_ ? 1 : 0; }
@@ -182,6 +210,8 @@ private:
         candidates_ = J::Arr(r, "candidates");
         current_ = J::Str(r, "current");
         taught_ = pendingTaught_;
+        taughtLabels_ = pendingLabels_;
+        taughtSample_ = pendingSample_;
         hasExample_ = pendingExample_ != nullptr && texts_->Length > 0 && texts_[0]->ToString() == pendingExample_;
         const int recent = texts_->Length - RecentStart();
 
@@ -203,7 +233,10 @@ private:
         filling_ = false;
 
         if (taught_ != nullptr)
-            status_->Text = "Your taught format, on your example and " + recent + " recent messages. If every Signal row is right, press Use this format.";
+        {
+            String^ which = taughtLabels_ == nullptr ? "The AI's format" : "Your taught format";
+            status_->Text = which + ", on your example and " + recent + " recent messages. If every Signal row is right, press Use this format.";
+        }
         else if (hasExample_)
             status_->Text = "Every format on your example (top) and on " + recent + " recent messages (bottom). Pick the one that reads them right.";
         else if (pendingExample_ != nullptr)
@@ -242,11 +275,12 @@ private:
         }
         StringBuilder^ tps = gcnew StringBuilder();
         for each (Object^ tp in J::Arr(row, "takeProfits")) tps->Append((tps->Length > 0 ? ", " : "") + J::Fmt(Convert::ToDouble(tp)));
-        int idx = g->Rows->Add(gcnew array<Object^>{first, signal ? "Signal" : outcome == "review" ? "Review" : "Ignored", signal ? J::Str(row, "symbol") : "",
+        const bool priceWarning = signal && J::Bool(row, "priceWarning");
+        int idx = g->Rows->Add(gcnew array<Object^>{first, priceWarning ? "Check price" : signal ? "Signal" : outcome == "review" ? "Review" : "Ignored", signal ? J::Str(row, "symbol") : "",
                                                     signal ? J::Str(row, "side") : "", entry, J::Has(row, "stopLoss") && signal ? J::Fmt(J::Num(row, "stopLoss")) : "",
                                                     signal ? tps->ToString() : "", J::Str(row, "reason")});
         g->Rows[idx]->Tag = tag;
-        g->Rows[idx]->DefaultCellStyle->ForeColor = signal ? Theme::Success : outcome == "review" ? Theme::Warning : Theme::TextMuted;
+        g->Rows[idx]->DefaultCellStyle->ForeColor = priceWarning ? Theme::Warning : signal ? Theme::Success : outcome == "review" ? Theme::Warning : Theme::TextMuted;
     }
 
     void OnFormatChanged(Object^, EventArgs^) {
@@ -278,19 +312,41 @@ private:
         if (text != nullptr) example_->Text = text->Replace("\r\n", "\n")->Replace("\n", "\r\n");
     }
 
+    // a message the candidate reads as a complete signal at a believable price: it becomes the format's test message
+    String^ SignalText(JObj^ c) {
+        array<Object^>^ rows = J::Arr(c, "samples");
+        for (int i = 0; i < rows->Length && i < texts_->Length; ++i) {
+            JObj^ row = J::Obj(rows[i]);
+            if (J::Str(row, "outcome") == "signal" && !J::Bool(row, "priceWarning")) return texts_[i]->ToString();
+        }
+        return nullptr;
+    }
+
     void OnUse(Object^, EventArgs^) {
         JObj^ c = SelectedCandidate();
         if (c == nullptr) return;
         JObj^ p = J::New();
         p["chatId"] = chatId_;
-        use_->Enabled = false;
-        use2_->Enabled = false;
-        if (taught_ != nullptr) {
-            // saved as this channel's own parser; the example becomes its test message
-            p["template"] = taught_;
-            p["sample"] = example_->Text;
+        const bool shared = J::Bool(c, "shared");
+        if (taught_ != nullptr || shared) {
+            // saved as this channel's own parser; the tested example (taught) or a message it reads becomes its test message
+            String^ sample = taught_ != nullptr && taughtLabels_ != nullptr ? taughtSample_ : SignalText(c);
+            if (sample == nullptr) {
+                status_->Text = "This format reads none of the messages as a complete signal at a believable price, so it can't be used.";
+                return;
+            }
+            if (taught_ != nullptr) p["template"] = taught_;
+            else p["sharedId"] = J::Str(c, "id");
+            p["sample"] = sample;
+            if (taught_ != nullptr && taughtLabels_ != nullptr) p["labels"] = taughtLabels_;
+            p["share"] = share_->Checked;
+            SaveShareChoice();
+            use_->Enabled = false;
+            use2_->Enabled = false;
             client_->Call("parser.adopt", p, gcnew ResponseHandler(this, &FormatDialog::OnUsed));
         } else {
+            use_->Enabled = false;
+            use2_->Enabled = false;
             p["chatIds"] = gcnew array<Object^>{chatId_};
             p["template"] = J::Str(c, "id");
             client_->Call("sources.bulkApply", p, gcnew ResponseHandler(this, &FormatDialog::OnUsed));
@@ -349,8 +405,48 @@ private:
         p["chatId"] = chatId_;
         p["sample"] = example_->Text;
         p["labels"] = labels_->ToArray();
+        pendingSample_ = example_->Text;
+        pendingLabels_ = labels_->ToArray();
         status_->Text = "Building a format from your marks...";
         client_->Call("parser.learn", p, gcnew ResponseHandler(this, &FormatDialog::OnLearned));
+    }
+
+    void OnAskAi(Object^, EventArgs^) {
+        JObj^ p = J::New();
+        p["chatId"] = chatId_;
+        if (example_->Text->Trim() != "") p["example"] = example_->Text;
+        askAi_->Enabled = false;
+        status_->Text = "Asking the AI for a format. This can take up to a minute...";
+        client_->Call("ai.suggestFormat", p, gcnew ResponseHandler(this, &FormatDialog::OnAiSuggested));
+    }
+
+    void OnAiSuggested(bool ok, Object^ result, String^ error) {
+        askAi_->Enabled = true;
+        if (!ok) {
+            status_->Text = "The AI couldn't help: " + error;
+            return;
+        }
+        JObj^ r = J::Obj(result);
+        StringBuilder^ notes = gcnew StringBuilder();
+        if (J::Str(r, "explanation") != "") notes->Append("The AI (" + J::Str(r, "via") + ") says: " + J::Str(r, "explanation") + " ");
+        for each (Object^ o in J::Arr(r, "added")) notes->Append(o->ToString() + ". ");
+        marks_->Text = notes->Length > 0 ? notes->ToString() : "The AI suggested no changes: the shipped formats already know this channel's words.";
+        pendingLabels_ = nullptr;
+        pendingSample_ = nullptr;
+        status_->Text = "Testing the AI's format...";
+        Detect(J::Obj(r, "template"), "AI suggestion");
+    }
+
+    void OnSettings(bool ok, Object^ result, String^) {
+        if (ok) share_->Checked = J::Str(J::Obj(result), "formats.share", "false") == "true";
+    }
+
+    void SaveShareChoice() {
+        JObj^ v = J::New();
+        v["formats.share"] = share_->Checked ? "true" : "false";
+        JObj^ p = J::New();
+        p["values"] = v;
+        client_->Call("settings.save", p);
     }
 
     void OnLearned(bool ok, Object^ result, String^ error) {
@@ -364,7 +460,7 @@ private:
         for each (Object^ o in J::Arr(r, "warnings")) notes->Append(o->ToString() + ". ");
         if (notes->Length > 0) marks_->Text = notes->ToString();
         status_->Text = "Testing your format...";
-        Detect(J::Obj(r, "template"));
+        Detect(J::Obj(r, "template"), "Your taught format");
     }
 };
 

@@ -63,7 +63,8 @@ json SourceBinding::toJson() const {
             {"targets", targetsJson(targets)},
             {"aiMode", toString(aiMode)},
             {"tradeSymbol", tradeSymbol},
-            {"aliasOverrides", aliasOverrides}};
+            {"aliasOverrides", aliasOverrides},
+            {"confirmedFormat", confirmedFormat}};
 }
 
 Result<SourceBinding> SourceBinding::fromJson(const json& j) {
@@ -96,6 +97,7 @@ Result<SourceBinding> SourceBinding::fromJson(const json& j) {
         b.aiMode = *ai;
         b.tradeSymbol = j.value("tradeSymbol", "");
         if (j.contains("aliasOverrides")) b.aliasOverrides = j["aliasOverrides"].get<std::map<std::string, std::string>>();
+        b.confirmedFormat = j.value("confirmedFormat", "");
         return b;
     } catch (const std::exception& e) {
         return Error{"policy_invalid", std::string("Source binding is malformed: ") + e.what()};

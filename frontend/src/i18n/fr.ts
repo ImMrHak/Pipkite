@@ -264,7 +264,7 @@ export const fr: Dict = {
       },
       {
         q: 'Dois-je configurer ou écrire un parser ?',
-        a: 'Non, et vous ne pouvez pas : les parsers sont créés par l’équipe Pipkite. Cliquez sur « Request a custom parser » dans l’écran Signal rules ; quelques messages récents du canal sont envoyés sans liens, @pseudos, numéros ni e-mails, nous créons un parser pour son format exact et il s’installe automatiquement en mise à jour signée, sans redémarrage. Tant que le parser d’un canal n’est pas arrivé, ses messages ne sont pas tradés.',
+        a: 'Non. Pipkite inclut des formats qui lisent la plupart des signaux (plusieurs langues, émojis, fourchettes d’entrée, plusieurs TP). Dans Signal rules, cliquez sur « Detect format » : Pipkite montre ce que chaque format lit dans les messages récents du canal, y compris les formats créés par d’autres utilisateurs de Pipkite pour ce même canal, et vous choisissez celui qui les lit correctement. Si aucun ne convient, marquez les éléments d’un signal pour l’apprendre à Pipkite, ou laissez l’IA proposer un format, puis vérifiez-le sur les messages récents. Vous pouvez toujours demander un parser sur mesure à l’équipe Pipkite. Un canal n’est copié qu’une fois ses premiers signaux vérifiés et « Start copying » cliqué.',
       },
       {
         q: 'La revue IA a-t-elle toujours raison ?',
@@ -425,15 +425,16 @@ export const fr: Dict = {
       },
       {
         id: 'step-4',
-        title: 'Étape 4 : demander un parser pour chaque canal',
+        title: 'Étape 4 : choisir le format de chaque canal',
         figure: 'signal-rules',
-        html: `<p>Chaque fournisseur écrit ses signaux à sa façon : chaque canal a donc besoin d’un <em>parser</em> conçu pour son format. Pipkite n’en contient aucun au départ, et vous ne les créez ni ne les modifiez vous-même : c’est l’équipe Pipkite qui s’en charge.</p>
+        html: `<p>Chaque fournisseur écrit ses signaux à sa façon. Pipkite doit connaître le <em>format</em> de chaque canal avant de pouvoir le copier.</p>
 <ol>
-<li>Ouvrez <strong>Signal rules</strong>, sélectionnez un canal et cliquez sur <strong>Request a custom parser for this channel</strong>. Ajoutez une note si vous le souhaitez.</li>
-<li>Pipkite envoie quelques messages récents de ce canal, sans liens, @pseudos, numéros de téléphone ni e-mails.</li>
-<li>Nous créons le parser et le publions en mise à jour signée. Il s’installe automatiquement et fonctionne sans redémarrage ; <strong>Check for parser updates</strong> le récupère immédiatement.</li>
+<li>Ouvrez <strong>Signal rules</strong>, sélectionnez un canal et cliquez sur <strong>Detect format</strong>. Pipkite essaie chaque format sur les messages récents du canal et montre ce que chacun lit : symbole, sens, entrée, SL et TP. Les formats créés par d’autres utilisateurs de Pipkite pour ce canal sont aussi proposés.</li>
+<li>Choisissez le format qui les lit correctement et cliquez sur <strong>Use this format</strong>.</li>
+<li>Aucun ne convient ? Marquez le symbole, le sens, l’entrée, le SL et les TP d’un signal pour l’apprendre à Pipkite, ou cliquez sur <strong>Ask AI for a format</strong>. Vérifiez le résultat sur les messages récents avant de l’utiliser.</li>
+<li>Toujours bloqué ? Cliquez sur <strong>Request a custom parser</strong> : l’équipe Pipkite en crée un, qui s’installe tout seul sans redémarrage.</li>
 </ol>
-<p>Tant que le parser d’un canal n’est pas arrivé, ses messages sont marqués non pris en charge et ne sont jamais tradés.</p>`,
+<p>Un nouveau format ne trade pas tout de suite : les signaux du canal apparaissent dans History avec ce que Pipkite aurait fait. Quand ils sont bien lus, sélectionnez le canal dans Signal rules et cliquez sur <strong>Start copying</strong>.</p>`,
       },
       {
         id: 'step-5',
@@ -614,7 +615,7 @@ export const fr: Dict = {
     updated: 'Dernière mise à jour',
     shortTitle: 'En bref',
     short:
-      'Vos données de trading, votre session Telegram et vos identifiants courtier restent sur votre PC. Les services en ligne ne reçoivent que le nécessaire : votre e-mail (et un nom facultatif) pour la clé de licence, les champs du signal et des bougies de prix récentes pour la revue IA, et des messages d’exemple expurgés quand vous demandez un parser. Nous ne vendons aucune donnée, et ce site n’a ni publicité, ni cookies, ni pistage : il compte seulement, de façon anonyme, les pages vues et les clics de téléchargement.',
+      'Vos données de trading, votre session Telegram et vos identifiants courtier restent sur votre PC. Les services en ligne ne reçoivent que le nécessaire : votre e-mail (et un nom facultatif) pour la clé de licence, les champs du signal et des bougies de prix récentes pour la revue IA, l’ID d’un canal quand vous cherchez son format, et des messages d’exemple expurgés quand vous demandez un parser ou l’aide de l’IA pour un format. Nous ne vendons aucune donnée, et ce site n’a ni publicité, ni cookies, ni pistage : il compte seulement, de façon anonyme, les pages vues et les clics de téléchargement.',
     sections: [
       {
         h: 'Ce qui reste sur votre PC',
@@ -636,6 +637,14 @@ export const fr: Dict = {
         h: 'Demandes de parser',
         html: '<p>Quand vous cliquez sur « Request a custom parser », l’application envoie l’identifiant et le titre du canal, votre note facultative et jusqu’à 15 messages récents de ce canal, sans liens, @pseudos, numéros de téléphone ni e-mails. Ils sont stockés avec votre clé de licence pour créer le parser et vous le livrer.</p>',
       },
+      {
+        h: 'Formats partagés entre utilisateurs',
+        html: '<p>Quand vous ouvrez Detect format pour un canal, l’application envoie l’ID de ce canal avec votre clé de licence pour trouver les formats que d’autres utilisateurs de Pipkite ont créés pour lui. Si vous cochez « Offer this format to other Pipkite users of this channel », l’application envoie le format, le titre du canal et jusqu’à 10 messages d’exemple sans liens, @pseudos, numéros de téléphone ni e-mails. Nous les conservons avec une empreinte irréversible de votre clé de licence (pas la clé), pour compter combien d’utilisateurs se servent de chaque format. Les autres utilisateurs voient le format, le titre du canal et les exemples, jamais qui les a partagés.</p>',
+      },
+      {
+        h: 'Aide de l’IA pour les formats',
+        html: '<p>Quand vous cliquez sur « Ask AI for a format », l’application envoie jusqu’à 15 messages récents de ce canal, sans liens, @pseudos, numéros de téléphone ni e-mails, ainsi que les mots que son format connaît déjà. Avec l’IA de Pipkite, ils passent par notre serveur, qui les transmet à notre fournisseur d’IA (comme OpenAI ou DeepSeek) sans les conserver ; le fournisseur les traite selon ses propres conditions. Si vous utilisez votre propre clé d’IA, ils vont directement de votre PC au fournisseur choisi, et la clé reste sur votre PC, chiffrée avec Windows DPAPI. L’IA ne fait que proposer des mots pour un format : elle ne voit jamais votre compte et ne passe jamais d’ordre.</p>',
+      },
       { h: 'Mises à jour', html: '<p>L’application envoie votre clé de licence lorsqu’elle vérifie et télécharge les mises à jour, pour que les bons parsers vous parviennent.</p>' },
       {
         h: 'Ce site',
@@ -647,6 +656,7 @@ export const fr: Dict = {
 <li>L’application s’ouvre sans clé de licence ; les parsers, la revue IA et les mises à jour en ont besoin.</li>
 <li>La revue IA peut être désactivée dans Execution policy.</li>
 <li>Vous pouvez effacer l’historique local à tout moment dans Settings.</li>
+<li>La recherche et le partage de formats se désactivent dans Settings, sous Signal formats and AI help.</li>
 <li>Pour savoir ce que nous détenons sur votre clé de licence ou demander sa suppression, {contact}</li>
 </ul>`,
       },

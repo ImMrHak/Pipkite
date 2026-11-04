@@ -4,6 +4,7 @@
 
 #include "Controls.h"
 #include "EngineClient.h"
+#include "FormatDialog.h"
 
 using namespace System::Text;
 
@@ -12,6 +13,8 @@ namespace PipkiteUI {
 public ref class SignalDetailForm : public Form {
 public:
     SignalDetailForm(EngineClient^ client, String^ chatId, String^ messageId, int revision) {
+        client_ = client;
+        chatId_ = chatId;
         Text = "Signal detail";
         AutoScaleMode = Windows::Forms::AutoScaleMode::Dpi;
         StartPosition = FormStartPosition::CenterParent;
@@ -35,6 +38,11 @@ public:
         s->Controls->Add(L::Text("Interpretation and decision", "h2"));
         interp_ = L::Wrap("", nullptr, 1020);
         s->Controls->Add(interp_);
+        teach_ = L::Btn("Teach Pipkite from this message...", nullptr,
+                        "Open Detect format with this message as the example, to pick, teach or ask the AI for a format that reads it.");
+        teach_->Visible = false;
+        teach_->Click += gcnew EventHandler(this, &SignalDetailForm::OnTeach);
+        s->Controls->Add(teach_);
         s->Controls->Add(L::Text("Processing timeline", "h2"));
         timeline_ = gcnew BufferedGrid();
         timeline_->Width = 1020;
@@ -78,6 +86,17 @@ protected:
 private:
     Label ^ header_, ^flags_, ^interp_;
     RichTextBox^ text_;
+    Button^ teach_;
+    EngineClient^ client_;
+    String^ chatId_;
+    String^ raw_;
+    String^ source_;
+
+    void OnTeach(Object^, EventArgs^) {
+        FormatDialog^ d = gcnew FormatDialog(client_, chatId_, source_, raw_);
+        if (d->ShowDialog(this) == Windows::Forms::DialogResult::OK)
+            interp_->Text = "This channel now uses the format you picked. Its signals are shown, not copied, until you press Start copying in Signal rules.";
+    }
     BufferedGrid ^ timeline_, ^commands_;
 
     static int ByteToChar(String^ s, int byteOffset) {
@@ -105,6 +124,11 @@ private:
                        J::Str(s, "parserVersion") + (J::Bool(r, "historical") ? "   HISTORICAL (never executed)" : "");
         String^ raw = J::Str(r, "rawText")->Replace("\r\n", "\n");
         text_->Text = raw;
+        raw_ = raw;
+        source_ = J::Str(r, "source", "this channel");
+        // a message it couldn't read in full, or one held for a new format: teaching starts from it
+        String^ status = J::Str(s, "status");
+        teach_->Visible = raw != "" && (J::Str(r, "state") == "Review" || status != "Valid");
         for each (Object^ o in J::Arr(s, "evidence")) {
             JObj^ e = J::Obj(o);
             int b = ByteToChar(raw, (int)J::Int(e, "begin"));

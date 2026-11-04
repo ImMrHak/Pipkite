@@ -276,7 +276,11 @@ Status Updater::installTemplate(const json& release, const json& c, const std::s
     if (!safeName(id) || !safeName(version)) return failStatus("package_invalid", "Invalid component identity");
     const std::string appliedKey = "updates.template." + id;
     if (store_.getSetting(appliedKey).value_or("") == version) return okStatus();
+    // a version that failed here fails the same way next time: tried again only after an app update or a new version
+    const std::string failedKey = "updates.templateFailed." + id, failedValue = version + "|" + kProductVersion;
+    if (store_.getSetting(failedKey).value_or("") == failedValue) return okStatus();
     auto fail = [&](const std::string& why) {
+        store_.putSetting(failedKey, failedValue);
         store_.addUpdateHistory(releaseId, id, "", version, "failed", {{"error", why}}, false);
         return failStatus("template_failed", why);
     };

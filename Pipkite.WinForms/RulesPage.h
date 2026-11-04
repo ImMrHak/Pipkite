@@ -82,6 +82,9 @@ public:
                          "Try every installed format on the selected channel's recent messages, see what each reads, and pick one. You can also teach "
                          "Pipkite by marking the parts of a signal.");
         detect_->Click += gcnew EventHandler(this, &RulesPage::OnDetect);
+        confirm_ = L::Btn("Start copying", "accent",
+                          "The selected channel has a new format, so its signals are only shown. If they read right in History, press this to copy them from now on.");
+        confirm_->Click += gcnew EventHandler(this, &RulesPage::OnConfirm);
         request_ = L::Btn("Request a custom parser...", nullptr,
                           "Ask the Pipkite team to build or adjust the parser for the selected channel. Recent messages (redacted) are included.");
         request_->Click += gcnew EventHandler(this, &RulesPage::OnRequest);
@@ -90,7 +93,7 @@ public:
         Button^ updates = L::Btn("Check for parser updates", nullptr,
                                  "Ask the backend for new or updated parsers. They install and take effect automatically, without restarting the app.");
         updates->Click += gcnew EventHandler(this, &RulesPage::OnCheckUpdates);
-        ch->Controls->Add(L::Row(detect_, request_, refresh, updates));
+        ch->Controls->Add(L::Row(detect_, confirm_, request_, refresh, updates));
         status_ = L::Wrap("", "muted", 900);
         ch->Controls->Add(status_);
         stack->Controls->Add(L::Group("Your channels", ch));
@@ -129,7 +132,7 @@ public:
 
 private:
     BufferedGrid ^ grid_, ^installed_;
-    Button ^ request_, ^detect_;
+    Button ^ request_, ^detect_, ^confirm_;
     Label^ status_;
     array<Object^>^ sources_;
     array<Object^>^ parsers_;
@@ -173,8 +176,11 @@ private:
                 statusText = "No parser yet — detect the format or request one";
             else
                 statusText = OriginText(active) + " · v" + J::Str(active, "version");
+            const bool pending = J::Bool(b, "formatPending");
+            if (pending) statusText = "Not copying yet: check its signals in History, then press Start copying · " + statusText;
             int idx = grid_->Rows->Add(gcnew array<Object^>{J::Str(b, "title"), pid, statusText});
             grid_->Rows[idx]->Tag = b;
+            if (pending) grid_->Rows[idx]->DefaultCellStyle->ForeColor = Theme::Warning;
             if (focusChatId_ != nullptr && J::Str(b, "chatId") == focusChatId_) grid_->Rows[idx]->Selected = true;
         }
         grid_->Invalidate();
@@ -204,6 +210,7 @@ private:
     void OnRowSelected(Object^, EventArgs^) {
         request_->Enabled = SelectedSource() != nullptr;
         detect_->Enabled = request_->Enabled;
+        confirm_->Enabled = request_->Enabled && J::Bool(SelectedSource(), "formatPending");
     }
 
     void OnDetect(Object^, EventArgs^) {
@@ -211,9 +218,29 @@ private:
         if (b == nullptr) return ShowError("Select a channel first.");
         FormatDialog^ d = gcnew FormatDialog(Client, J::Str(b, "chatId"), J::Str(b, "title"), nullptr);
         if (d->ShowDialog(FindForm()) == Windows::Forms::DialogResult::OK) {
-            status_->Text = J::Str(b, "title") + " now uses the format you picked.";
+            status_->Text = J::Str(b, "title") + " now uses the format you picked. Its signals are shown in History but not copied until you press Start copying.";
             Reload();
         }
+    }
+
+    void OnConfirm(Object^, EventArgs^) {
+        JObj^ b = SelectedSource();
+        if (b == nullptr || !J::Bool(b, "formatPending")) return;
+        JObj^ p = J::New();
+        p["chatId"] = J::Str(b, "chatId");
+        p["format"] = J::Str(b, "activeFormat");  // the version the user looked at
+        confirm_->Enabled = false;
+        Client->Call("source.confirmFormat", p, gcnew ResponseHandler(this, &RulesPage::OnConfirmed));
+    }
+
+    void OnConfirmed(bool ok, Object^, String^ error) {
+        if (!ok) {
+            status_->Text = "Not started: " + error;
+            Reload();
+            return;
+        }
+        status_->Text = "Copying is on for this channel. New signals it reads are traded with your rules.";
+        Reload();
     }
 
     void OnRequest(Object^, EventArgs^) {

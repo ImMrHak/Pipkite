@@ -63,6 +63,22 @@ UI (WinForms) <-> Engine over a local named pipe
   `fixtures.json`. Put it in `_shared/<id>/` to offer it to everyone, or in a license folder. It has to pass its
   fixtures and the shared negative corpus before it activates. Serving an older version rolls clients back.
 - `Pipkite.Plugin.GoldParser` is a sample parser module, handy for tests.
+- **Waiting for the user's OK.** Each channel keeps the parser `id@version` the user confirmed (`confirmedFormat` on
+  `SourceBinding`). While its parser is another one (a new channel, a new format, a new delivered or built-in
+  version), `Engine::evaluate` turns trades into Review with "New format for this channel". **Start copying** on
+  Signal rules (`source.confirmFormat`) records the OK. Only the engine sets it: `savePolicy` ignores what the UI
+  sends. Channels from before this got their current format as confirmed on first start. So bump a built-in
+  format's `version` whenever you change it, or channels keep trading with changed rules without being asked.
+- **Shared formats.** Detect format asks the backend for the formats other users made for the same channel
+  (`GET /formats/channels/<chatId>`, sends the chat ID; setting `formats.lookup`). Each must pass its own examples
+  and the negative corpus in the app before it's shown; its SL/TP rules are forced on. Using one adopts it as the
+  channel's own `channel_<chatId>` format. With **Offer this format...** (`formats.share`), `parser.adopt` posts the
+  format and its redacted examples (`POST /formats/channels/<chatId>`).
+- **AI format help.** `ai.suggestFormat` sends redacted recent messages to Pipkite's backend (`POST /ai/format`) or
+  to the user's own OpenAI-compatible provider (`ai.formatProvider` = `own`, key in the DPAPI secret `ai_own_key`).
+  The AI returns words to add, never a reading; `applyFormatSuggestion` (`Pipkite.Core/FormatAssist.cpp`) accepts
+  only word lists, symbol aliases, emoji labels and the number format, and never the safety rules. The prompt is in
+  `formatSuggestionPrompt()` and, identical, in the backend's `ai/format-prompt.md`: change both.
 
 ## Rules for changes
 

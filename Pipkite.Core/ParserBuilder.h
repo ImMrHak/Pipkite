@@ -32,6 +32,9 @@ struct LearnResult {
 };
 
 LearnResult learnFromHighlights(const ParserTemplate& base, const std::string& sample, const std::vector<HighlightLabel>& labels);
+// Where the reading disagrees with what the user marked in the sample (empty = it reads what they marked). A taught
+// format is saved only when it reads the example the way the user marked it.
+std::vector<std::string> marksDisagree(const ParserTemplate& t, const Signal& s, const std::string& sample, const std::vector<HighlightLabel>& labels);
 
 // fixtures
 struct Fixture {

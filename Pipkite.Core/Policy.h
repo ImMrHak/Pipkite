@@ -51,6 +51,8 @@ struct AiSettings {
     std::string localModelPath;          // empty = local gate unavailable
 };
 
+inline constexpr const char* kFormatPending = "pending";  // confirmedFormat of a channel that never had an OK
+
 struct SourceBinding {
     std::int64_t chatId = 0;
     std::string title;
@@ -67,6 +69,9 @@ struct SourceBinding {
     AiMode aiMode = AiMode::Off;
     std::string tradeSymbol;  // broker symbol this channel trades (chosen from MT5); empty = resolve from the signal
     std::map<std::string, std::string> aliasOverrides;  // provider alias -> canonical
+    // parser id@version the user confirmed by reading its signals. Another value means the channel's format changed
+    // and it waits for the user's OK: its signals are shown, never traded. Empty = before this existed (no wait).
+    std::string confirmedFormat;
 
     nlohmann::json toJson() const;
     static Result<SourceBinding> fromJson(const nlohmann::json& j);

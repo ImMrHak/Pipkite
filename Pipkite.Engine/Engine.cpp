@@ -87,6 +87,7 @@ Status Engine::start() {
 
     loadConfiguration();
     initParsers();
+    confirmFormatsOnFirstRun();
     installBridgeImplementation();
     for (auto& d : store_->loadDeals(0)) ledger_.addDeal(d);
     boundAccount_ = store_->activeAccountBinding();
@@ -248,7 +249,16 @@ void Engine::loadConfiguration() {
     store_->savePolicy(policy_.toJson(), policy_.configVersion);
 }
 
-Status Engine::savePolicy(ExecutionPolicy p, bool bumpVersion) {
+Status Engine::savePolicy(ExecutionPolicy p, bool bumpVersion, bool keepConfirmations) {
+    if (keepConfirmations) {
+        // the OK belongs to the engine, never to the caller's JSON: a new channel, or one whose parser changed,
+        // waits for the user to confirm its readings again (Signal rules -> Start copying)
+        for (auto& s : p.sources) {
+            const SourceBinding* old = policy_.findSource(s.chatId);
+            if (!old || old->parserId != s.parserId || old->parserVersion != s.parserVersion) s.confirmedFormat = kFormatPending;
+            else s.confirmedFormat = old->confirmedFormat;
+        }
+    }
     if (auto v = p.validate(); !v) return v;
     if (bumpVersion) p.configVersion = policy_.configVersion + 1;
     auto st = store_->savePolicy(p.toJson(), p.configVersion);
@@ -522,8 +532,12 @@ void Engine::processMessage(const IncomingMessage& m) {
             return;
         }
     }
+    watchReadRate(*b, s);
     Decision d = evaluate(s, *b, catchUp);
     mark("decided", std::string(toString(d.kind)) + ": " + d.reason);
+    if (d.kind == DecisionKind::Review && awaitsFormatOk(*b, s) && heldNoticeSent_.insert(b->chatId).second)
+        notify("info", b->title + ": a signal was shown but not copied, because the channel's format is new. Check it in History, then press Start copying in Signal "
+                                  "rules.");
     feedOrder_.push_back(key);
     applyDecision(std::move(s), *b, std::move(d), std::move(timeline));
 }
@@ -554,7 +568,64 @@ Decision Engine::evaluate(const Signal& s, const SourceBinding& b, bool catchUp)
         }
     }
     in.isCatchUp = catchUp;
-    return planner_.evaluate(in);
+    Decision d = planner_.evaluate(in);
+    // the one place every trade decision passes (new, waiting and re-checked signals): a channel whose format
+    // changed shows what it would do, and trades only after the user confirmed the readings
+    if ((d.kind == DecisionKind::Planned || d.kind == DecisionKind::Waiting) && awaitsFormatOk(b, s)) {
+        const bool planned = d.kind == DecisionKind::Planned;
+        d.kind = DecisionKind::Review;
+        d.reason = std::string("New format for this channel, not copied yet: Pipkite would ") + (planned ? "place this trade" : "wait for this entry") +
+                   ". If the reading is right, press Start copying in Signal rules.";
+    }
+    return d;
+}
+
+bool Engine::awaitsFormatOk(const SourceBinding& b, const Signal& s) {
+    return !b.confirmedFormat.empty() && b.confirmedFormat != s.parserId + "@" + s.parserVersion;
+}
+
+void Engine::confirmFormatsOnFirstRun() {
+    // channels set up before the OK existed keep copying with the format they have now; from here on, a new
+    // parser version (delivered or built in) waits for the user's OK like any other change
+    ExecutionPolicy p = policy_;
+    bool changed = false;
+    for (auto& s : p.sources) {
+        if (!s.confirmedFormat.empty()) continue;
+        if (auto lease = parserFor(s)) {
+            s.confirmedFormat = lease->parserId + "@" + lease->version;
+            changed = true;
+        }
+    }
+    if (changed)
+        if (auto st = savePolicy(p, false, false); !st) addError("Could not record the channels' formats: " + st.error().message);
+}
+
+void Engine::watchReadRate(const SourceBinding& b, const Signal& s) {
+    // a channel that changes how it writes signals shows up as signals Pipkite can't fully read any more
+    if (s.kind != MessageKind::TradeSetup || !s.side) return;  // only messages with a Buy/Sell word
+    if (s.status != ParseStatus::Valid && s.status != ParseStatus::Incomplete && s.status != ParseStatus::Ambiguous) return;
+    auto& h = readHistory_[b.chatId];
+    h.push_back(s.status == ParseStatus::Valid);
+    if (h.size() > 10) h.pop_front();
+    if (h.size() < 5) return;
+    const bool readBefore = std::any_of(h.begin(), h.end() - 4, [](bool ok) { return ok; });
+    const int missedLately = static_cast<int>(std::count(h.end() - 4, h.end(), false));
+    const std::int64_t now = clock_.nowMs();
+    if (readBefore && missedLately >= 3 && now - layoutWarnedAtMs_[b.chatId] > 24LL * 3600 * 1000) {
+        layoutWarnedAtMs_[b.chatId] = now;
+        notify("warning", b.title + ": Pipkite couldn't fully read " + std::to_string(missedLately) +
+                              " of its last 4 signals. The channel may have changed how it writes them: open Signal rules and press Detect format.");
+    }
+}
+
+const Quote* Engine::quoteFor(const std::string& symbol, const SourceBinding* b) const {
+    if (b && !b->tradeSymbol.empty())
+        if (auto it = quotes_.find(b->tradeSymbol); it != quotes_.end()) return &it->second;
+    if (auto it = quotes_.find(symbol); it != quotes_.end()) return &it->second;
+    // shortcut: broker names with a suffix (XAUUSD.m, XAUUSDm) match by prefix; an explicit trade symbol wins above
+    for (auto& [name, q] : quotes_)
+        if (!symbol.empty() && name.rfind(symbol, 0) == 0) return &q;
+    return nullptr;
 }
 
 void Engine::setSignalState(const std::string& key, SignalState state, const json& decision, const std::string& reason) {

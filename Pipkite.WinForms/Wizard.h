@@ -605,7 +605,7 @@ private:
         FormatDialog^ d = gcnew FormatDialog(client_, J::Str(b, "chatId"), J::Str(b, "title"), exampleBox_->Text);
         if (d->ShowDialog(this) != System::Windows::Forms::DialogResult::OK) return;
         stepStatus_->ForeColor = Theme::Success;
-        stepStatus_->Text = J::Str(b, "title") + " now uses the format you picked.";
+        stepStatus_->Text = J::Str(b, "title") + " now uses the format you picked. Its first signals are shown, not copied: press Start copying in Signal rules once they read right.";
         client_->Call("sources.list", nullptr, gcnew ResponseHandler(this, &FirstRunWizard::OnParserPoll));
     }
     void OnRequestParser(Object^, EventArgs^) {

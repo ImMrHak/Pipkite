@@ -108,7 +108,14 @@ private:
 
     // configuration
     void loadConfiguration();
-    Status savePolicy(ExecutionPolicy p, bool bumpVersion);
+    // keepConfirmations: a channel whose parser changed (or a new channel) waits for the user's OK again; only
+    // source.confirmFormat passes false to record that OK.
+    Status savePolicy(ExecutionPolicy p, bool bumpVersion, bool keepConfirmations = true);
+    // the channel's format changed since the user confirmed it: its signals are shown, never traded
+    static bool awaitsFormatOk(const SourceBinding& b, const Signal& s);
+    void confirmFormatsOnFirstRun();
+    void watchReadRate(const SourceBinding& b, const Signal& s);
+    const Quote* quoteFor(const std::string& symbol, const SourceBinding* b) const;
     void initParsers();
     std::shared_ptr<const ParserGeneration> parserFor(const SourceBinding& b) const;
     Status activateParserVersion(const std::string& id, const std::string& version, const nlohmann::json& notes, bool requireFixtures);
@@ -252,6 +259,18 @@ private:
 
     // import staging
     std::optional<db::ImportPreview> stagedImport_;
+
+    // formats other Pipkite users shared for a channel, from the last Detect format (id "shared_<backend id>")
+    struct SharedFormat {
+        nlohmann::json templateJson;
+        std::vector<Fixture> fixtures;
+    };
+    std::mutex sharedMu_;
+    std::map<std::string, SharedFormat> sharedFormats_;
+    // per channel, whether its recent signal-looking messages were read in full (decision thread)
+    std::map<std::int64_t, std::deque<bool>> readHistory_;
+    std::map<std::int64_t, std::int64_t> layoutWarnedAtMs_;
+    std::set<std::int64_t> heldNoticeSent_;
 };
 
 template <typename F>

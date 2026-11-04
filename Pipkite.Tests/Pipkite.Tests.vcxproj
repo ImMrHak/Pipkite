@@ -60,6 +60,7 @@
   <ItemGroup>
     <ClCompile Include="EndToEndTests.cpp" />
     <ClCompile Include="ParserTests.cpp" />
+    <ClCompile Include="FormatAssistTests.cpp" />
     <ClCompile Include="FormatCorpusTests.cpp" />
     <ClCompile Include="PlannerTests.cpp" />
     <ClCompile Include="StorageProtocolTests.cpp" />

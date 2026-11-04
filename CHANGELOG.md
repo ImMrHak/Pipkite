@@ -11,6 +11,21 @@
 - **Teach Pipkite**: select the symbol, side, entry, SL and TPs in a message, test the result on recent messages,
   then use it. Each change is a new version you can roll back.
 - Formats can be delivered and updated by the backend while Pipkite runs, without an app update.
+- Formats other Pipkite users made for the same channel show up in **Detect format**, with how many use them. Tick
+  **Offer this format to other Pipkite users of this channel** to share yours. Sends the channel's ID; it can be
+  turned off in Settings.
+- **Ask AI for a format**: the AI suggests words to add to a format, and you check the result on the channel's
+  messages before using it. Uses Pipkite's AI with your license key, or your own OpenAI, DeepSeek or other
+  OpenAI-compatible key (Settings > Signal formats and AI help). The AI never reads or places a trade.
+- A new or changed format doesn't trade right away: its signals show in History with what Pipkite would have done,
+  until you click **Start copying** on Signal rules. New versions of a format a channel uses ask again.
+- A taught format is only saved if it reads your example the way you marked it. Changing the example after
+  testing no longer saves the format with an untested example.
+- **Teach Pipkite from this message** in a message's details, for messages a format couldn't read.
+- Pending orders at a price far from the market (like 23.50 for 2350) are refused as misread, and Detect format
+  marks such readings **Check price**.
+- A warning when a channel's recent signals can't be read any more (it may have changed its layout).
+- A format update that failed to install is no longer downloaded again every 30 minutes.
 - Unchanged: a trade is only placed when symbol, side, entry (or NOW), SL and TP are all read with no conflict.
 
 ## 1.0.2

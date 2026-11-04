@@ -111,6 +111,42 @@ public:
         ai->Controls->Add(licenseStatus_);
         stack->Controls->Add(L::Group("AI and licensing", ai));
 
+        // signal formats: sharing between users of the same channel, and AI help for formats no one has yet
+        TableLayoutPanel^ fm = L::Form2();
+        lookup_ = L::Check("Show formats other Pipkite users made for the same channel");
+        L::Tip(lookup_, "When you open Detect format, Pipkite sends the channel's ID to find formats others made for it. You still check each one on your own messages.");
+        L::AddField(fm, "", lookup_);
+        share_ = L::Check("Offer formats I teach to other users of the same channel");
+        L::Tip(share_, "Sends the format, the channel's title and examples with links, @names, phone numbers and emails removed. Others still check it before using it.");
+        L::AddField(fm, "", share_);
+        aiProvider_ = L::Combo(320, gcnew array<String^>{"Pipkite's AI (free, uses your license key)", "My own AI key"});
+        aiProvider_->DropDownStyle = ComboBoxStyle::DropDownList;
+        L::AddField(fm, "AI help for formats", aiProvider_,
+                    "Who answers when you press Ask AI in Detect format. The AI only suggests words to add to a format; you test the result on the channel's "
+                    "messages before using it, and trading never waits on an AI.");
+        aiPreset_ = L::Combo(320, gcnew array<String^>{"OpenAI", "DeepSeek", "Other (OpenAI-compatible)"});
+        aiPreset_->DropDownStyle = ComboBoxStyle::DropDownList;
+        aiPreset_->SelectedIndexChanged += gcnew EventHandler(this, &SettingsPage::OnAiPreset);
+        L::AddField(fm, "Your AI provider", aiPreset_);
+        aiUrl_ = L::Box(360);
+        L::AddField(fm, "AI address", aiUrl_, "The provider's API address, e.g. https://api.openai.com/v1 or https://api.deepseek.com. http:// works only for a model server on this PC.");
+        aiModel_ = L::Box(220);
+        L::AddField(fm, "Model", aiModel_, "The model name your provider lists, e.g. deepseek-chat.");
+        aiKey_ = L::Box(360);
+        aiKey_->UseSystemPasswordChar = true;
+        aiKey_->AccessibleName = "Your AI key";
+        L::AddField(fm, "Your AI key", aiKey_, "Stored with Windows data protection on this PC. Sent only to the AI address above.");
+        Button^ saveFm = L::Btn("Save", "accent", "Save these format and AI settings (and the key, if you typed one).");
+        saveFm->Click += gcnew EventHandler(this, &SettingsPage::OnSaveFormats);
+        Button^ clearAiKey = L::Btn("Remove my AI key", nullptr, "Delete your AI key from this PC.");
+        clearAiKey->Click += gcnew EventHandler(this, &SettingsPage::OnClearAiKey);
+        fm->Controls->Add(gcnew Label());
+        fm->Controls->Add(L::Row(saveFm, clearAiKey));
+        aiStatus_ = L::Wrap("", "muted", 600);
+        fm->Controls->Add(gcnew Label());
+        fm->Controls->Add(aiStatus_);
+        stack->Controls->Add(L::Group("Signal formats and AI help", fm));
+
         FlowLayoutPanel^ dg = gcnew FlowLayoutPanel();
         dg->FlowDirection = FlowDirection::TopDown;
         dg->AutoSize = true;
@@ -129,7 +165,7 @@ public:
         dg->Controls->Add(L::Text("Pipkite 1.0.2", "muted"));
         stack->Controls->Add(L::Group("Diagnostics and connection", dg));
         Controls->Add(stack);
-        Header("Settings", "Appearance, startup, local data and updates.", this);
+        Header("Settings", "Appearance, startup, local data, updates, signal formats and AI help.", this);
     }
 
     virtual void OnActivated() override {
@@ -148,7 +184,10 @@ public:
 
 private:
     ComboBox ^ theme_, ^channel_;
-    CheckBox ^ tray_, ^startup_, ^notify_, ^autoUpd_, ^aiStore_, ^keepAwake_, ^setupList_;
+    CheckBox ^ tray_, ^startup_, ^notify_, ^autoUpd_, ^aiStore_, ^keepAwake_, ^setupList_, ^lookup_, ^share_;
+    ComboBox ^ aiProvider_, ^aiPreset_;
+    TextBox ^ aiUrl_, ^aiModel_, ^aiKey_;
+    Label^ aiStatus_;
     NumericUpDown ^ rawDays_, ^metaDays_;
     TextBox ^ manifestUrl_, ^licenseKey_, ^licensePortal_;
     Label ^ dataDir_, ^updStatus_, ^healthText_, ^licenseStatus_;
@@ -173,6 +212,15 @@ private:
         licenseKey_->Text = J::Str(s, "license.key");
         licensePortal_->Text = J::Str(s, "license.portalUrl");
         licenseStatus_->Text = licenseKey_->Text != "" ? "A license key is saved. Use Validate & save to re-check it." : "No license key. Backend features are off until you enter a valid key.";
+        lookup_->Checked = J::Str(s, "formats.lookup", "true") != "false";
+        share_->Checked = J::Str(s, "formats.share", "false") == "true";
+        aiProvider_->SelectedIndex = J::Str(s, "ai.formatProvider", "pipkite") == "own" ? 1 : 0;
+        aiUrl_->Text = J::Str(s, "ai.ownBaseUrl");
+        aiModel_->Text = J::Str(s, "ai.ownModel");
+        aiPreset_->SelectedIndex = aiUrl_->Text->Contains("deepseek") ? 1 : aiUrl_->Text == "" || aiUrl_->Text->Contains("api.openai.com") ? 0 : 2;
+        if (aiUrl_->Text == "") OnAiPreset(nullptr, nullptr);
+        aiKey_->Text = "";
+        aiStatus_->Text = J::Bool(s, "ai.ownKeySet") ? "Your AI key is saved on this PC." : "No AI key of your own saved.";
         dataDirPath_ = J::Str(s, "dataDir");
         dataDir_->Text = "Database folder: " + dataDirPath_;
         loading_ = false;
@@ -211,6 +259,65 @@ private:
             ShowError("Could not update the startup entry: " + ex->Message);
         }
         if (ThemeChangeRequested != nullptr) ThemeChangeRequested(theme_->Text);
+    }
+
+    void OnAiPreset(Object^, EventArgs^) {
+        if (loading_ && aiUrl_->Text != "") return;  // keep what was saved
+        if (aiPreset_->SelectedIndex == 0) {
+            aiUrl_->Text = "https://api.openai.com/v1";
+            if (aiModel_->Text == "" || aiModel_->Text == "deepseek-chat") aiModel_->Text = "gpt-4.1-mini";
+        } else if (aiPreset_->SelectedIndex == 1) {
+            aiUrl_->Text = "https://api.deepseek.com";
+            if (aiModel_->Text == "" || aiModel_->Text == "gpt-4.1-mini") aiModel_->Text = "deepseek-chat";
+        }
+    }
+
+    void OnSaveFormats(Object^, EventArgs^) {
+        String^ url = aiUrl_->Text->Trim();
+        if (aiProvider_->SelectedIndex == 1 && !(url->StartsWith("https://") || url->StartsWith("http://localhost") || url->StartsWith("http://127.0.0.1"))) {
+            aiStatus_->Text = "The AI address must start with https:// (http:// only for a model server on this PC).";
+            return;
+        }
+        JObj^ v = J::New();
+        v["formats.lookup"] = lookup_->Checked ? "true" : "false";
+        v["formats.share"] = share_->Checked ? "true" : "false";
+        v["ai.formatProvider"] = aiProvider_->SelectedIndex == 1 ? "own" : "pipkite";
+        v["ai.ownBaseUrl"] = url;
+        v["ai.ownModel"] = aiModel_->Text->Trim();
+        JObj^ p = J::New();
+        p["values"] = v;
+        Client->Call("settings.save", p, gcnew ResponseHandler(this, &SettingsPage::OnFormatsSaved));
+    }
+
+    void OnFormatsSaved(bool ok, Object^, String^ error) {
+        if (!ok) {
+            aiStatus_->Text = "Not saved: " + error;
+            return;
+        }
+        if (aiKey_->Text->Trim() == "") {
+            aiStatus_->Text = "Saved.";
+            return;
+        }
+        // the address is saved first, so the engine can check the key against it
+        JObj^ p = J::New();
+        p["key"] = aiKey_->Text->Trim();
+        aiKey_->Text = "";
+        aiStatus_->Text = "Saving and checking your key...";
+        Client->Call("ai.setOwnKey", p, gcnew ResponseHandler(this, &SettingsPage::OnAiKeySaved));
+    }
+
+    void OnAiKeySaved(bool ok, Object^ result, String^ error) {
+        aiStatus_->Text = ok ? J::Str(J::Obj(result), "message") : "Key not saved: " + error;
+        aiStatus_->ForeColor = ok && J::Bool(J::Obj(result), "checked") ? Theme::Success : ok ? Theme::Warning : Theme::Danger;
+    }
+
+    void OnClearAiKey(Object^, EventArgs^) {
+        Client->Call("ai.clearOwnKey", nullptr, gcnew ResponseHandler(this, &SettingsPage::OnAiKeyCleared));
+    }
+
+    void OnAiKeyCleared(bool ok, Object^, String^ error) {
+        aiStatus_->ForeColor = Theme::TextMuted;
+        aiStatus_->Text = ok ? "Your AI key was removed from this PC." : "Couldn't remove the key: " + error;
     }
 
     void OnSaveRetention(Object^, EventArgs^) {

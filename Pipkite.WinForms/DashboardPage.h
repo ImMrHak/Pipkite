@@ -375,9 +375,10 @@ private:
     void UpdateSetup(JObj^ st) {
         if (st == nullptr) return;
         array<Object^>^ missing = J::Arr(st, "parsersMissing");
+        array<Object^>^ pending = J::Arr(st, "formatsPending");
         const bool hasSources = J::Int(st, "sources") > 0;
         array<bool>^ done = {J::Bool(st, "license"), J::Bool(st, "telegram"), hasSources, J::Bool(st, "metatrader"),
-                             hasSources && missing->Length == 0, J::Int(st, "symbolLimits") > 0};
+                             hasSources && missing->Length == 0 && pending->Length == 0, J::Int(st, "symbolLimits") > 0};
         bool all = true;
         int doneCount = 0, next = -1;
         for (int i = 0; i < done->Length; ++i) {
@@ -387,8 +388,12 @@ private:
             stepBadges_[i]->Set(done[i] ? "Done" : "To do", done[i] ? Theme::Success : Theme::Warning);
             if (stepButtons_[i]->Visible == done[i]) stepButtons_[i]->Visible = !done[i];
         }
-        String^ parsers = "5.  Request a parser for each channel. It installs by itself when ready.";
-        for (int i = 0; i < missing->Length; ++i) parsers += (i == 0 ? " Waiting for: " : ", ") + Convert::ToString(missing[i]);
+        String^ parsers = "5.  Pick the format of each channel (Detect format), check its first signals, then press Start copying.";
+        for (int i = 0; i < missing->Length; ++i) parsers += (i == 0 ? " No format yet: " : ", ") + Convert::ToString(missing[i]);
+        for (int i = 0; i < pending->Length; ++i) {
+            String^ sep = i > 0 ? ", " : missing->Length > 0 ? ". Not copying yet: " : " Not copying yet: ";
+            parsers += sep + Convert::ToString(pending[i]);
+        }
         SetText(stepTexts_[4], parsers);
         SetText(setupProgress_, doneCount.ToString() + " of " + done->Length.ToString() + " done");
         if (next >= 0) {

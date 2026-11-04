@@ -219,6 +219,28 @@ TEST(planner_immediate_and_pending_modes) {
     CHECK_EQ(std::string(toString(f.eval(noKind).kind)), std::string("Rejected"));  // never infer LIMIT vs STOP
 }
 
+TEST(planner_rejects_a_pending_price_far_from_the_market) {
+    Fixture f;
+    f.binding.entryMode = EntryMode::ExplicitPendingOnly;
+    f.quote = {"XAUUSD", 4297.00, 4297.30, kNow, kNow};
+    auto misread = f.signal("XAUUSD BUY LIMIT 42.90\nSL 42.80\nTP 43.10");  // 4290 read as 42.90: every level consistent, all wrong
+    auto d = f.eval(misread);
+    CHECK_EQ(std::string(toString(d.kind)), std::string("Rejected"));
+    CHECK(d.reason.find("misread") != std::string::npos);
+    auto real = f.signal("XAUUSD BUY LIMIT 4290\nSL 4280\nTP 4310");
+    CHECK_EQ(std::string(toString(f.eval(real).kind)), std::string("Planned"));
+}
+
+TEST(source_keeps_the_format_the_user_confirmed) {
+    SourceBinding b;
+    b.chatId = -1001234567890;
+    b.confirmedFormat = "universal@1.0.0";
+    auto r = SourceBinding::fromJson(b.toJson());
+    CHECK(static_cast<bool>(r));
+    CHECK_EQ(r.value().confirmedFormat, std::string("universal@1.0.0"));
+    CHECK(SourceBinding::fromJson(nlohmann::json{{"chatId", "-5"}}).value().confirmedFormat.empty());  // older files: no wait
+}
+
 TEST(planner_force_enter_when_price_slipped_just_past_the_range) {
     Fixture f;  // gold: digits 2, point 0.01 -> 1 pip = 0.01
     auto buy = f.signal(kBuyRange);  // BUY range [4295, 4300], SL 4287

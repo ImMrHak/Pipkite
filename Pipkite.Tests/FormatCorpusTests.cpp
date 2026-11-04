@@ -120,6 +120,40 @@ std::map<std::string, std::shared_ptr<const CompiledTemplate>>& formats() {
 
 bool near(double a, double b) { return std::abs(a - b) < 1e-9 * std::max(1.0, std::abs(a)); }
 
+// empty when the signal reads exactly what the case says; else what differs
+std::string differences(const Case& c, const Signal& s) {
+    std::string why;
+    if (toString(*s.side) != std::string(c.side)) why += " side " + std::string(toString(*s.side));
+    if (s.symbol != c.symbol) why += " symbol " + s.symbol;
+    if (c.entryLow == 0 ? s.entry.has_value() && !s.marketIntent : (!s.entry || !near(s.entry->low, c.entryLow) || !near(s.entry->high, c.entryHigh)))
+        why += " entry " + (s.entry ? std::to_string(s.entry->low) + "-" + std::to_string(s.entry->high) : std::string("none"));
+    if (!s.stopLoss || !near(*s.stopLoss, c.sl)) why += " sl " + (s.stopLoss ? std::to_string(*s.stopLoss) : std::string("none"));
+    bool tpsOk = s.targets.size() == c.tps.size();
+    for (std::size_t k = 0; tpsOk && k < c.tps.size(); ++k) tpsOk = near(s.targets[k].price, c.tps[k]);
+    if (!tpsOk) {
+        why += " tps";
+        for (auto& t : s.targets) why += " " + std::to_string(t.price);
+    }
+    if (c.kind && !(s.explicitKind && toString(s.orderKind) == std::string(c.kind))) why += " kind " + std::string(toString(s.orderKind));
+    return why;
+}
+
+// the same message as channels really post it: other spacing, line breaks, case, emojis and bold
+std::vector<std::string> variants(const std::string& text) {
+    auto replaceAll = [](std::string s, const std::string& from, const std::string& to) {
+        for (std::size_t p = 0; (p = s.find(from, p)) != std::string::npos; p += to.size()) s.replace(p, from.size(), to);
+        return s;
+    };
+    std::string lower = text;
+    for (auto& ch : lower)
+        if (ch >= 'A' && ch <= 'Z') ch = static_cast<char>(ch - 'A' + 'a');
+    const auto nl = text.find('\n');
+    const std::string firstLine = text.substr(0, nl), rest = nl == std::string::npos ? "" : text.substr(nl);
+    return {replaceAll(text, "\n", "\r\n"),       replaceAll(text, "\n", "\n\n"),   replaceAll(text, " ", "  "),
+            "  " + replaceAll(text, "\n", " \n  ") + "  ", lower,                     firstLine + " \xF0\x9F\x94\xA5" + rest,
+            "**" + firstLine + "**" + rest,              "\xE2\x9C\x85 " + text};
+}
+
 }  // namespace
 
 TEST(shipped_formats_read_the_case_corpus) {
@@ -136,24 +170,45 @@ TEST(shipped_formats_read_the_case_corpus) {
         } else if (outcomeOf(s) != "signal") {
             why = std::string("not a signal: ") + toString(s.status) + (s.diagnostics.empty() ? "" : " - " + s.diagnostics.back());
         } else {
-            if (toString(*s.side) != std::string(c.side)) why += " side " + std::string(toString(*s.side));
-            if (s.symbol != c.symbol) why += " symbol " + s.symbol;
-            if (c.entryLow == 0 ? s.entry.has_value() && !s.marketIntent : (!s.entry || !near(s.entry->low, c.entryLow) || !near(s.entry->high, c.entryHigh)))
-                why += " entry " + (s.entry ? std::to_string(s.entry->low) + "-" + std::to_string(s.entry->high) : std::string("none"));
-            if (!s.stopLoss || !near(*s.stopLoss, c.sl)) why += " sl " + (s.stopLoss ? std::to_string(*s.stopLoss) : std::string("none"));
-            bool tpsOk = s.targets.size() == c.tps.size();
-            for (std::size_t k = 0; tpsOk && k < c.tps.size(); ++k) tpsOk = near(s.targets[k].price, c.tps[k]);
-            if (!tpsOk) {
-                why += " tps";
-                for (auto& t : s.targets) why += " " + std::to_string(t.price);
-            }
-            if (c.kind && !(s.explicitKind && toString(s.orderKind) == std::string(c.kind))) why += " kind " + std::string(toString(s.orderKind));
+            why = differences(c, s);
         }
         if (!why.empty()) {
             ++failures;
             std::printf("    [%s] %s\n      -> %s\n", c.format, c.text, why.c_str());
         }
     }
+    CHECK_EQ(failures, 0);
+}
+
+// Changing how a message looks may make it unreadable (then it goes to review), never a different trade.
+TEST(shipped_formats_never_read_a_changed_message_as_a_different_trade) {
+    int failures = 0, checked = 0;
+    for (auto& c : cases()) {
+        auto it = formats().find(c.format);
+        if (it == formats().end()) continue;
+        for (auto& v : variants(c.text)) {
+            ParseContext ctx;
+            Signal s = parseWithTemplate(v, *it->second, ctx);
+            ++checked;
+            if (outcomeOf(s) != "signal") continue;  // unsure = review: allowed
+            const std::string why = c.side ? differences(c, s) : std::string(" read as a signal but must not be");
+            if (!why.empty()) {
+                ++failures;
+                std::printf("    [%s] %s\n      -> %s\n", c.format, v.c_str(), why.c_str());
+            }
+        }
+    }
+    for (auto& [id, f] : formats())
+        for (auto* text : nonSignals())
+            for (auto& v : variants(text)) {
+                ParseContext ctx;
+                ++checked;
+                if (outcomeOf(parseWithTemplate(v, *f, ctx)) == "signal") {
+                    ++failures;
+                    std::printf("    [%s] read as a signal: %s\n", id.c_str(), v.c_str());
+                }
+            }
+    CHECK(checked > 500);
     CHECK_EQ(failures, 0);
 }
 
