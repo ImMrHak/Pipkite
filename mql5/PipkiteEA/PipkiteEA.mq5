@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| PipkiteEA.mq5 - Pipkite 1.0.2 copier Expert Advisor       |
+//| PipkiteEA.mq5 - Pipkite 1.0.3 copier Expert Advisor       |
 //|                                                                  |
 //| Owns: authoritative account identity, fresh quotes, final broker |
 //| validation, order submission and transaction reporting.          |
@@ -12,7 +12,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "Pipkite"
 #property version     "1.02"
-#property description "Pipkite 1.0.2 - executes commands from the local Pipkite engine."
+#property description "Pipkite 1.0.3 - executes commands from the local Pipkite engine."
 #property description "Requires 'Allow DLL imports' for MT5BridgeHost.dll. Attach to ONE chart only."
 
 #import "MT5BridgeHost.dll"
@@ -750,7 +750,7 @@ int OnInit()
    for(int i = 0; i < n; i++) { StringTrimLeft(extra[i]); StringTrimRight(extra[i]); Subscribe(extra[i]); }
    EventSetMillisecondTimer(MathMax(10, InpTimerMs));
    g_ready = true;
-   PrintFormat("Pipkite EA 1.0.2 started: terminal %s, account %I64d @ %s, host ABI %d", g_terminalId, login, AccountInfoString(ACCOUNT_SERVER), BridgeVersion());
+   PrintFormat("Pipkite EA 1.0.3 started: terminal %s, account %I64d @ %s, host ABI %d", g_terminalId, login, AccountInfoString(ACCOUNT_SERVER), BridgeVersion());
    return INIT_SUCCEEDED;
 }
 
@@ -850,7 +850,7 @@ void OnTimer()
       string text;
       StringInit(text, 512, 0);
       BridgeStatusText(text, 512);
-      Comment("Pipkite 1.0.2\n", text, g_paused ? "\nPAUSED" : "", "\nMagic ", COPIER_MAGIC);
+      Comment("Pipkite 1.0.3\n", text, g_paused ? "\nPAUSED" : "", "\nMagic ", COPIER_MAGIC);
       g_lastStatusMs = now;
    }
 }

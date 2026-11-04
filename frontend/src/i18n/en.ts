@@ -21,7 +21,7 @@ export const en = {
     guideDesc:
       'Step-by-step guide to copy Telegram trading signals to MetaTrader 5 automatically: connect Telegram and MT5, pick each channel’s format, set risk rules, test safely.',
     changelogTitle: `Pipkite Changelog – What's New in ${VERSION}`,
-    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}, an AI review that reads the MT5 chart from M1 to H4.`,
+    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}: detect, teach and share signal formats, with AI help.`,
     privacyTitle: 'Privacy – What Pipkite Collects and Why',
     privacyDesc:
       'What Pipkite keeps on your PC, what the license, AI review and custom parser services receive, and what is never collected. Plain language.',
@@ -527,6 +527,33 @@ export const en = {
     downloadButton: (v: string) => `Download ${v}`,
     latest: "Latest",
     releases: {
+      '1.0.3': [
+        {
+          h: "Signal formats",
+          items: [
+            "Detect format: see what every format reads from your own example and from the channel’s recent messages, then pick one.",
+            "Six formats come with the app: Universal (9 languages; gold, forex, indices, crypto), Emoji labels, Comma decimals, Thousands separators, Turkish & Indonesian, and Strict labels only.",
+            "Teach Pipkite: mark the symbol, side, entry, SL and TPs in one message, test it on recent messages, then use it.",
+            "Ask AI for a format: the AI suggests words to add and you check the result first. Uses Pipkite’s AI or your own OpenAI, DeepSeek or compatible key.",
+            "Formats other Pipkite users made for the same channel are listed, and you can share yours. This can be turned off in Settings.",
+            "Reads more layouts: EUR/USD and BTC/USDT, “Stop: 151.90” as the stop-loss, leverage like “LONG 20x”, TP lists split by / or commas.",
+          ],
+        },
+        {
+          h: "Safety",
+          items: [
+            "A new or changed format doesn’t trade right away: its signals show in History until you click Start copying.",
+            "Pending orders at a price far from the market (like 23.50 for 2350) are refused as misread.",
+            "A warning when Pipkite can’t read a channel’s recent signals any more: it may have changed its layout.",
+          ],
+        },
+        {
+          h: "Guides",
+          items: [
+            "A simpler user guide with a setup checklist, a troubleshooting table and a glossary of trading words.",
+          ],
+        },
+      ],
       '1.0.2': [
         {
           h: "AI review",

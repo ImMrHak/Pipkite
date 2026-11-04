@@ -11,7 +11,7 @@
 namespace sr {
 
 inline constexpr const char* kProductName = "Pipkite";
-inline constexpr const char* kProductVersion = "1.0.2";
+inline constexpr const char* kProductVersion = "1.0.3";
 inline constexpr int kConfigSchemaVersion = 1;
 inline constexpr int kProtocolVersion = 1;
 inline constexpr std::int64_t kCopierMagic = 20260930;  // MT5 magic number for copier-owned orders

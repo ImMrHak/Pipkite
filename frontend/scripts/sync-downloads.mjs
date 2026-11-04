@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, '..', 'dist');
 const dest = join(root, 'public', 'downloads');
-const files = ['Pipkite-1.0.2-setup.exe', 'Pipkite-1.0.2-win-x64.zip', 'Pipkite-1.0.2-win-x64.zip.sha256'];
+const files = ['Pipkite-1.0.3-setup.exe', 'Pipkite-1.0.3-win-x64.zip', 'Pipkite-1.0.3-win-x64.zip.sha256'];
 
 mkdirSync(dest, { recursive: true });
 for (const f of files) {

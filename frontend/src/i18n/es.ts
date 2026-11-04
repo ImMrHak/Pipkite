@@ -20,7 +20,7 @@ export const es: Dict = {
     guideDesc:
       'Guía paso a paso para copiar señales de Telegram a MetaTrader 5: conecta Telegram y MT5, elige el formato de cada canal, fija tus reglas de riesgo y prueba seguro.',
     changelogTitle: `Novedades de Pipkite – Versión ${VERSION}`,
-    changelogDesc: `Notas de versión de Pipkite, el copiador gratuito de Telegram a MT5. Última versión: ${VERSION}, una revisión con IA que lee el gráfico de MT5 de M1 a H4.`,
+    changelogDesc: `Notas de versión de Pipkite, el copiador gratuito de Telegram a MT5. Última versión: ${VERSION}: detecta, enseña y comparte formatos de señales, con ayuda de la IA.`,
     privacyTitle: 'Privacidad – Qué recoge Pipkite y por qué',
     privacyDesc:
       'Qué guarda Pipkite en tu PC, qué reciben los servicios de licencia, revisión con IA y parsers, y qué no se recoge nunca. Explicado con claridad.',
@@ -526,6 +526,33 @@ export const es: Dict = {
     downloadButton: (v: string) => `Descargar ${v}`,
     latest: "Última versión",
     releases: {
+      '1.0.3': [
+        {
+          h: "Formatos de señales",
+          items: [
+            "Detect format: mira lo que cada formato lee en tu ejemplo y en los mensajes recientes del canal, y elige uno.",
+            "Seis formatos incluidos: Universal (9 idiomas; oro, forex, índices, cripto), Emoji labels, Comma decimals, Thousands separators, Turkish & Indonesian y Strict labels only.",
+            "Teach Pipkite: marca el símbolo, la dirección, la entrada, el SL y los TP en un mensaje, pruébalo con los mensajes recientes y úsalo.",
+            "Ask AI for a format: la IA sugiere palabras que añadir y tú compruebas el resultado antes. Usa la IA de Pipkite o tu propia clave de OpenAI, DeepSeek o compatible.",
+            "Se muestran los formatos que otros usuarios de Pipkite crearon para el mismo canal, y puedes compartir los tuyos. Se puede desactivar en Settings.",
+            "Lee más diseños: EUR/USD y BTC/USDT, «Stop: 151.90» como stop-loss, apalancamiento como «LONG 20x», listas de TP separadas por / o comas.",
+          ],
+        },
+        {
+          h: "Seguridad",
+          items: [
+            "Un formato nuevo o cambiado no opera enseguida: sus señales aparecen en el historial hasta que pulsas Start copying.",
+            "Las órdenes pendientes a un precio lejos del mercado (como 23.50 por 2350) se rechazan como mal leídas.",
+            "Un aviso cuando Pipkite ya no lee las señales recientes de un canal: puede haber cambiado su formato.",
+          ],
+        },
+        {
+          h: "Guías",
+          items: [
+            "Una guía de uso más sencilla, con una lista de preparación, una tabla de problemas y un glosario de palabras de trading.",
+          ],
+        },
+      ],
       '1.0.2': [
         {
           h: "Revisión con IA",

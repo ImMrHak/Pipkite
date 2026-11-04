@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Builds the Pipkite 1.0.2 distributable: a portable per-user zip and (when Inno Setup 6/7 is installed)
+  Builds the Pipkite 1.0.3 distributable: a portable per-user zip and (when Inno Setup 6/7 is installed)
   a Windows installer. Symbols are archived separately and never shipped.
 
 .EXAMPLE
@@ -9,7 +9,7 @@
 param(
     [string]$Configuration = "Release",
     [switch]$Build,
-    [string]$Version = "1.0.2"
+    [string]$Version = "1.0.3"
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -66,7 +66,12 @@ if ($redist) { New-Item -ItemType Directory -Force "$stage\redist" | Out-Null; C
 foreach ($f in "README.md", "CHANGELOG.md") {
     if (Test-Path (Join-Path $repo $f)) { Copy-Item (Join-Path $repo $f) $stage }
 }
-if (Test-Path (Join-Path $repo "docs")) { Copy-Item (Join-Path $repo "docs") "$stage\docs" -Recurse }
+if (Test-Path (Join-Path $repo "docs\USER-GUIDE.md")) {
+    # only the user guide: docs\ also holds private notes (BACKEND.md)
+    New-Item -ItemType Directory -Force "$stage\docs" | Out-Null
+    Copy-Item (Join-Path $repo "docs\USER-GUIDE.md") "$stage\docs\"
+    Copy-Item (Join-Path $repo "docs\images") "$stage\docs\images" -Recurse
+}
 else { Write-Warning "docs\ not found, packaging without the user guide" }
 New-Item -ItemType Directory -Force "$stage\licenses" | Out-Null
 Copy-Item (Join-Path $repo "third_party\nlohmann\LICENSE.MIT") "$stage\licenses\nlohmann-json-LICENSE.MIT.txt"

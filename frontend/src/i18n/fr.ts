@@ -20,7 +20,7 @@ export const fr: Dict = {
     guideDesc:
       'Guide pas à pas pour copier les signaux Telegram vers MetaTrader 5 : connecter Telegram et MT5, choisir le format de chaque canal, régler le risque, tester sans risque.',
     changelogTitle: `Journal des versions Pipkite – Nouveautés ${VERSION}`,
-    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION}, une revue IA qui lit le graphique MT5 de M1 à H4.`,
+    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION} : détecter, apprendre et partager des formats de signaux, avec l’aide de l’IA.`,
     privacyTitle: 'Confidentialité – Ce que Pipkite collecte et pourquoi',
     privacyDesc:
       'Ce que Pipkite garde sur votre PC, ce que reçoivent les services de licence, de revue IA et de parsers, et ce qui n’est jamais collecté. En clair.',
@@ -526,6 +526,33 @@ export const fr: Dict = {
     downloadButton: (v: string) => `Télécharger la ${v}`,
     latest: "Dernière version",
     releases: {
+      '1.0.3': [
+        {
+          h: "Formats de signaux",
+          items: [
+            "Detect format : voyez ce que chaque format lit dans votre exemple et dans les messages récents du canal, puis choisissez-en un.",
+            "Six formats sont inclus : Universal (9 langues ; or, forex, indices, crypto), Emoji labels, Comma decimals, Thousands separators, Turkish & Indonesian et Strict labels only.",
+            "Teach Pipkite : marquez le symbole, le sens, l’entrée, le SL et les TP dans un message, testez sur les messages récents, puis utilisez-le.",
+            "Ask AI for a format : l’IA suggère des mots à ajouter et vous vérifiez le résultat d’abord. Utilise l’IA de Pipkite ou votre propre clé OpenAI, DeepSeek ou compatible.",
+            "Les formats créés par d’autres utilisateurs de Pipkite pour le même canal sont listés, et vous pouvez partager les vôtres. Désactivable dans Settings.",
+            "Lit plus de mises en page : EUR/USD et BTC/USDT, « Stop: 151.90 » comme stop-loss, un levier comme « LONG 20x », des TP séparés par / ou des virgules.",
+          ],
+        },
+        {
+          h: "Sécurité",
+          items: [
+            "Un format nouveau ou modifié ne trade pas tout de suite : ses signaux apparaissent dans l’historique jusqu’à ce que vous cliquiez sur Start copying.",
+            "Les ordres en attente à un prix loin du marché (comme 23.50 pour 2350) sont refusés comme mal lus.",
+            "Un avertissement quand Pipkite ne lit plus les signaux récents d’un canal : sa mise en page a peut-être changé.",
+          ],
+        },
+        {
+          h: "Guides",
+          items: [
+            "Un guide d’utilisation plus simple, avec une liste de préparation, un tableau de dépannage et un lexique des mots du trading.",
+          ],
+        },
+      ],
       '1.0.2': [
         {
           h: "Revue IA",

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.3
 
 - New channels without a custom parser: **Detect format** shows what every format reads from your own example
   and from the channel's recent messages, before you pick one.
@@ -26,6 +26,8 @@
   marks such readings **Check price**.
 - A warning when a channel's recent signals can't be read any more (it may have changed its layout).
 - A format update that failed to install is no longer downloaded again every 30 minutes.
+- Simpler user guide and README: a setup checklist, step-by-step setup, a troubleshooting table and a glossary.
+- The download no longer includes developer notes, only the user guide.
 - Unchanged: a trade is only placed when symbol, side, entry (or NOW), SL and TP are all read with no conflict.
 
 ## 1.0.2
