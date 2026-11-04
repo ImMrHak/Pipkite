@@ -437,6 +437,26 @@ export const es: Dict = {
 <p>Un formato nuevo no opera enseguida: las señales del canal aparecen en History con lo que Pipkite habría hecho. Cuando se lean bien, selecciona el canal en Signal rules y pulsa <strong>Start copying</strong>.</p>`,
       },
       {
+        id: 'how-it-reads',
+        title: 'Cómo lee Pipkite una señal',
+        html: `<p>Pipkite nunca adivina. Cada mensaje nuevo pasa por los mismos cuatro pasos, y solo un mensaje en el que todo está claro puede convertirse en una operación. Este es un ejemplo típico y lo que Pipkite lee de él:</p>
+<div class="sig-demo"><p class="sig-msg" dir="ltr"><span class="sig-symbol">GOLD</span> <span class="sig-side">BUY</span> <span class="sig-price">4299 – 4295</span><br><span class="sig-label">🛑 SL</span> <span class="sig-price">4282</span><br><span class="sig-label">🎯 TP1</span> <span class="sig-price">4307</span> <span class="sig-label">TP2</span> <span class="sig-price">4320</span><br><span class="sig-skip">Good luck traders 🚀</span></p><p class="sig-legend">Azul: símbolo · Verde: compra o venta · Naranja: etiquetas · Gris: precios · Tachado: ignorado</p><dl class="sig-read"><dt>Símbolo</dt><dd>XAUUSD (el canal escribió GOLD)</dd><dt>Dirección</dt><dd>Compra</dd><dt>Entrada</dt><dd>entre 4295 y 4299 (Pipkite espera a que el precio llegue ahí)</dd><dt>Stop-loss</dt><dd>4282</dd><dt>Take-profits</dt><dd>4307 y 4320</dd><dt>Ignorado</dt><dd>«Good luck traders 🚀»</dd></dl></div>
+<ol>
+<li><strong>Limpiar.</strong> Los emojis, el texto en negrita, los guiones raros y los dígitos como ٤٢٩٩ o ⁴²⁹⁹ se convierten en texto normal. Pipkite recuerda de dónde sale cada valor, así siempre puedes ver qué palabras leyó.</li>
+<li><strong>Encontrar las partes.</strong> El <em>formato</em> del canal dice qué significa cada palabra: compra y venta (BUY, COMPRA, ACHAT, شراء y más), etiquetas como SL, TP o 🎯, y nombres como GOLD para XAUUSD. La entrada puede ser un precio, un rango o NOW / market.</li>
+<li><strong>Comprobar que tiene sentido.</strong>
+<ul>
+<li>Deben estar el símbolo, compra o venta, la entrada (o NOW), el stop-loss y un take-profit.</li>
+<li>Dos valores distintos para lo mismo nunca se adivinan: el mensaje pasa a Review.</li>
+<li>Los precios deben cuadrar: en una compra, el stop-loss va por debajo de la entrada y los objetivos por encima; en una venta, al revés. Un precio pendiente lejos del mercado de hoy (como 23.50 por 2350) se rechaza como mal leído.</li>
+<li>Las preguntas, la charla y los resultados como «TP1 alcanzado» no son señales. Un mensaje editado nunca abre una segunda operación.</li>
+</ul></li>
+<li><strong>Decidir.</strong> <strong>Signal</strong>: todo está claro y la operación pasa a tus reglas. <strong>Review</strong>: falta algo o no está claro; aparece en el historial y nunca se opera. <strong>Ignorado</strong>: no es una operación.</li>
+</ol>
+<p><strong>De dónde sale el formato de un canal.</strong> Elige uno de los formatos incluidos en Pipkite, enséñale uno marcando las partes de un mensaje, deja que la IA sugiera uno, usa el que otro usuario de Pipkite creó para el mismo canal o pide un parser a medida al equipo de Pipkite. Elijas lo que elijas, primero lo compruebas con los mensajes del propio canal, y un formato nuevo solo opera después de pulsar <strong>Start copying</strong>.</p>
+<p><strong>Después de leer.</strong> Una Signal pasa luego por tus reglas (tamaño de lote, spread, horario y lo demás), su símbolo se asocia al nombre que usa tu bróker y la orden se envía a MetaTrader 5.</p>`,
+      },
+      {
         id: 'step-5',
         title: 'Paso 5: fija tus reglas de riesgo',
         figure: 'execution-policy',

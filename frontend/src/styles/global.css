@@ -408,6 +408,76 @@
   margin-top: 0.4rem;
 }
 
+.guide li > ul {
+  margin-top: 0.4rem;
+  list-style: disc;
+  padding-inline-start: 1.2rem;
+}
+.guide li > ul > li + li {
+  margin-top: 0.3rem;
+}
+.guide .sig-demo {
+  margin-top: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--surface);
+  overflow: hidden;
+}
+.guide .sig-msg {
+  padding: 1rem 1.2rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: 2.1;
+  text-align: left;
+}
+.guide .sig-msg span {
+  border-radius: 0.35rem;
+  padding: 0.12rem 0.4rem;
+}
+.guide .sig-symbol {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.guide .sig-side {
+  background: color-mix(in srgb, var(--good) 16%, transparent);
+  color: var(--good);
+  font-weight: 600;
+}
+.guide .sig-label {
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
+}
+.guide .sig-price {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+.guide .sig-skip {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.guide .sig-legend {
+  padding: 0.7rem 1.2rem 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.guide .sig-read {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.45rem 1.25rem;
+  padding: 0.8rem 1.2rem 1.1rem;
+}
+.guide .sig-read dt {
+  margin-top: 0;
+  color: var(--muted);
+  font-weight: 500;
+}
+.guide .sig-read dd {
+  margin: 0;
+  color: var(--fg);
+}
+
 .prose-links a {
   color: var(--accent);
   text-decoration: underline;
