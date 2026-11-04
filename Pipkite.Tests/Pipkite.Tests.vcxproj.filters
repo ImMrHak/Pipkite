@@ -18,6 +18,12 @@
     <ClCompile Include="EndToEndTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FormatAssistTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FormatCorpusTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ParserTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

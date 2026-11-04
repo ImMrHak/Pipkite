@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 
@@ -350,9 +351,64 @@ TEST(shipped_samples_match_code) {
     auto gold = text(root / "config" / "templates" / "gold_provider_v1.json");
     if (gold.empty()) return;  // not running from a source checkout
     CHECK(nlohmann::json::parse(gold) == starterGoldTemplate().toJson());
+    for (auto& t : builtinTemplates()) CHECK(nlohmann::json::parse(text(root / "config" / "templates" / (t.id + ".json"))) == t.toJson());
     auto fx = nlohmann::json::parse(text(root / "Pipkite.Tests" / "fixtures" / "spec_fixtures.json"));
     TemplateSignalParser p(gold_());
     std::vector<Fixture> fixtures;
     for (auto& f : fx) fixtures.push_back(Fixture::fromJson(f));
     CHECK(runFixtures(p, fixtures).allPassed());
+}
+
+namespace {
+Signal parseUniversal(const std::string& text) {
+    static auto c = CompiledTemplate::compile(universalTemplate()).value();
+    ParseContext ctx;
+    return parseWithTemplate(text, *c, ctx);
+}
+}  // namespace
+
+TEST(universal_reads_common_layouts) {
+    auto a = parseUniversal("🟢 BUY XAUUSD @ 2350 - 2346\n🎯 TP1: 2355\n🎯 TP2: 2360\n🛑 SL: 2340");
+    CHECK_EQ(std::string(toString(a.status)), std::string("Valid"));
+    CHECK(a.side && *a.side == Side::Buy);
+    CHECK_EQ(a.symbol, std::string("XAUUSD"));
+    CHECK_EQ(a.entry->low, 2346.0);
+    CHECK_EQ(a.entry->high, 2350.0);
+    CHECK_EQ(a.targets.size(), std::size_t(2));
+    CHECK_EQ(*a.stopLoss, 2340.0);
+
+    auto b = parseUniversal("GOLD LONG NOW\nStop loss 2340\nTake profit 2360");
+    CHECK_EQ(std::string(toString(b.status)), std::string("Valid"));
+    CHECK(b.marketIntent);
+
+    auto c = parseUniversal("US100 sell 18500\nstop-loss 18600\ntgt 18400");
+    CHECK_EQ(std::string(toString(c.status)), std::string("Valid"));
+    CHECK_EQ(c.symbol, std::string("NAS100"));
+    CHECK(*c.side == Side::Sell);
+}
+
+TEST(universal_never_trades_when_unsure_or_on_results) {
+    CHECK_EQ(outcomeOf(parseUniversal("GOLD BUY 2350\nTP 2360")), std::string("review"));  // no SL
+    CHECK_EQ(outcomeOf(parseUniversal("BUY 2350\nSL 2340\nTP 2360")), std::string("review"));  // no symbol
+    CHECK(outcomeOf(parseUniversal("XAUUSD BUY trade closed +50 pips ✅")) != "signal");
+    CHECK_EQ(outcomeOf(parseUniversal("TP1 reached ✅✅")), std::string("ignore"));
+    CHECK_EQ(outcomeOf(parseUniversal("Gold TP2 HIT 🔥 +80 pips")), std::string("ignore"));
+    TemplateSignalParser p(CompiledTemplate::compile(universalTemplate()).value());
+    auto suite = runFixtures(p, requiredSpecFixtures());  // spec signals + shared negative corpus
+    for (auto& r : suite.results)
+        for (auto& d : r.differences) std::printf("    %s: %s\n", r.id.c_str(), d.c_str());
+    CHECK(suite.allPassed());
+}
+
+TEST(detect_format_ranks_the_parser_that_reads_the_channel) {
+    std::vector<NamedParser> parsers{{"Strict", std::make_shared<TemplateSignalParser>(CompiledTemplate::compile(starterStrictTemplate()).value())},
+                                     {"Universal", std::make_shared<TemplateSignalParser>(CompiledTemplate::compile(universalTemplate()).value())}};
+    std::vector<std::string> samples{"US100 SELL4295\nSL 4305\nTP 4285", "GOLD BUY NOW\nSL 2340\nTP 2360", "Good morning!"};
+    auto r = detectFormat(parsers, samples);
+    CHECK_EQ(r.size(), std::size_t(2));
+    CHECK_EQ(r[0].parserId, std::string("universal"));
+    CHECK_EQ(r[0].signals, 2);
+    CHECK_EQ(r[0].ignored, 1);
+    CHECK_EQ(r[0].samples[0].value("symbol", ""), std::string("NAS100"));
+    CHECK_EQ(r[1].signals, 0);
 }

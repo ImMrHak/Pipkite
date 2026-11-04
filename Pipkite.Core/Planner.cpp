@@ -247,6 +247,9 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
             kind = s.orderKind;
             pendingPrice = normalizeToTick(s.entry->low, spec.tickSize);
             const double ref = buy ? q.ask : q.bid;
+            // no real pending order sits at half or double the market: that is a misread price (23.50 for 2350)
+            if (pendingPrice < ref * 0.5 || pendingPrice > ref * 2.0)
+                return reject("Pending price " + num(pendingPrice) + " is far from the market (" + num(ref) + "); it looks misread", checks);
             if (kind == OrderKind::Limit && buy && !(pendingPrice < ref)) return reject("BUY LIMIT price must be below the current ask", checks);
             if (kind == OrderKind::Stop && buy && !(pendingPrice > ref)) return reject("BUY STOP price must be above the current ask", checks);
             if (kind == OrderKind::Limit && !buy && !(pendingPrice > ref)) return reject("SELL LIMIT price must be above the current bid", checks);

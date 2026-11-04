@@ -12,7 +12,9 @@
 // Writes the starter templates and the specification fixture corpus as JSON (config/templates, Pipkite.Tests/fixtures).
 static int exportSamples(const std::string& root) {
     using namespace sr;
-    for (auto t : {starterGoldTemplate(), starterForexTemplate(), starterStrictTemplate()})
+    std::vector<ParserTemplate> all{starterGoldTemplate(), starterForexTemplate(), starterStrictTemplate()};
+    for (auto& t : builtinTemplates()) all.push_back(t);  // shipped formats, readable for users and as a base for delivered ones
+    for (auto& t : all)
         platform::writeFileAtomic(platform::widen(root + "/config/templates/" + t.id + ".json"), t.toJson().dump(2) + "\n");
     nlohmann::json fx = nlohmann::json::array();
     for (auto& f : requiredSpecFixtures()) fx.push_back(f.toJson());

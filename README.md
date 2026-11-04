@@ -61,6 +61,9 @@ Or open `Pipkite.sln` and press F5. More in [docs/DEVELOPMENT.md](docs/DEVELOPME
 Issues and pull requests are welcome. Keep changes small, run the tests before sending, and don't commit keys,
 secrets or local data.
 
+Using an AI coding assistant? Point it at [AGENTS.md](AGENTS.md). Claude Code picks it up by itself, plus the
+`pipkite-contribute` skill in `.claude/skills/` with recipes for common changes.
+
 ## License
 
 Copyright (C) 2026 Mohamed Hakkou & Yassine Belouchi. GPL-3.0, see [LICENSE](LICENSE): you can use, study, change

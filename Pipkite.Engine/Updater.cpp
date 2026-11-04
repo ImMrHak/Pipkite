@@ -187,6 +187,10 @@ Status Updater::processManifest(const json& manifest, const std::string& baseUrl
             auto st = installModule(manifest, c, baseUrl);
             if (st) ++installed;
             else ++failed;
+        } else if (type == "parser_template") {
+            auto st = installTemplate(manifest, c, baseUrl);
+            if (st) ++installed;
+            else ++failed;
         } else if (type == "core") {
             if (compareVersions(c.value("version", "0"), kProductVersion) <= 0) continue;
             auto st = stageCore(manifest, c, baseUrl);
@@ -261,6 +265,41 @@ Status Updater::installModule(const json& release, const json& c, const std::str
         if (hooks_.upgradeBridge) hooks_.upgradeBridge(active.value());
         store_.addUpdateHistory(releaseId, id, "", version, "activated", notes, false);
     }
+    return okStatus();
+}
+
+Status Updater::installTemplate(const json& release, const json& c, const std::string& baseUrl) {
+    // Folder on the backend: template.json (+ fixtures.json, manifest.json with type/version). Whatever version the
+    // backend serves is the one to run, so serving an older one rolls back. Applied once per served version, so a
+    // local rollback isn't undone by the next check.
+    const std::string id = c.value("id", ""), version = c.value("version", ""), releaseId = release.value("releaseId", "");
+    if (!safeName(id) || !safeName(version)) return failStatus("package_invalid", "Invalid component identity");
+    const std::string appliedKey = "updates.template." + id;
+    if (store_.getSetting(appliedKey).value_or("") == version) return okStatus();
+    // a version that failed here fails the same way next time: tried again only after an app update or a new version
+    const std::string failedKey = "updates.templateFailed." + id, failedValue = version + "|" + kProductVersion;
+    if (store_.getSetting(failedKey).value_or("") == failedValue) return okStatus();
+    auto fail = [&](const std::string& why) {
+        store_.putSetting(failedKey, failedValue);
+        store_.addUpdateHistory(releaseId, id, "", version, "failed", {{"error", why}}, false);
+        return failStatus("template_failed", why);
+    };
+    const std::wstring dir = platform::ensureSubdir(L"parsers\\" + platform::widen(id) + L"\\" + platform::widen(version));
+    auto dl = download(c, baseUrl, dir);
+    if (!dl) return fail(dl.error().message);
+    auto readJson = [&](const wchar_t* name) {
+        auto text = platform::readFileUtf8(dir + L"\\" + name, 1024 * 1024);
+        return text ? json::parse(*text, nullptr, false) : json();
+    };
+    json tmpl = readJson(L"template.json");
+    if (!tmpl.is_object()) return fail("template.json is missing or malformed");
+    json fixtures = readJson(L"fixtures.json");
+    if (!fixtures.is_array()) fixtures = json::array();
+    json notes = {{"releaseId", releaseId}, {"component", id}, {"activeVersion", version}, {"restartRequired", false}, {"rollbackAvailable", true}};
+    auto st = hooks_.activateTemplate ? hooks_.activateTemplate(id, version, tmpl, fixtures, notes) : failStatus("no_hook", "engine unavailable");
+    if (!st) return fail(st.error().message);
+    store_.putSetting(appliedKey, version);
+    store_.addUpdateHistory(releaseId, id, "", version, "activated", notes, false);
     return okStatus();
 }
 

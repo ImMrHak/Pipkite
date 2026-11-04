@@ -3,6 +3,7 @@
 // never logs codes, passwords or api secrets.
 
 #include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -37,6 +38,9 @@ public:
     bool deleteSession(std::string& error);  // removes local TDLib data; trade history untouched
     void setAllowlist(const std::set<std::int64_t>& chatIds);
     void setSessionStartMs(std::int64_t ms) { sessionStartMs_ = ms; }
+    // Text of a chat's latest messages (newest first), for format detection. Blocks up to timeoutMs;
+    // call it off the engine thread. Never feeds the trading pipeline.
+    std::vector<std::string> recentMessages(std::int64_t chatId, int limit, int timeoutMs);
 
     std::string lastError() const;
     std::string libraryPath() const { return libraryPath_; }
@@ -76,6 +80,10 @@ private:
     std::string me_;
     std::atomic<std::int64_t> floodWaitUntil_{0};
     std::atomic<std::int64_t> sessionStartMs_{0};
+    // replies to recentMessages' getChatHistory, by @extra
+    std::condition_variable replyCv_;
+    std::map<std::string, nlohmann::json> replies_;
+    std::atomic<int> requestSeq_{0};
 };
 
 }  // namespace sr::engine

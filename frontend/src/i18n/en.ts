@@ -265,7 +265,7 @@ export const en = {
       },
       {
         q: 'Do I have to set up or write a parser?',
-        a: 'No, and you can’t: parsers are built by the Pipkite team. Click "Request a custom parser" on the Signal rules screen; a few recent messages from that channel are sent with links, @handles, phone numbers and emails removed, we build a parser for its exact format, and it installs automatically as a signed update without a restart. Until a channel’s parser arrives, its messages aren’t traded.',
+        a: 'No. Pipkite ships with formats that read most signal layouts (several languages, emojis, entry ranges, several TPs). On Signal rules, click Detect format: Pipkite shows what each format reads from the channel’s recent messages, including formats other Pipkite users made for the same channel, and you pick the one that reads them right. If none does, mark the parts of one signal to teach Pipkite, or let the AI suggest a format, then check it on the recent messages. You can still request a custom parser from the Pipkite team. A channel is only copied once you’ve checked its first signals and clicked Start copying.',
       },
       {
         q: 'Is the AI review always right?',
@@ -426,15 +426,16 @@ export const en = {
       },
       {
         id: 'step-4',
-        title: 'Step 4: Request a parser for each channel',
+        title: 'Step 4: Pick the format of each channel',
         figure: 'signal-rules',
-        html: `<p>Every provider writes signals differently, so each channel needs a <em>parser</em> built for its format. Pipkite ships with none, and you don't build or edit them yourself: the Pipkite team does.</p>
+        html: `<p>Every provider writes signals differently. Pipkite needs to know each channel's <em>format</em> before it can copy it.</p>
 <ol>
-<li>Open <strong>Signal rules</strong>, select a channel and click <strong>Request a custom parser for this channel</strong>. Add a note if you like.</li>
-<li>Pipkite sends a few recent messages from that channel, with links, @handles, phone numbers and emails removed.</li>
-<li>We build the parser and publish it as a signed update. It installs automatically and starts working without a restart; <strong>Check for parser updates</strong> pulls it right away.</li>
+<li>Open <strong>Signal rules</strong>, select a channel and click <strong>Detect format</strong>. Pipkite tries every format on the channel's recent messages and shows what each one reads: symbol, side, entry, SL and TPs. Formats other Pipkite users made for the same channel are listed too.</li>
+<li>Pick the format that reads them right and click <strong>Use this format</strong>.</li>
+<li>None reads them right? Mark the symbol, side, entry, SL and TPs in one signal to teach Pipkite, or click <strong>Ask AI for a format</strong>. Check the result on the recent messages before you use it.</li>
+<li>Still stuck? Click <strong>Request a custom parser</strong>: the Pipkite team builds one, and it installs by itself without a restart.</li>
 </ol>
-<p>Until a channel's parser arrives, its messages are shown as unsupported and never traded.</p>`,
+<p>A new format doesn't trade right away: the channel's signals appear in History with what Pipkite would have done. When they read right, select the channel in Signal rules and click <strong>Start copying</strong>.</p>`,
       },
       {
         id: 'step-5',
@@ -615,7 +616,7 @@ export const en = {
     updated: 'Last updated',
     shortTitle: 'In short',
     short:
-      "Your trading data, Telegram session and broker login stay on your PC. The online services receive only what they need: your email (and optional name) for a license key, the signal fields and recent price candles for an AI review, and redacted sample messages when you ask for a custom parser. We don't sell data, and this website has no ads, cookies or tracking: it only counts page views and download clicks anonymously.",
+      'Your trading data, Telegram session and broker login stay on your PC. The online services receive only what they need: your email (and optional name) for a license key, the signal fields and recent price candles for an AI review, a channel’s ID when you look for its format, and redacted sample messages when you ask for a custom parser or AI help with a format. We don’t sell data, and this website has no ads, cookies or tracking: it only counts page views and download clicks anonymously.',
     sections: [
       {
         h: 'What stays on your PC',
@@ -637,6 +638,14 @@ export const en = {
         h: 'Custom parser requests',
         html: '<p>When you click "Request a custom parser", the app sends the channel\'s ID and title, your optional note and up to 15 recent messages from that channel with links, @handles, phone numbers and emails removed. They\'re stored with your license key so the parser can be built and delivered to you.</p>',
       },
+      {
+        h: 'Formats shared between users',
+        html: '<p>When you open Detect format for a channel, the app sends that channel’s ID with your license key to find formats other Pipkite users made for it. If you tick “Offer this format to other Pipkite users of this channel”, the app sends the format, the channel’s title and up to 10 example messages with links, @handles, phone numbers and emails removed. We store them with a one-way hash of your license key (not the key), to count how many users use each format. Other users see the format, the channel title and the examples, never who shared them.</p>',
+      },
+      {
+        h: 'AI help with formats',
+        html: '<p>When you click “Ask AI for a format”, the app sends up to 15 recent messages from that channel, with links, @handles, phone numbers and emails removed, and the words its format already knows. With Pipkite’s AI they go to our server, which passes them to our AI provider (such as OpenAI or DeepSeek) without storing them; the provider handles them under its own terms. If you use your own AI key, they go straight from your PC to the provider you chose, and the key stays on your PC, encrypted with Windows DPAPI. The AI only suggests words for a format: it never sees your account and never places a trade.</p>',
+      },
       { h: 'Updates', html: '<p>The app sends your license key when it checks for and downloads updates, so the right parsers reach you.</p>' },
       {
         h: 'This website',
@@ -648,6 +657,7 @@ export const en = {
 <li>The app opens without a license key; parsers, the AI review and updates need one.</li>
 <li>AI review can be turned off in Execution policy.</li>
 <li>You can erase local history at any time in Settings.</li>
+<li>Looking up and sharing formats can be turned off in Settings, under Signal formats and AI help.</li>
 <li>To ask what we hold about your license key or to have it deleted, {contact}</li>
 </ul>`,
       },

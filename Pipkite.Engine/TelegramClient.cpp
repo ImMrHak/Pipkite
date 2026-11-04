@@ -244,7 +244,48 @@ void TelegramClient::onAuthState(const json& st) {
     }
 }
 
+std::vector<std::string> TelegramClient::recentMessages(std::int64_t chatId, int limit, int timeoutMs) {
+    std::vector<std::string> out;
+    if (state_.load() != TelegramAuthState::Ready) return out;
+    std::int64_t from = 0;
+    // TDLib may return fewer messages than asked (often just one on a cold chat), so page from the oldest seen
+    for (int round = 0; round < 5 && static_cast<int>(out.size()) < limit; ++round) {
+        const std::string extra = "history-" + std::to_string(++requestSeq_);
+        {
+            std::lock_guard lock(mu_);
+            replies_[extra] = nullptr;  // registered waiter; handle() drops replies nobody waits for
+        }
+        send({{"@type", "getChatHistory"}, {"chat_id", chatId}, {"from_message_id", from}, {"offset", 0}, {"limit", std::min(100, limit)}, {"only_local", false}, {"@extra", extra}});
+        json reply;
+        {
+            std::unique_lock lock(mu_);
+            replyCv_.wait_for(lock, std::chrono::milliseconds(timeoutMs), [&] { return !replies_[extra].is_null(); });
+            reply = std::move(replies_[extra]);
+            replies_.erase(extra);
+        }
+        if (reply.is_null()) break;  // timed out
+        if (reply.value("@type", "") != "messages" || !reply.contains("messages") || reply["messages"].empty()) break;
+        for (auto& m : reply["messages"]) {
+            from = m.value("id", static_cast<std::int64_t>(0));
+            bool media = false;
+            std::string kind;
+            std::string text = m.contains("content") ? messageText(m["content"], media, kind) : std::string{};
+            if (!text.empty() && static_cast<int>(out.size()) < limit) out.push_back(std::move(text));
+        }
+    }
+    return out;
+}
+
 void TelegramClient::handle(const json& u) {
+    if (u.contains("@extra") && u["@extra"].is_string() && u["@extra"].get<std::string>().rfind("history-", 0) == 0) {
+        {
+            std::lock_guard lock(mu_);
+            auto it = replies_.find(u["@extra"].get<std::string>());
+            if (it != replies_.end()) it->second = u;
+        }
+        replyCv_.notify_all();
+        return;
+    }
     const std::string type = u.value("@type", "");
     if (type == "updateAuthorizationState") {
         onAuthState(u["authorization_state"]);

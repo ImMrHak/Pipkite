@@ -32,6 +32,9 @@ struct LearnResult {
 };
 
 LearnResult learnFromHighlights(const ParserTemplate& base, const std::string& sample, const std::vector<HighlightLabel>& labels);
+// Where the reading disagrees with what the user marked in the sample (empty = it reads what they marked). A taught
+// format is saved only when it reads the example the way the user marked it.
+std::vector<std::string> marksDisagree(const ParserTemplate& t, const Signal& s, const std::string& sample, const std::vector<HighlightLabel>& labels);
 
 // fixtures
 struct Fixture {
@@ -67,6 +70,23 @@ struct SuiteResult {
 
 std::string outcomeOf(const Signal& s);  // signal | ignore | review
 SuiteResult runFixtures(const ISignalParser& parser, const std::vector<Fixture>& fixtures);
+// What the parser read from a signal: side, symbol, entryLow/High, stopLoss, takeProfits.
+nlohmann::json readOf(const Signal& s);
+
+// Format detection: run each candidate parser over a channel's recent messages, best match first
+// (most complete signals, then fewest left for review). Read-only; nothing is executed.
+struct NamedParser {
+    std::string name;
+    std::shared_ptr<const ISignalParser> parser;
+};
+struct FormatCandidate {
+    std::string parserId, version, name;
+    int signals = 0, reviews = 0, ignored = 0;
+    nlohmann::json samples;  // per message, in input order: what was read + outcome, status, reason
+    nlohmann::json toJson() const;
+};
+std::vector<FormatCandidate> detectFormat(const std::vector<NamedParser>& parsers, const std::vector<std::string>& samples);
+
 // Built-in commentary/invalid corpus that every parser version must classify as non-signal.
 const std::vector<Fixture>& sharedNegativeCorpus();
 // The specification's required parser fixtures.

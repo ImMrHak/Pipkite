@@ -55,7 +55,12 @@ std::string precedingLabel(const std::vector<Token>& toks, std::size_t valueIdx,
 LearnResult learnFromHighlights(const ParserTemplate& base, const std::string& sample, const std::vector<HighlightLabel>& labels) {
     LearnResult r;
     r.updated = base;
-    auto norm = normalize(sample);
+    std::map<char32_t, std::string> emoji;  // same emoji-to-label mapping the parser uses
+    for (auto& [k, v] : base.emojiLabels) {
+        std::size_t i = 0;
+        if (isValidUtf8(k) && !k.empty()) emoji[decodeUtf8(k, i)] = toUpperAscii(v);
+    }
+    auto norm = normalize(sample, emoji.empty() ? nullptr : &emoji);
     TokenizeOptions opt;
     opt.numberFormat = base.numberFormat;
     opt.allowThousandsSeparator = base.allowThousandsSeparator;
@@ -183,6 +188,85 @@ std::string numStr(double v) {
 
 }  // namespace
 
+std::vector<std::string> marksDisagree(const ParserTemplate& t, const Signal& s, const std::string& sample, const std::vector<HighlightLabel>& labels) {
+    std::vector<std::string> out;
+    TokenizeOptions opt;
+    opt.numberFormat = t.numberFormat;
+    opt.allowThousandsSeparator = t.allowThousandsSeparator;
+    for (auto& lab : labels) {
+        if (lab.end <= lab.begin || lab.end > sample.size()) continue;
+        const std::string text = trim(std::string_view(sample).substr(lab.begin, lab.end - lab.begin));
+        if (text.empty()) continue;
+        if (lab.field == "buy" || lab.field == "sell") {
+            const Side want = lab.field == "buy" ? Side::Buy : Side::Sell;
+            if (!s.side || *s.side != want) out.push_back("You marked " + toUpperAscii(lab.field) + " but it reads " + (s.side ? toString(*s.side) : "no side"));
+            continue;
+        }
+        if (lab.field == "symbol") {
+            std::string key;
+            for (auto& tok : phraseTokens(text)) key += tok;
+            std::string want = toUpperAscii(lab.canonical);
+            if (want.empty()) {
+                auto it = t.symbolAliases.find(key);
+                want = it != t.symbolAliases.end() ? it->second : key;
+            }
+            if (s.symbol != want) out.push_back("You marked the symbol " + want + " but it reads " + (s.symbol.empty() ? "none" : s.symbol));
+            continue;
+        }
+        auto v = parseStrictNumber(text, opt);
+        if (!v) continue;  // a range like "2350-2355" or a non-number: the parser's own checks cover it
+        if (lab.field == "sl" && (!s.stopLoss || !near(*v, *s.stopLoss)))
+            out.push_back("You marked SL " + numStr(*v) + " but it reads " + (s.stopLoss ? numStr(*s.stopLoss) : "none"));
+        if (lab.field == "tp" && std::none_of(s.targets.begin(), s.targets.end(), [&](const TakeProfit& tp) { return near(*v, tp.price); }))
+            out.push_back("You marked TP " + numStr(*v) + " but it doesn't read it as a TP");
+        if (lab.field == "entry" && (!s.entry || (!near(*v, s.entry->low) && !near(*v, s.entry->high))))
+            out.push_back("You marked entry " + numStr(*v) + " but it reads " + (s.entry ? numStr(s.entry->low) + "-" + numStr(s.entry->high) : "no entry"));
+    }
+    return out;
+}
+
+json readOf(const Signal& s) {
+    json tps = json::array();
+    for (auto& t : s.targets) tps.push_back(t.price);
+    json r = {{"symbol", s.symbol}, {"takeProfits", tps}};
+    if (s.side) r["side"] = toString(*s.side);
+    if (s.entry) {
+        r["entryLow"] = s.entry->low;
+        r["entryHigh"] = s.entry->high;
+    }
+    if (s.stopLoss) r["stopLoss"] = *s.stopLoss;
+    return r;
+}
+
+json FormatCandidate::toJson() const {
+    return {{"id", parserId}, {"version", version}, {"name", name}, {"signals", signals}, {"reviews", reviews}, {"ignored", ignored}, {"samples", samples}};
+}
+
+std::vector<FormatCandidate> detectFormat(const std::vector<NamedParser>& parsers, const std::vector<std::string>& samples) {
+    std::vector<FormatCandidate> out;
+    for (auto& np : parsers) {
+        FormatCandidate c{np.parser->id(), np.parser->version(), np.name};
+        c.samples = json::array();
+        for (auto& text : samples) {
+            ParseContext ctx;
+            Signal s = np.parser->parse(text, ctx);
+            const std::string outcome = outcomeOf(s);
+            (outcome == "signal" ? c.signals : outcome == "review" ? c.reviews : c.ignored)++;
+            json row = readOf(s);
+            row["outcome"] = outcome;
+            row["status"] = toString(s.status);
+            row["reason"] = s.diagnostics.empty() ? "" : s.diagnostics.back();
+            c.samples.push_back(std::move(row));
+        }
+        out.push_back(std::move(c));
+    }
+    // most messages read as complete signals first; among equals, the one that left fewest for review
+    std::stable_sort(out.begin(), out.end(), [](const FormatCandidate& a, const FormatCandidate& b) {
+        return a.signals != b.signals ? a.signals > b.signals : a.reviews < b.reviews;
+    });
+    return out;
+}
+
 SuiteResult runFixtures(const ISignalParser& parser, const std::vector<Fixture>& fixtures) {
     SuiteResult suite;
     for (auto& f : fixtures) {
@@ -194,18 +278,8 @@ SuiteResult runFixtures(const ISignalParser& parser, const std::vector<Fixture>&
         r.actualOutcome = outcomeOf(s);
         r.status = toString(s.status);
         if (r.actualOutcome != f.expect) r.differences.push_back("outcome: expected " + f.expect + ", got " + r.actualOutcome + (s.diagnostics.empty() ? "" : " (" + s.diagnostics.back() + ")"));
-        if (r.actualOutcome == "signal") {
-            // lets tools/make-parser.ps1 show the reading and write it into the kit as the expected result
-            json tps = json::array();
-            for (auto& t : s.targets) tps.push_back(t.price);
-            r.read = {{"symbol", s.symbol}, {"takeProfits", tps}};
-            if (s.side) r.read["side"] = toString(*s.side);
-            if (s.entry) {
-                r.read["entryLow"] = s.entry->low;
-                r.read["entryHigh"] = s.entry->high;
-            }
-            if (s.stopLoss) r.read["stopLoss"] = *s.stopLoss;
-        }
+        // lets tools/make-parser.ps1 show the reading and write it into the kit as the expected result
+        if (r.actualOutcome == "signal") r.read = readOf(s);
         if (f.expect == "signal" && r.actualOutcome == "signal") {
             if (f.side && (!s.side || *f.side != toString(*s.side))) r.differences.push_back("side: expected " + *f.side + ", got " + (s.side ? toString(*s.side) : "none"));
             if (f.symbol && *f.symbol != s.symbol) r.differences.push_back("symbol: expected " + *f.symbol + ", got " + s.symbol);

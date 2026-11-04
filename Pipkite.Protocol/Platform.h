@@ -21,6 +21,7 @@ std::wstring exeDir();
 // 32-byte random secret stored under dataDir\secrets\<name>.bin, protected with current-user DPAPI.
 std::optional<crypto::Bytes> loadOrCreateSecret(const std::wstring& name);
 std::optional<crypto::Bytes> loadSecret(const std::wstring& name);
+bool saveSecret(const std::wstring& name, const crypto::Bytes& plain);  // DPAPI, current Windows user
 bool deleteSecret(const std::wstring& name);
 
 // Optional PIPKITE_INSTANCE isolates side-by-side instances (integration tests, portable runs).

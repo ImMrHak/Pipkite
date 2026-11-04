@@ -115,6 +115,13 @@ std::optional<crypto::Bytes> loadSecret(const std::wstring& name) {
     return crypto::dpapiUnprotect(crypto::Bytes(blob->begin(), blob->end()));
 }
 
+bool saveSecret(const std::wstring& name, const crypto::Bytes& plain) {
+    auto prot = crypto::dpapiProtect(plain, L"Pipkite " + name);
+    if (!prot) return false;
+    const std::wstring path = ensureSubdir(L"secrets") + L"\\" + name + L".bin";
+    return writeFileAtomic(path, std::string_view(reinterpret_cast<const char*>(prot->data()), prot->size()));
+}
+
 std::optional<crypto::Bytes> loadOrCreateSecret(const std::wstring& name) {
     if (auto s = loadSecret(name)) return s;
     auto secret = crypto::randomBytes(32);

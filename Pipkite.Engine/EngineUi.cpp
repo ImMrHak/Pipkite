@@ -12,8 +12,10 @@
 #include "Engine.h"
 #include "Http.h"
 #include "TerminalLauncher.h"
+#include "Pipkite.Core/FormatAssist.h"
 #include "Pipkite.Core/JsonModels.h"
 #include "Pipkite.Core/StateMachine.h"
+#include "Pipkite.Core/Text.h"
 #include "Pipkite.Core/Uuid.h"
 #include "Pipkite.Protocol/Crypto.h"
 #include "Pipkite.Protocol/Platform.h"
@@ -45,7 +47,33 @@ json summaryJson(const ProfitSummary& s) {
 const std::set<std::string> kUiSettings{"ui.theme",         "ui.minimizeToTray",   "ui.startWithWindows", "ui.notifications",     "ui.firstRunComplete", "ui.language", "ui.setupHidden",
                                         "retention.rawTextDays", "retention.metadataDays", "updates.channel", "updates.autoCompatible", "updates.manifestUrl", "support.requestUrl", "license.key", "license.portalUrl", "ai.storeLocally",
                                         "diagnostics.verbose", "engine.keepAwake", "backup.scheduleDays", "backup.directory", "license.status",
-                                        "mt5.autoLaunch", "mt5.dataPath", "mt5.exePath", "mt5.chartSymbol", "telegram.apiId", "telegram.apiHash", "telegram.phone"};
+                                        "mt5.autoLaunch", "mt5.dataPath", "mt5.exePath", "mt5.chartSymbol", "telegram.apiId", "telegram.apiHash", "telegram.phone",
+                                        "formats.lookup", "formats.share", "ai.formatProvider", "ai.ownBaseUrl", "ai.ownModel"};
+
+// .../api/v1/ai/suggest -> .../api/v1<path>: the AI endpoint setting names the Pipkite server
+std::string backendUrl(const std::string& aiEndpoint, const std::string& path) {
+    auto pos = aiEndpoint.find("/ai/suggest");
+    return pos == std::string::npos ? std::string() : aiEndpoint.substr(0, pos) + path;
+}
+
+// the user's own AI provider: https, or plain http only to a model server on this PC
+bool allowedAiUrl(const std::string& u) {
+    if (u.rfind("https://", 0) == 0) return u.size() > 8;
+    for (const char* local : {"http://localhost:", "http://localhost/", "http://127.0.0.1:", "http://127.0.0.1/"})
+        if (u.rfind(local, 0) == 0) return true;
+    return false;
+}
+
+std::string withoutTrailingSlash(std::string s) {
+    while (!s.empty() && s.back() == '/') s.pop_back();
+    return s;
+}
+
+std::string shortNumber(double v) {
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%.6g", v);
+    return buf;
+}
 
 std::string redactForSupport(std::string text) {
     // Keep format (labels, numbers, layout); remove identifying handles, links, phone numbers, e-mails.
@@ -115,7 +143,7 @@ void Engine::onUiConnection(std::shared_ptr<ipc::PipeConnection> c) {
             }
             c->send(body, 5000);
         };
-        static const std::set<std::string> slow{"data.backup", "data.importPreview", "data.exportReport", "ai.test", "mt5.installEA", "mt5.launch", "mt5.detectTerminals", "mt5.checkFolder","parser.requestCustom", "license.validate", "telegram.deleteSession", "parser.test",
+        static const std::set<std::string> slow{"data.backup", "data.importPreview", "data.exportReport", "ai.test", "mt5.installEA", "mt5.launch", "mt5.detectTerminals", "mt5.checkFolder","parser.requestCustom", "license.validate", "telegram.deleteSession", "parser.test", "parser.learn", "source.detectFormat", "ai.suggestFormat", "ai.setOwnKey",
                                                  "history.page", "history.count", "history.detail"};
         if (slow.count(method)) std::thread(respond).detach();
         else respond();
@@ -202,18 +230,22 @@ json Engine::snapshot() {
     ULARGE_INTEGER avail{};
     GetDiskFreeSpaceExW(dataDir_.c_str(), &avail, nullptr, nullptr);
     // what a fresh install still needs before copying can work; the dashboard shows it as a checklist
-    json parsersMissing = json::array();
+    json parsersMissing = json::array(), formatsPending = json::array();
     int enabledSources = 0;
     for (auto& src : policy_.sources) {
         if (!src.enabled) continue;
         ++enabledSources;
-        if (!parserFor(src)) parsersMissing.push_back(src.title.empty() ? std::to_string(src.chatId) : src.title);
+        const std::string name = src.title.empty() ? std::to_string(src.chatId) : src.title;
+        auto lease = parserFor(src);
+        if (!lease) parsersMissing.push_back(name);
+        else if (!src.confirmedFormat.empty() && src.confirmedFormat != lease->parserId + "@" + lease->version) formatsPending.push_back(name);
     }
     json setup = {{"license", !licenseKey_.empty()},
                   {"telegram", telegram_->authState() == TelegramAuthState::Ready},
                   {"sources", enabledSources},
                   {"metatrader", bridgePaired_ && bridgeHealthy_},
                   {"parsersMissing", parsersMissing},
+                  {"formatsPending", formatsPending},
                   {"symbolLimits", policy_.symbolLimits.size()}};
     json stats = store_->stats();
     stats["waiting"] = waiting_.size();
@@ -359,13 +391,209 @@ json Engine::handleUiRequest(const std::string& method, const json& params) {
         j["ownFixtures"] = own;
         return j;
     }
+    if (method == "source.detectFormat") {
+        // Read-only: run the channel's recent messages (plus any given ones, first) through every active parser, or
+        // through one candidate template, and show what each would read. Nothing is recorded or executed.
+        const std::int64_t chatId = jsonInt64(params.value("chatId", json("0")));
+        std::vector<std::string> samples;
+        auto add = [&](std::string t) {
+            // long posts are rarely signals and would overflow the 64 KiB UI frame
+            if (!trim(t).empty() && t.size() <= 1200 && samples.size() < 20 && std::find(samples.begin(), samples.end(), t) == samples.end()) samples.push_back(std::move(t));
+        };
+        for (auto& s : params.value("samples", json::array()))
+            if (s.is_string()) add(s.get<std::string>());
+        if (chatId != 0 && telegram_)
+            for (auto& t : telegram_->recentMessages(chatId, 30, 8000)) add(std::move(t));
+        std::shared_ptr<const ISignalParser> candidate;
+        if (params.contains("template") && params["template"].is_object()) {
+            auto t = ParserTemplate::fromJson(params["template"]);
+            if (!t) fail(t.error().message);
+            auto c = CompiledTemplate::compile(t.value());
+            if (!c) fail(c.error().message);
+            candidate = std::make_shared<TemplateSignalParser>(c.value());
+        }
+        // formats other Pipkite users made for this same channel. Sends the channel ID (Settings can turn it off);
+        // each one must pass its own examples and the negative corpus here before it is even shown.
+        std::vector<NamedParser> shared;
+        std::map<std::string, int> sharedUsers;
+        const std::string licenseKey = store_->getSetting("license.key").value_or("");
+        if (!candidate && chatId != 0 && !licenseKey.empty() && store_->getSetting("formats.lookup").value_or("true") != "false") {
+            const std::string url = backendUrl(callSync([this] { return policy_.ai.endpoint; }), "/formats/channels/" + std::to_string(chatId));
+            auto r = url.empty() ? HttpResponse{} : httpRequest("GET", url, "", "", 6000, 2 * 1024 * 1024, {{"X-License-Key", licenseKey}});
+            const json body = r.status == 200 ? json::parse(r.body, nullptr, false) : json();
+            const json formats = body.is_object() && body.contains("formats") && body["formats"].is_array() ? body["formats"] : json::array();
+            std::lock_guard lock(sharedMu_);
+            for (auto& f : formats) {
+                if (shared.size() == 3) break;
+                try {
+                    const std::string sid = f.value("id", "");
+                    if (sid.empty() || sid.size() > 40 || !std::all_of(sid.begin(), sid.end(), [](unsigned char ch) { return std::isalnum(ch); })) continue;
+                    auto t = ParserTemplate::fromJson(f.value("template", json::object()));
+                    if (!t) continue;
+                    ParserTemplate tp = t.value();
+                    std::string lower = sid;
+                    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+                    tp.id = "shared_" + lower;
+                    tp.requireStopLoss = tp.requireTakeProfit = true;  // the safety rules never come from someone else
+                    auto c = CompiledTemplate::compile(tp);
+                    if (!c) continue;
+                    auto parser = std::make_shared<TemplateSignalParser>(c.value());
+                    std::vector<Fixture> fx;
+                    for (auto& x : f.value("fixtures", json::array()))
+                        if (x.is_object() && fx.size() < 10) fx.push_back(Fixture::fromJson(x));
+                    std::vector<Fixture> all = fx;
+                    for (auto& n : sharedNegativeCorpus()) all.push_back(n);
+                    if (!runFixtures(*parser, all).allPassed()) continue;
+                    const int users = std::max(1, f.value("users", 1));
+                    std::string name = trim(f.value("name", "Shared format"));
+                    if (name.empty() || name.size() > 40 || !isValidUtf8(name)) name = "Shared format";
+                    shared.push_back({name + " (shared by " + std::to_string(users) + " Pipkite user" + (users == 1 ? ")" : "s)"), parser});
+                    sharedFormats_[tp.id] = {tp.toJson(), fx};
+                    sharedUsers[tp.id] = users;
+                } catch (const std::exception&) {
+                    continue;  // a malformed entry is skipped, the others still show
+                }
+            }
+        }
+        std::string candidateName = trim(params.value("templateName", "Your taught format"));
+        if (candidateName.empty() || candidateName.size() > 40 || !isValidUtf8(candidateName)) candidateName = "Your taught format";
+        return callSync([&] {
+            std::vector<NamedParser> list;
+            if (candidate) list.push_back({candidateName, candidate});
+            else
+                for (auto& v : parsers_.list())
+                    if (auto g = v.active ? parsers_.lease(v.parserId) : nullptr)
+                        list.push_back({v.templateJson.is_null() ? v.parserId + " (native module)" : v.templateJson.value("name", v.parserId), g->parser});
+            for (auto& s : shared) list.push_back(s);
+            const SourceBinding* b = policy_.findSource(chatId);
+            auto current = b ? parserFor(*b) : nullptr;
+            // ties keep this order: the channel's current format, formats shared for this channel, universal, the rest
+            auto rank = [&](const NamedParser& n) {
+                const std::string id = n.parser->id();
+                return current && id == current->parserId ? 0 : sharedUsers.count(id) ? 1 : id == "universal" ? 2 : 3;
+            };
+            std::stable_sort(list.begin(), list.end(), [&](const NamedParser& x, const NamedParser& y) { return rank(x) < rank(y); });
+            json candidates = json::array();
+            const std::size_t limit = std::clamp(params.value("limit", 3), 1, 8);  // 8 x 20 messages stays under the 64 KiB frame
+            for (auto& c : detectFormat(list, samples)) {
+                if (candidates.size() == limit) break;
+                json cj = c.toJson();
+                if (auto it = sharedUsers.find(c.parserId); it != sharedUsers.end()) {
+                    cj["shared"] = true;
+                    cj["users"] = it->second;
+                }
+                // a price far from today's market is a misreading (23.50 for 2350), however complete the signal looks
+                for (auto& row : cj["samples"]) {
+                    if (row.value("outcome", "") != "signal" || !row.contains("entryLow")) continue;
+                    const Quote* q = quoteFor(row.value("symbol", ""), b);
+                    if (!q || q->bid <= 0) continue;
+                    const double ref = (q->bid + q->ask) / 2, entry = row["entryLow"].get<double>();
+                    if (entry < ref * 0.5 || entry > ref * 2) {
+                        row["priceWarning"] = true;
+                        row["reason"] = "Far from today's price " + shortNumber(ref) + ": check this reading";
+                    }
+                }
+                candidates.push_back(std::move(cj));
+            }
+            return json{{"texts", samples}, {"candidates", candidates}, {"current", current ? current->parserId : ""}};
+        });
+    }
     if (method == "parser.learn") {
-        auto t = ParserTemplate::fromJson(params.value("template", json::object()));
+        // base: the given template, else the channel's own template parser, else the universal one
+        json base = params.value("template", json());
+        if (!base.is_object()) base = callSync([&] {
+            const SourceBinding* b = policy_.findSource(jsonInt64(params.value("chatId", json("0"))));
+            auto g = b ? parserFor(*b) : nullptr;
+            json t = g ? parserTemplateJson(g->parserId, g->version) : json();
+            return t.is_object() ? t : universalTemplate().toJson();
+        });
+        auto t = ParserTemplate::fromJson(base);
         if (!t) fail(t.error().message);
         std::vector<HighlightLabel> labels;
         for (auto& l : params.value("labels", json::array())) labels.push_back({l.value("field", ""), l.value("begin", 0u), l.value("end", 0u), l.value("canonical", "")});
         auto r = learnFromHighlights(t.value(), params.value("sample", ""), labels);
         return {{"template", r.updated.toJson()}, {"learned", r.learned}, {"warnings", r.warnings}};
+    }
+    if (method == "ai.suggestFormat") {
+        // AI help for a channel no format reads. The AI only suggests words to add to a format; the user then tests
+        // that format on the channel's messages like a taught one. Messages are redacted first. Nothing here trades.
+        const std::int64_t chatId = jsonInt64(params.value("chatId", json("0")));
+        std::vector<std::string> samples;
+        auto add = [&](const std::string& text) {
+            std::string r = redactForSupport(text);
+            if (!trim(r).empty() && r.size() <= 2000 && samples.size() < 15 && std::find(samples.begin(), samples.end(), r) == samples.end()) samples.push_back(std::move(r));
+        };
+        if (params.contains("example") && params["example"].is_string()) add(params["example"].get<std::string>());
+        if (chatId != 0 && telegram_)
+            for (auto& t : telegram_->recentMessages(chatId, 20, 8000)) add(t);
+        if (samples.empty()) fail("Paste an example signal first, or sign in to Telegram so Pipkite can read the channel's recent messages.");
+        const json baseJson = callSync([&] {
+            const SourceBinding* b = policy_.findSource(chatId);
+            auto g = b ? parserFor(*b) : nullptr;
+            json t = g ? parserTemplateJson(g->parserId, g->version) : json();
+            return t.is_object() ? t : universalTemplate().toJson();
+        });
+        auto base = ParserTemplate::fromJson(baseJson);
+        if (!base) fail(base.error().message);
+        json suggestion;
+        std::string via;
+        if (store_->getSetting("ai.formatProvider").value_or("pipkite") == "own") {
+            const std::string baseUrl = withoutTrailingSlash(trim(store_->getSetting("ai.ownBaseUrl").value_or("")));
+            const std::string model = trim(store_->getSetting("ai.ownModel").value_or(""));
+            auto secret = platform::loadSecret(L"ai_own_key");
+            if (!secret || secret->empty()) fail("Add your AI key in Settings first.");
+            if (model.empty()) fail("Enter the AI model name in Settings first (for example deepseek-chat).");
+            if (!allowedAiUrl(baseUrl)) fail("The AI address in Settings must start with https:// (http:// only for a model server on this PC).");
+            const std::string apiKey(secret->begin(), secret->end());
+            auto r = httpRequest("POST", baseUrl + "/chat/completions", chatCompletionBody(model, formatSuggestionPrompt(), formatSuggestionRequest(base.value(), samples)).dump(),
+                                 "application/json", 60000, 1024 * 1024, {{"Authorization", "Bearer " + apiKey}});
+            if (r.status == 0) fail("Couldn't reach the AI provider: " + r.error);
+            if (r.status == 401 || r.status == 403) fail("The AI provider rejected your key (HTTP " + std::to_string(r.status) + ").");
+            auto s = suggestionFromChatReply(r.body);
+            if (!s) fail(s.error().message + (r.status >= 400 ? " (HTTP " + std::to_string(r.status) + ")" : ""));
+            suggestion = s.value();
+            via = "your AI key (" + model + ")";
+        } else {
+            const std::string key = store_->getSetting("license.key").value_or("");
+            if (key.empty()) fail("AI format help needs your free license key (Settings), or your own AI key.");
+            const std::string url = backendUrl(callSync([this] { return policy_.ai.endpoint; }), "/ai/format");
+            if (url.empty()) fail("No Pipkite server is set in Settings.");
+            const json req = {{"app", kProductVersion}, {"messages", samples}, {"known", knownWords(base.value())}};
+            auto r = httpRequest("POST", url, req.dump(), "application/json", 70000, 1024 * 1024, {{"X-License-Key", key}});
+            const json body = json::parse(r.body, nullptr, false);
+            const std::string said = body.is_object() && body.contains("message") && body["message"].is_string() ? body["message"].get<std::string>().substr(0, 300) : "";
+            if (r.status == 503) fail("AI format help isn't switched on on the Pipkite server yet. You can use your own AI key in Settings.");
+            if (r.status == 429) fail("You reached today's limit for AI format help. Try again tomorrow, or use your own AI key in Settings.");
+            if (r.status == 401) fail("Your license key was rejected.");
+            if (r.status == 0) fail("Couldn't reach the Pipkite server: " + r.error);
+            if (r.status != 200) fail(said.empty() || !isValidUtf8(said) ? "The Pipkite server answered HTTP " + std::to_string(r.status) + "." : said);
+            if (!body.is_object() || !body.contains("suggestion")) fail("The Pipkite server's answer was not understood.");
+            suggestion = body["suggestion"];
+            via = "Pipkite's AI";
+        }
+        auto applied = applyFormatSuggestion(base.value(), suggestion);
+        if (!applied) fail(applied.error().message);
+        ParserTemplate t = applied.value().format;
+        t.id = "ai_suggestion";
+        t.name = "AI suggestion";
+        return {{"template", t.toJson()}, {"added", applied.value().added}, {"explanation", applied.value().explanation}, {"via", via}};
+    }
+    if (method == "ai.setOwnKey") {
+        // the user's own AI key, kept with Windows data protection (never in settings, backups or logs)
+        const std::string k = trim(params.value("key", ""));
+        if (k.size() < 8 || k.size() > 400 || k.find_first_of(" \r\n\t") != std::string::npos) fail("That doesn't look like an API key.");
+        if (!platform::saveSecret(L"ai_own_key", crypto::Bytes(k.begin(), k.end()))) fail("Couldn't store the key.");
+        // a quick check that the provider accepts it; the key stays saved either way
+        const std::string baseUrl = withoutTrailingSlash(trim(store_->getSetting("ai.ownBaseUrl").value_or("")));
+        if (!allowedAiUrl(baseUrl)) return {{"ok", true}, {"checked", false}, {"message", "Key saved. Set the AI address (https://...) to use it."}};
+        auto r = httpRequest("GET", baseUrl + "/models", "", "", 10000, 1024 * 1024, {{"Authorization", "Bearer " + k}});
+        if (r.status == 200) return {{"ok", true}, {"checked", true}, {"message", "Key saved. The AI provider accepted it."}};
+        if (r.status == 401 || r.status == 403) return {{"ok", true}, {"checked", false}, {"message", "Key saved, but the AI provider rejected it (HTTP " + std::to_string(r.status) + ")."}};
+        return {{"ok", true}, {"checked", false}, {"message", "Key saved. Couldn't check it now (" + (r.status == 0 ? r.error : "HTTP " + std::to_string(r.status)) + ")."}};
+    }
+    if (method == "ai.clearOwnKey") {
+        platform::deleteSecret(L"ai_own_key");
+        return {{"ok", true}};
     }
     if (method == "license.validate") {
         // Check a license key against the backend (GET /licenses/validate). Valid only if the backend accepts it.
@@ -589,6 +817,8 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
             json j = s.toJson();
             auto lease = parserFor(s);
             j["activeParserVersion"] = lease ? lease->version : "";
+            j["activeFormat"] = lease ? lease->parserId + "@" + lease->version : "";
+            j["formatPending"] = lease && !s.confirmedFormat.empty() && s.confirmedFormat != j["activeFormat"].get<std::string>();
             arr.push_back(j);
         }
         return arr;
@@ -725,6 +955,113 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         store_->saveParserVersion(info.value());
         store_->saveFixtures(t.value().id, fx);
         return {{"id", info.value().parserId}, {"version", info.value().version}, {"suite", suite.toJson()}};
+    }
+    if (method == "parser.adopt") {
+        // Saves a taught format as the channel's own parser (channel_<chatId>, next version) and switches the channel
+        // to it. The example message becomes a fixture; it and every earlier fixture plus the negative corpus must pass.
+        // The format is one built here (taught or AI-suggested, sent as "template") or one shared for this channel by
+        // other users and loaded by Detect format ("sharedId"). With marks, it must read them as the user marked them.
+        const std::int64_t chatId = jsonInt64(params.value("chatId", json("0")));
+        const SourceBinding* b = policy_.findSource(chatId);
+        if (!b) fail("This channel is not a saved source yet.");
+        const std::string title = b->title;  // savePolicy below replaces the policy this points into
+        json tj = params.value("template", json::object());
+        std::vector<Fixture> sharedFixtures;
+        if (const std::string sid = params.value("sharedId", ""); !sid.empty()) {
+            std::lock_guard lock(sharedMu_);
+            auto it = sharedFormats_.find(sid);
+            if (it == sharedFormats_.end()) fail("That shared format is no longer loaded. Press Detect format again.");
+            tj = it->second.templateJson;
+            sharedFixtures = it->second.fixtures;
+        }
+        auto t = ParserTemplate::fromJson(tj);
+        if (!t) fail(t.error().message);
+        ParserTemplate tp = t.value();
+        tp.id = "channel_" + std::to_string(chatId);
+        tp.name = title + (sharedFixtures.empty() ? " (taught)" : " (shared)");
+        int versions = 0;
+        for (auto& v : parsers_.list())
+            if (v.parserId == tp.id) ++versions;
+        tp.version = "1.0." + std::to_string(versions);
+        auto c = CompiledTemplate::compile(tp);
+        if (!c) fail(c.error().message);
+        TemplateSignalParser parser(c.value());
+        ParseContext ctx;
+        const std::string sample = params.value("sample", "");
+        Signal s = parser.parse(sample, ctx);
+        if (outcomeOf(s) != "signal") fail("Pipkite still can't read the example as a complete signal" + (s.diagnostics.empty() ? std::string(".") : ": " + s.diagnostics.back()));
+        std::vector<HighlightLabel> labels;
+        for (auto& l : params.value("labels", json::array()))
+            if (l.is_object()) labels.push_back({l.value("field", ""), l.value("begin", 0u), l.value("end", 0u), l.value("canonical", "")});
+        if (auto off = marksDisagree(tp, s, sample, labels); !off.empty()) {
+            std::string why;
+            for (auto& o : off) why += o + ". ";
+            fail(why + "Nothing was saved: check the marks and press Test again.");
+        }
+        Fixture f = Fixture::fromJson(readOf(s));
+        f.id = "taught_" + std::to_string(versions);
+        f.text = s.rawText;
+        auto fixtures = store_->loadFixtures(tp.id);
+        for (std::size_t i = 0; i < sharedFixtures.size(); ++i) {
+            Fixture sf = sharedFixtures[i];
+            sf.id = "shared_" + std::to_string(versions) + "_" + std::to_string(i);
+            if (std::none_of(fixtures.begin(), fixtures.end(), [&](const Fixture& x) { return x.text == sf.text; })) fixtures.push_back(sf);
+        }
+        fixtures.push_back(f);
+        std::vector<Fixture> all = fixtures;
+        for (auto& n : sharedNegativeCorpus()) all.push_back(n);
+        auto suite = runFixtures(parser, all);
+        if (!suite.allPassed()) fail(std::to_string(suite.failed) + " test message(s) fail with this format; the channel keeps its current parser");
+        auto info = parsers_.publish(tp, "local", now);
+        if (!info) fail(info.error().message);
+        store_->saveParserVersion(info.value());
+        store_->saveFixtures(tp.id, fixtures);
+        if (auto st = activateParserVersion(tp.id, tp.version, {{"releaseId", "local"}}, true); !st) fail(st.error().message);
+        ExecutionPolicy p = policy_;
+        for (auto& src : p.sources)
+            if (src.chatId == chatId) {
+                src.parserId = tp.id;
+                src.parserVersion.clear();
+            }
+        if (auto st = savePolicy(p, true); !st) fail(st.error().message);
+        json out = {{"id", tp.id}, {"version", tp.version}, {"shared", false}};
+        const std::string key = store_->getSetting("license.key").value_or("");
+        const std::string url = backendUrl(policy_.ai.endpoint, "/formats/channels/" + std::to_string(chatId));
+        if (params.value("share", false) && !key.empty() && !url.empty()) {
+            // offered to other users of this channel: the format, plus examples that still read the same once links,
+            // @names, phone numbers and emails are removed. Best effort: the channel already uses the format.
+            json fx = json::array();
+            for (auto& x : fixtures) {
+                if (fx.size() == 10) break;
+                Fixture r = x;
+                r.text = redactForSupport(x.text);
+                if (runFixtures(parser, {r}).allPassed()) fx.push_back(r.toJson());
+            }
+            const std::string body = json{{"app", kProductVersion}, {"channelTitle", title}, {"template", tp.toJson()}, {"fixtures", fx}}.dump();
+            std::thread([url, key, body] { httpRequest("POST", url, body, "application/json", 10000, 64 * 1024, {{"X-License-Key", key}}); }).detach();
+            out["shared"] = true;
+        }
+        return out;
+    }
+    if (method == "source.confirmFormat") {
+        // the user checked this channel's readings: copying starts with the format it uses now. "format" (id@version)
+        // is the one the user saw; a newer one that arrived meanwhile has to be checked first.
+        const std::int64_t chatId = jsonInt64(params.value("chatId", json("0")));
+        ExecutionPolicy p = policy_;
+        bool found = false;
+        for (auto& s : p.sources) {
+            if (s.chatId != chatId) continue;
+            auto lease = parserFor(s);
+            if (!lease) fail("This channel has no format yet. Press Detect format first.");
+            const std::string current = lease->parserId + "@" + lease->version;
+            if (params.contains("format") && params.value("format", "") != current) fail("A new version of this channel's format just arrived. Check its signals first.");
+            s.confirmedFormat = current;
+            found = true;
+        }
+        if (!found) fail("This channel is not a saved source yet.");
+        if (auto st = savePolicy(p, true, false); !st) fail(st.error().message);
+        heldNoticeSent_.erase(chatId);
+        return {{"ok", true}};
     }
     if (method == "parser.activate") {
         if (auto st = activateParserVersion(params.value("id", ""), params.value("version", ""), {{"releaseId", "local"}}, true); !st) fail(st.error().message);
@@ -873,6 +1210,7 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         for (auto& k : kUiSettings)
             if (auto v = store_->getSetting(k)) out[k] = *v;
         out["dataDir"] = platform::narrow(dataDir_);
+        out["ai.ownKeySet"] = platform::loadSecret(L"ai_own_key").has_value();
         out["installDir"] = platform::narrow(installDir_);
         return out;
     }

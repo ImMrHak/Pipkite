@@ -4,7 +4,10 @@
 // installation. Skipped when the binaries are not built next to the test runner.
 
 #include <windows.h>
+#include <winsock2.h>
 
+#include <algorithm>
+#include <cctype>
 #include <condition_variable>
 #include <filesystem>
 #include <future>
@@ -14,6 +17,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "Pipkite.Core/ParserTemplate.h"
 #include "Pipkite.Core/Uuid.h"
 #include "Pipkite.Protocol/Crypto.h"
 #include "Pipkite.Protocol/Envelope.h"
@@ -45,6 +49,79 @@ struct Proc {
     }
     bool waitExit(unsigned ms) { return pi.hProcess && WaitForSingleObject(pi.hProcess, ms) == WAIT_OBJECT_0; }
     ~Proc() { kill(); }
+};
+
+// A stand-in for an OpenAI-compatible AI provider on 127.0.0.1: answers /models and /chat/completions, one
+// request per connection, and keeps what it received.
+struct FakeAiProvider {
+    SOCKET listener = INVALID_SOCKET;
+    int port = 0;
+    std::string chatAnswer;  // the model's answer text
+    std::mutex mu;
+    std::vector<std::string> requests;  // request line, headers and body of each
+    std::thread worker;
+    bool started = false;
+
+    bool start() {
+        WSADATA w;
+        if (WSAStartup(MAKEWORD(2, 2), &w) != 0) return false;
+        started = true;
+        listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        sockaddr_in a{};
+        a.sin_family = AF_INET;
+        a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        int len = sizeof a;
+        if (bind(listener, reinterpret_cast<sockaddr*>(&a), sizeof a) != 0 || listen(listener, 4) != 0 ||
+            getsockname(listener, reinterpret_cast<sockaddr*>(&a), &len) != 0)
+            return false;
+        port = ntohs(a.sin_port);
+        worker = std::thread([this] { serve(); });
+        return true;
+    }
+
+    void serve() {
+        for (;;) {
+            SOCKET c = accept(listener, nullptr, nullptr);
+            if (c == INVALID_SOCKET) return;  // stop() closed the listener
+            std::string req;
+            char buf[4096];
+            std::size_t want = std::string::npos;
+            for (;;) {
+                const auto end = req.find("\r\n\r\n");
+                if (end != std::string::npos && want == std::string::npos) {
+                    std::string head = req.substr(0, end);
+                    std::transform(head.begin(), head.end(), head.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+                    const auto cl = head.find("content-length:");
+                    want = end + 4 + (cl == std::string::npos ? 0 : std::stoul(head.substr(cl + 15)));
+                }
+                if (want != std::string::npos && req.size() >= want) break;
+                const int n = recv(c, buf, sizeof buf, 0);
+                if (n <= 0) break;
+                req.append(buf, n);
+            }
+            const bool models = req.find(" /v1/models ") != std::string::npos;
+            const std::string body = models ? std::string(R"({"object":"list","data":[]})")
+                                            : json{{"choices", json::array({{{"index", 0}, {"message", {{"role", "assistant"}, {"content", chatAnswer}}}}})}}.dump();
+            const std::string resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " + std::to_string(body.size()) +
+                                     "\r\nConnection: close\r\n\r\n" + body;
+            {
+                std::lock_guard lock(mu);  // recorded before answering, so the caller sees it once its call returns
+                requests.push_back(req);
+            }
+            send(c, resp.data(), static_cast<int>(resp.size()), 0);
+            closesocket(c);
+        }
+    }
+
+    void stop() {
+        if (!started) return;
+        started = false;
+        if (listener != INVALID_SOCKET) closesocket(listener);
+        listener = INVALID_SOCKET;
+        if (worker.joinable()) worker.join();
+        WSACleanup();
+    }
+    ~FakeAiProvider() { stop(); }
 };
 
 class UiClient {
@@ -213,6 +290,33 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     CHECK(ask > 0);
     char text[512];
     std::snprintf(text, sizeof text, "GOLD BUY %.2f %.2f\nTP1 %.2f\nTP2 %.2f\nSL %.2f", ask + 2.0, ask - 2.0, ask + 25, ask + 40, ask - 20);
+    // A new channel's format waits for the user's OK: the first signal is shown with its plan, never sent.
+    json held = ui.call("test.injectMessage", {{"chatId", chat}, {"text", std::string(text)}});
+    Sleep(500);
+    json heldDetail = ui.call("history.detail", {{"chatId", chat}, {"messageId", held.value("messageId", "")}, {"revision", 0}});
+    CHECK_EQ(heldDetail.value("state", ""), std::string("Review"));
+    CHECK(heldDetail["commands"].empty());
+    CHECK(heldDetail["decision"].value("reason", "").find("New format") != std::string::npos);
+    json src = ui.call("sources.list")[0];
+    CHECK(src.value("formatPending", false));
+    bool stale = false;  // an OK for another version than the one in use is refused
+    try {
+        ui.call("source.confirmFormat", {{"chatId", chat}, {"format", "gold_parser_native@0.0.1"}});
+    } catch (const srtest::Failure&) {
+        stale = true;
+    }
+    CHECK(stale);
+    ui.call("source.confirmFormat", {{"chatId", chat}, {"format", src.value("activeFormat", "")}});
+    CHECK(!ui.call("sources.list")[0].value("formatPending", true));
+    // editing the channel keeps the OK; only a parser change asks for it again
+    json edited = ui.call("sources.list");
+    edited[0]["aiMode"] = "off";
+    edited[0]["confirmedFormat"] = "";  // the UI can't clear or set the OK itself
+    ui.call("sources.save", {{"sources", edited}});
+    CHECK(!ui.call("sources.list")[0].value("formatPending", true));
+
+    // a different signal, so the duplicate check doesn't hold it back
+    std::snprintf(text, sizeof text, "GOLD BUY %.2f %.2f\nTP1 %.2f\nTP2 %.2f\nSL %.2f", ask + 2.0, ask - 2.0, ask + 26, ask + 41, ask - 21);
     json inj = ui.call("test.injectMessage", {{"chatId", chat}, {"text", std::string(text)}});
     const std::string msgId = inj.value("messageId", "");
 
@@ -380,6 +484,7 @@ TEST(demo_seed_running_instance) {
                                                         {"entryMode", "wait_for_range"}, {"aiMode", "advisory"}},
                                                        {{"chatId", "-1000000000002"}, {"title", "Forex Daily"}, {"chatType", "supergroup"}, {"template", "gold_parser_native"},
                                                         {"entryMode", "immediate_within_tolerance"}, {"aiMode", "off"}}})}});
+    for (auto& s : ui.call("sources.list")) ui.call("source.confirmFormat", {{"chatId", s.value("chatId", "")}});  // demo: both copy at once
     json policy = ui.call("policy.get");
     policy["symbolLimits"] = {{"XAUUSD", {{"maxSpreadPrice", 0.5}, {"maxEntryDeviationPrice", 0.5}, {"maxLots", 1.0}}},
                               {"EURUSD", {{"maxSpreadPrice", 0.0002}, {"maxEntryDeviationPrice", 0.0005}, {"maxLots", 1.0}}}};
@@ -403,4 +508,171 @@ TEST(demo_seed_running_instance) {
         Sleep(700);
     }
     ui.call("test.injectMessage", {{"chatId", "-1000000000002"}, {"text", "EURUSD SELL NOW 1.0850\nSL 1.0880\nTP 1.0800"}});
+}
+
+TEST(e2e_detect_teach_and_adopt_a_channel_format) {
+    const fs::path bin = platform::exeDir();
+    if (!fs::exists(bin / L"Pipkite.Engine.exe")) {
+        std::printf("        (skipped: engine not present in %s)\n", platform::narrow(bin.wstring()).c_str());
+        return;
+    }
+    const fs::path data = fs::temp_directory_path() / (L"PipkiteFmt-" + std::to_wstring(GetCurrentProcessId()));
+    fs::remove_all(data);
+    fs::create_directories(data);
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", data.c_str());
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", (L"fmt" + std::to_wstring(GetCurrentProcessId())).c_str());
+    Proc engine;
+    CHECK(engine.start(L"\"" + (bin / L"Pipkite.Engine.exe").wstring() + L"\""));
+    UiClient ui;
+    bool connected = false;
+    for (int i = 0; i < 40 && !connected; ++i) {
+        connected = ui.connect();
+        if (!connected) Sleep(250);
+    }
+    CHECK(connected);
+    const std::string chat = "-1000000000077";
+    ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Kanal"}, {"chatType", "channel"}, {"template", ""}, {"aiMode", "off"}}})}});
+
+    // detection: the built-in universal format reads the common layout, not the Dutch one
+    const std::string dutch = "GOLD KOPEN 2350\nVERLIES 2340\nDOEL 2360";  // not a built-in language
+    json det = ui.call("source.detectFormat", {{"chatId", chat}, {"limit", 8}, {"samples", json::array({"\xF0\x9F\x9F\xA2 BUY XAUUSD @ 2350\nSL 2340\nTP 2360", dutch})}});
+    json uni;
+    for (auto& c : det["candidates"])
+        if (c.value("id", "") == "universal") uni = c;
+    CHECK(uni.is_object());
+    CHECK(det["candidates"].size() >= builtinTemplates().size());  // every shipped format is installed and tried
+    // ties: the channel's current parser first (the sample module, when installed), else universal over the narrower formats
+    const std::string current = det.value("current", "");
+    CHECK_EQ(det["candidates"][0].value("id", ""), current.empty() ? std::string("universal") : current);
+    if (!current.empty()) CHECK_EQ(det["candidates"][1].value("id", ""), std::string("universal"));
+    CHECK_EQ(uni.value("signals", 0), 1);
+    CHECK(uni["samples"][1].value("outcome", "") != "signal");
+
+    // teach: mark the Dutch words, test, adopt
+    auto mark = [&](const char* field, const std::string& word) {
+        const auto at = dutch.find(word);
+        return json{{"field", field}, {"begin", at}, {"end", at + word.size()}};
+    };
+    json labels = json::array({mark("buy", "KOPEN"), mark("sl", "2340"), mark("tp", "2360")});
+    json learned = ui.call("parser.learn", {{"chatId", chat}, {"sample", dutch}, {"labels", labels}});
+    CHECK(learned["template"].is_object());
+    json taught = ui.call("source.detectFormat", {{"chatId", chat}, {"template", learned["template"]}, {"samples", json::array({dutch})}});
+    CHECK_EQ(taught["candidates"][0].value("signals", 0), 1);
+    json adopted = ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", dutch}});
+    CHECK_EQ(adopted.value("id", ""), "channel_" + chat);
+    CHECK_EQ(adopted.value("version", ""), std::string("1.0.0"));
+    json tp = ui.call("source.testParse", {{"chatId", chat}, {"text", "GOLD KOPEN 2400\nVERLIES 2390\nDOEL 2410"}});
+    CHECK_EQ(tp["signal"].value("status", ""), std::string("Valid"));
+    CHECK_EQ(tp.value("parser", ""), "channel_" + chat + "@1.0.0");
+    // teaching again makes a new version, the old one stays for rollback
+    CHECK_EQ(ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", dutch}}).value("version", ""), std::string("1.0.1"));
+    // an example that still doesn't read as a signal is refused
+    bool refused = false;
+    try {
+        ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", "GOLD KOPEN 2350"}});
+    } catch (const srtest::Failure&) {
+        refused = true;
+    }
+    CHECK(refused);
+    // with the marks: saved only when it reads what the user marked (here the SL is marked on the TP's price)
+    bool wrongMarks = false;
+    try {
+        ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", dutch}, {"labels", json::array({mark("buy", "KOPEN"), mark("sl", "2360")})}});
+    } catch (const srtest::Failure&) {
+        wrongMarks = true;
+    }
+    CHECK(wrongMarks);
+    CHECK_EQ(ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", dutch}, {"labels", labels}}).value("version", ""), std::string("1.0.2"));
+    // a taught format waits for the user's OK before it trades
+    json src = ui.call("sources.list")[0];
+    CHECK(src.value("formatPending", false));
+    CHECK_EQ(src.value("activeFormat", ""), "channel_" + chat + "@1.0.2");
+    ui.call("source.confirmFormat", {{"chatId", chat}, {"format", src.value("activeFormat", "")}});
+    CHECK(!ui.call("sources.list")[0].value("formatPending", true));
+    // a new version (taught again, or delivered) asks again
+    ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", dutch}});
+    CHECK(ui.call("sources.list")[0].value("formatPending", false));
+}
+
+// "Ask AI for a format" with the user's own key, against a stand-in AI provider on this PC: the key stays in the
+// protected store, the provider gets redacted messages, and the answer becomes a format the user can test and use.
+TEST(e2e_ai_format_help_with_the_users_own_key) {
+    const fs::path bin = platform::exeDir();
+    if (!fs::exists(bin / L"Pipkite.Engine.exe")) {
+        std::printf("        (skipped: engine not present in %s)\n", platform::narrow(bin.wstring()).c_str());
+        return;
+    }
+    const fs::path data = fs::temp_directory_path() / (L"PipkiteAi-" + std::to_wstring(GetCurrentProcessId()));
+    fs::remove_all(data);
+    fs::create_directories(data);
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", data.c_str());
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", (L"ai" + std::to_wstring(GetCurrentProcessId())).c_str());
+    FakeAiProvider ai;
+    ai.chatAnswer = R"J({"name": "Dutch gold", "explanation": "The channel writes in Dutch.",
+        "add": {"buyWords": ["KOPEN"], "slLabels": ["VERLIES"], "tpLabels": ["DOEL"], "symbolAliases": {"GOUD": "XAUUSD"}},
+        "requireStopLoss": false})J";
+    CHECK(ai.start());
+    {
+        Proc engine;
+        CHECK(engine.start(L"\"" + (bin / L"Pipkite.Engine.exe").wstring() + L"\""));
+        UiClient ui;
+        bool connected = false;
+        for (int i = 0; i < 40 && !connected; ++i) {
+            connected = ui.connect();
+            if (!connected) Sleep(250);
+        }
+        CHECK(connected);
+        const std::string base = "http://127.0.0.1:" + std::to_string(ai.port) + "/v1";
+        ui.call("settings.save", {{"values", {{"ai.formatProvider", "own"}, {"ai.ownBaseUrl", base}, {"ai.ownModel", "test-model"}}}});
+        json saved = ui.call("ai.setOwnKey", {{"key", "sk-test-123456789"}});
+        CHECK(saved.value("checked", false));  // the provider's /models accepted it
+        json settings = ui.call("settings.get");
+        CHECK(settings.value("ai.ownKeySet", false));
+        CHECK(settings.dump().find("sk-test") == std::string::npos);  // the key is never a plain setting
+
+        const std::string chat = "-1000000000088";
+        ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Goud"}, {"chatType", "channel"}, {"template", ""}, {"aiMode", "off"}}})}});
+        const std::string dutch = "GOUD KOPEN 2350\nVERLIES 2340\nDOEL 2360\nJoin @vipgoldnl";
+        json s = ui.call("ai.suggestFormat", {{"chatId", chat}, {"example", dutch}}, 30000);
+        CHECK(s["template"].is_object());
+        CHECK(s.value("via", "").find("test-model") != std::string::npos);
+        CHECK(s["template"].value("requireStopLoss", false));  // the AI asked to drop it: ignored
+        std::string chatRequest;
+        {
+            std::lock_guard lock(ai.mu);
+            for (auto& r : ai.requests)
+                if (r.rfind("POST /v1/chat/completions", 0) == 0) chatRequest = r;
+        }
+        CHECK(chatRequest.find("Bearer sk-test-123456789") != std::string::npos);
+        CHECK(chatRequest.find("\"test-model\"") != std::string::npos);
+        CHECK(chatRequest.find("GOUD KOPEN 2350") != std::string::npos);
+        CHECK(chatRequest.find("@vipgoldnl") == std::string::npos);  // redacted before it leaves the PC
+        CHECK(chatRequest.find("@<handle>") != std::string::npos);
+
+        json det = ui.call("source.detectFormat", {{"chatId", chat}, {"template", s["template"]}, {"templateName", "AI suggestion"}, {"samples", json::array({dutch})}});
+        CHECK_EQ(det["candidates"][0].value("name", ""), std::string("AI suggestion"));
+        CHECK_EQ(det["candidates"][0].value("signals", 0), 1);
+        json adopted = ui.call("parser.adopt", {{"chatId", chat}, {"template", s["template"]}, {"sample", dutch}});
+        CHECK_EQ(adopted.value("id", ""), "channel_" + chat);
+        CHECK(ui.call("sources.list")[0].value("formatPending", false));  // and it waits for the user's OK
+
+        // https only, except a model server on this PC
+        ui.call("settings.save", {{"values", {{"ai.ownBaseUrl", "http://example.com/v1"}}}});
+        bool refused = false;
+        try {
+            ui.call("ai.suggestFormat", {{"chatId", chat}, {"example", dutch}}, 30000);
+        } catch (const srtest::Failure&) {
+            refused = true;
+        }
+        CHECK(refused);
+        ui.call("ai.clearOwnKey");
+        CHECK(!ui.call("settings.get").value("ai.ownKeySet", true));
+        ui.call("engine.shutdown");
+        CHECK(engine.waitExit(10000));
+    }
+    ai.stop();
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", nullptr);
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", nullptr);
+    std::error_code ec;
+    fs::remove_all(data, ec);
 }

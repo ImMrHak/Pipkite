@@ -22,6 +22,10 @@ namespace sr::engine {
 struct UpdaterHooks {
     // Called on the updater thread; implementations post work to the engine thread.
     std::function<Status(const std::string& parserId, const std::string& version, std::shared_ptr<const ISignalParser> parser, const nlohmann::json& notes)> activateParser;
+    // A delivered parser configuration (template JSON + optional fixtures); must pass them before activating.
+    std::function<Status(const std::string& parserId, const std::string& version, const nlohmann::json& templateJson, const nlohmann::json& fixtures,
+                         const nlohmann::json& notes)>
+        activateTemplate;
     std::function<void(const nlohmann::json& activeImpl)> upgradeBridge;
     std::function<std::vector<std::string>()> savedSamples;
     std::function<void(const std::string& message)> notify;
@@ -45,6 +49,7 @@ private:
     Status checkOnce();
     Status processManifest(const nlohmann::json& manifest, const std::string& baseUrl);
     Status installModule(const nlohmann::json& release, const nlohmann::json& component, const std::string& baseUrl);
+    Status installTemplate(const nlohmann::json& release, const nlohmann::json& component, const std::string& baseUrl);
     Status stageCore(const nlohmann::json& release, const nlohmann::json& component, const std::string& baseUrl);
     Result<std::wstring> download(const nlohmann::json& component, const std::string& baseUrl, const std::wstring& destDir);
     HttpHeaders licenseHeaders() const;

@@ -58,6 +58,8 @@ struct ParserTemplate {
     std::string conflictBehavior = "review";  // deterministic: conflicting values always require review
 
     std::vector<AdvancedRule> advancedRules;
+    // emoji used as a label, e.g. {"🎯": "TP", "🛑": "SL"}; each key is one emoji
+    std::map<std::string, std::string> emojiLabels;
 
     nlohmann::json toJson() const;
     static Result<ParserTemplate> fromJson(const nlohmann::json& j);
@@ -75,6 +77,7 @@ struct CompiledTemplate {
         std::shared_ptr<const BoundedRegex> re;
     };
     std::vector<Rule> rules;
+    std::map<char32_t, std::string> emoji;  // upper-cased label text per emoji code point
 
     static Result<std::shared_ptr<const CompiledTemplate>> compile(const ParserTemplate& t);
 };
@@ -83,8 +86,15 @@ struct CompiledTemplate {
 ParserTemplate starterGoldTemplate();
 ParserTemplate starterForexTemplate();
 ParserTemplate starterStrictTemplate();  // no glued tokens, no market words
+// Built into the app (id "universal"): the starter defaults widened to common layouts, symbols and languages.
+// Same strict rules as any template: missing symbol/side/entry/SL means review, never a trade.
+ParserTemplate universalTemplate();
+// Every format shipped with the app, universal first. Each reads something the others don't
+// (emoji labels, comma decimals, thousands separators, other languages, strict labels).
+std::vector<ParserTemplate> builtinTemplates();
 void applyArabicPreset(ParserTemplate& t);
 void applyRussianPreset(ParserTemplate& t);
 void applySpanishPreset(ParserTemplate& t);
+void applyEuropeanPreset(ParserTemplate& t);  // French, German, Italian, Portuguese
 
 }  // namespace sr
