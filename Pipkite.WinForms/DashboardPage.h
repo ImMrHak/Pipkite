@@ -165,11 +165,11 @@ public:
         stepButtons_ = gcnew array<Button^>(6);
         stepLabels_ = gcnew array<String^>(6);
         stepPages_ = gcnew array<int>(6);
-        AddStep(steps, 0, "Add your free license key. It unlocks parsers, AI review and updates.", "Open Settings", 6);
+        AddStep(steps, 0, "Add your free license key. It unlocks AI review, shared formats and updates.", "Open Settings", 6);
         AddStep(steps, 1, "Sign in to Telegram with your own account.", "Open Telegram sources", 1);
         AddStep(steps, 2, "Tick the channels or groups you want to copy.", "Choose channels", 1);
         AddStep(steps, 3, "Start MetaTrader 5, log in to your broker and approve the pairing.", "Open MetaTrader", 2);
-        AddStep(steps, 4, "Request a parser for each channel. It installs by itself when ready.", "Open Signal rules", 3);
+        AddStep(steps, 4, "Pick the format of each channel (Detect format), check its first signals, then press Start copying.", "Open Signal rules", 3);
         AddStep(steps, 5, "Set the max spread and slippage for each symbol you trade.", "Open Execution policy", 4);
         steps->Visible = false;
         steps_ = steps;
