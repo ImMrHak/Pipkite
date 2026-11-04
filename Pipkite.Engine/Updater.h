@@ -38,6 +38,8 @@ public:
 
     void startBackgroundCheck();
     void checkNowAsync();
+    // Asks GitHub for a newer Pipkite now (the UI calls it each time it opens).
+    void checkAppAsync();
     nlohmann::json status() const;
     // Downloads the newer version's installer and checks it is signed like this copy. Returns its path.
     Result<std::wstring> downloadAppUpdate();
@@ -52,7 +54,7 @@ private:
     Status processManifest(const nlohmann::json& manifest, const std::string& baseUrl);
     Status installModule(const nlohmann::json& release, const nlohmann::json& component, const std::string& baseUrl);
     Status installTemplate(const nlohmann::json& release, const nlohmann::json& component, const std::string& baseUrl);
-    void checkAppRelease(bool force);
+    void checkAppRelease(std::int64_t minIntervalMs);
     Result<std::wstring> download(const nlohmann::json& component, const std::string& baseUrl, const std::wstring& destDir);
     HttpHeaders licenseHeaders() const;
     void setStatus(const std::string& state, const std::string& detail);

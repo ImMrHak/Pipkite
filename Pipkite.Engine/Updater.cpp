@@ -139,11 +139,17 @@ json Updater::status() const {
     return s;
 }
 
-void Updater::checkAppRelease(bool force) {
-    // GitHub allows 60 unauthenticated requests an hour per address: every 6 hours is plenty.
+void Updater::checkAppAsync() {
+    std::thread([this] { checkAppRelease(60 * 1000); }).detach();
+}
+
+void Updater::checkAppRelease(std::int64_t minIntervalMs) {
+    // GitHub allows 60 unauthenticated requests an hour per address. The exchange also stops the engine's
+    // own start-up check and the UI's from asking twice at the same moment.
     const std::int64_t now = clock_.nowMs();
-    if (!force && lastAppCheckMs_ != 0 && now - lastAppCheckMs_ < 6LL * 3600 * 1000) return;
-    lastAppCheckMs_ = now;
+    std::int64_t last = lastAppCheckMs_.load();
+    if (last != 0 && now - last < minIntervalMs) return;
+    if (!lastAppCheckMs_.compare_exchange_strong(last, now)) return;
     auto r = httpRequest("GET", latestReleaseUrl(), "", "", 10000, 512 * 1024, {{"Accept", "application/vnd.github+json"}});
     if (r.status != 200) return;  // offline or rate-limited: try again next time
     json info;
@@ -194,7 +200,7 @@ void Updater::checkNowAsync() {
     std::thread([this] {
         auto st = checkOnce();
         if (!st) setStatus("failed", st.error().message);
-        checkAppRelease(true);
+        checkAppRelease(0);
     }).detach();
 }
 
@@ -205,7 +211,7 @@ void Updater::run(bool once) {
     int backoffSec = 30;
     while (running_) {
         auto st = checkOnce();
-        checkAppRelease(false);
+        checkAppRelease(6LL * 3600 * 1000);
         if (once) break;
         int waitSec = kRecheckSec;
         if (st) {

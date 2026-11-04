@@ -51,7 +51,8 @@ x64\Release\Pipkite.FakeTerminal.exe --login 90000001    # then approve pairing 
 - **TDLib (Telegram):** `tools\build-tdlib.ps1` builds it into `third_party\tdlib\`, copied next to the binaries on build.
 - **Release package:** `installer\package.ps1 -Build` (portable zip, plus setup.exe with Inno Setup).
   `tools\build-release.ps1` does a clean signed release build + tests + package.
-- **How installed apps update:** every 6 hours the engine reads GitHub's latest release
+- **How installed apps update:** each time the UI opens (`updates.checkApp`) and every 6 hours, the engine reads
+  GitHub's latest release
   (`Pipkite.Engine/AppRelease.h`). A newer version shows a bar in the app; **Update now** downloads the
   `Pipkite-<version>-setup.exe` asset, and runs it silently only if it's signed with the same certificate as the
   running app (`Updater::downloadAppUpdate`). So every GitHub release must have that exact asset name, and the

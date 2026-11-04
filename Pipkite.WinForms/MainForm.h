@@ -178,8 +178,9 @@ public:
         Button^ updateLater = L::Btn("Later", nullptr, "Hide this until Pipkite starts again.");
         updateLater->Click += gcnew EventHandler(this, &MainForm::OnUpdateLater);
         FlowLayoutPanel^ updateRow = gcnew FlowLayoutPanel();
-        updateRow->Dock = DockStyle::Fill;
+        updateRow_ = updateRow;
         updateRow->WrapContents = false;
+        updateRow->Padding = Windows::Forms::Padding(18, 6, 18, 4);
         updateRow->Tag = "surface";
         updateRow->Controls->Add(updateText_);
         updateRow->Controls->Add(updateNow_);
@@ -187,11 +188,17 @@ public:
         updateRow->Controls->Add(updateLater);
         updateBar_ = gcnew Panel();
         updateBar_->Dock = DockStyle::Top;
-        updateBar_->Height = 46;
-        updateBar_->Padding = Windows::Forms::Padding(18, 6, 18, 6);
+        updateBar_->Height = 48;
         updateBar_->Tag = "surface";
         updateBar_->Visible = false;
-        updateBar_->Controls->Add(updateRow);
+        updateSweep_ = gcnew SweepLine();
+        updateBar_->Controls->Add(updateSweep_);
+        updateBar_->Controls->Add(updateRow);  // not docked: it slides down inside the bar
+        updateBar_->Resize += gcnew EventHandler(this, &MainForm::OnUpdateBarResize);
+        barClock_ = gcnew Diagnostics::Stopwatch();
+        barTimer_ = gcnew Windows::Forms::Timer();
+        barTimer_->Interval = 16;
+        barTimer_->Tick += gcnew EventHandler(this, &MainForm::OnBarTick);
 
         Controls->Add(content_);
         Controls->Add(navLine);
@@ -285,6 +292,12 @@ private:
     bool notifications_;
     bool settingsLoaded_;
     Panel^ updateBar_;
+    SweepLine^ updateSweep_;
+    Windows::Forms::Timer^ barTimer_;
+    Diagnostics::Stopwatch^ barClock_;
+    FlowLayoutPanel^ updateRow_;
+    int barFrom_;
+    bool barShown_, startupChecked_;
     Label^ updateText_;
     Button^ updateNow_;
     String^ updateVersion_;
@@ -322,6 +335,10 @@ private:
         connBadge_->Set(connected ? "Engine connected" : "Engine offline", connected ? Theme::Success : Theme::Warning);
         statusText_->Text = detail;
         if (connected) {
+            if (!startupChecked_) {
+                startupChecked_ = true;
+                client_->Call("updates.checkApp", nullptr);  // each start; the bar shows when the answer arrives
+            }
             client_->Call("settings.get", nullptr, gcnew ResponseHandler(this, &MainForm::OnSettings));
             pages_[current_]->OnActivated();
         }
@@ -375,7 +392,7 @@ private:
             updateText_->Text = "Pipkite " + updateVersion_ + " is available.";
             updateNow_->Text = updateInstallable_ ? "Update now" : "Download";
             if (!updateInstallable_) L::Tip(updateNow_, "Open the release page to download the new version (portable copies update by hand).");
-            updateBar_->Visible = true;
+            ShowUpdateBar(true);
         }
         mode_ = J::Str(s, "mode");
         paused_ = J::Bool(s, "paused");
@@ -471,7 +488,44 @@ private:
 
     void OnUpdateLater(Object^, EventArgs^) {
         updateHidden_ = true;
-        updateBar_->Visible = false;
+        ShowUpdateBar(false);
+    }
+
+    // The bar's space opens in one step (one page layout); its contents then slide down inside it (ease-out,
+    // 280 ms), so only the bar repaints. Instant when Windows animation effects are off.
+    void ShowUpdateBar(bool show) {
+        barShown_ = show;
+        if (!SystemInformation::UIEffectsEnabled) {
+            updateRow_->Top = 0;
+            updateBar_->Visible = show;
+            return;
+        }
+        if (show && !updateBar_->Visible) {
+            updateBar_->Visible = true;  // lays the bar out, which sizes the row; both happen before any paint
+            OnUpdateBarResize(nullptr, nullptr);
+            updateRow_->Top = -updateRow_->Height;
+        }
+        barFrom_ = updateRow_->Top;
+        barClock_->Restart();
+        barTimer_->Start();
+    }
+
+    void OnUpdateBarResize(Object^, EventArgs^) {
+        updateRow_->SetBounds(0, updateRow_->Top, updateBar_->ClientSize.Width, updateBar_->ClientSize.Height - updateSweep_->Height);
+    }
+
+    void OnBarTick(Object^, EventArgs^) {
+        const double p = Math::Min(1.0, barClock_->Elapsed.TotalMilliseconds / 280.0);
+        const double eased = 1 - Math::Pow(1 - p, 3);
+        const int target = barShown_ ? 0 : -updateRow_->Height;
+        updateRow_->Top = static_cast<int>(Math::Round(barFrom_ + (target - barFrom_) * eased));
+        if (p < 1) return;
+        barTimer_->Stop();
+        if (barShown_) updateSweep_->Sweep();  // a light runs across once it's open
+        else {
+            updateBar_->Visible = false;
+            updateRow_->Top = 0;
+        }
     }
 
     void OnUpdateNow(Object^, EventArgs^) {
@@ -483,6 +537,7 @@ private:
         updating_ = true;
         updateNow_->Enabled = false;
         updateText_->Text = "Downloading Pipkite " + updateVersion_ + "...";
+        updateSweep_->Busy = true;
         client_->Call("app.downloadUpdate", nullptr, gcnew ResponseHandler(this, &MainForm::OnUpdateDownloaded));
     }
 
@@ -490,6 +545,7 @@ private:
         if (!ok) {
             updating_ = false;
             updateNow_->Enabled = true;
+            updateSweep_->Busy = false;
             updateText_->Text = "Pipkite " + updateVersion_ + " is available.";
             return Prompt::Error(this, error);
         }

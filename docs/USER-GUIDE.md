@@ -149,7 +149,8 @@ formats (Pipkite's, or your own OpenAI, DeepSeek or other OpenAI-compatible key,
 
 ## Updating
 
-When a new version is out, a bar at the top of the window says **Pipkite X is available**.
+Each time Pipkite starts (and every few hours after), it checks for a new version. When there is one, a bar slides
+in at the top of the window: **Pipkite X is available**.
 
 - **Update now** downloads it, checks it's signed by Pipkite, closes Pipkite, installs the new version and opens it
   again. Copying stops for about a minute. Your settings, channels and history are kept, and open trades aren't

@@ -1300,6 +1300,10 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         updater_->checkNowAsync();
         return {{"started", true}};
     }
+    if (method == "updates.checkApp") {
+        updater_->checkAppAsync();
+        return {{"started", true}};
+    }
 
     // automated tests only: feed a message as if it came from Telegram. Off unless the test runner sets
     // PIPKITE_TEST_HOOKS=1, so a normal install never accepts it.
