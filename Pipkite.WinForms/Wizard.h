@@ -3,6 +3,7 @@
 
 #include "Controls.h"
 #include "EngineClient.h"
+#include "FormatDialog.h"
 
 namespace PipkiteUI {
 
@@ -48,8 +49,8 @@ public:
              "Log in to your account and Pipkite pairs it automatically (demo or real).",
              "2"},
             {"5. Each channel: symbol & parser",
-             "For every source, set the symbol it should capture and request a custom parser for it. Once the request is sent you can continue: "
-             "the team builds it and it installs automatically (hot reload, no restart). Ships with no parsers, so request one per channel.",
+             "For every source, set the symbol it should capture and press Detect format: Pipkite tries the channel's recent messages and shows "
+             "what it reads. Pick a format, teach one by marking the parts of a signal, or request a custom parser (it installs automatically, no restart).",
              "1"},
             {"6. Test a sample",
              "Pick a channel, paste a real message it posted, and Test to see exactly what Pipkite reads from it - nothing is sent. Better to check "
@@ -134,7 +135,7 @@ public:
                            "Pipkite then pairs the account automatically (demo or real, whichever you logged in to).", "muted", 680);
 
         // Step 5, per channel: the symbol it should capture (loaded from MetaTrader) + an example message
-        // + its parser, and request a custom one.
+        // + its parser: detect / teach one, or request a custom one.
         TableLayoutPanel^ ps = L::Form2();
         srcCombo_ = L::Combo(380, gcnew array<String^>{});
         srcCombo_->SelectedIndexChanged += gcnew EventHandler(this, &FirstRunWizard::OnSrcChanged);
@@ -152,10 +153,12 @@ public:
         L::AddField(ps, "Example message", exampleBox_);
         parserLabel_ = L::Wrap("", "muted", 440);
         L::AddField(ps, "Current parser", parserLabel_);
-        Button^ reqParser = L::Btn("Request a custom parser for this channel", "accent");
+        Button^ detect = L::Btn("Detect format...", "accent", "Try every installed format on this channel's recent messages and pick the one that reads it right.");
+        detect->Click += gcnew EventHandler(this, &FirstRunWizard::OnDetectFormat);
+        Button^ reqParser = L::Btn("Request a custom parser");
         reqParser->Click += gcnew EventHandler(this, &FirstRunWizard::OnRequestParser);
         ps->Controls->Add(gcnew Label());
-        ps->Controls->Add(reqParser);
+        ps->Controls->Add(L::Row(detect, reqParser));
         parserStep_ = ps;
 
         // Step 6, test a sample message against a channel's active parser (read-only, nothing is sent).
@@ -592,8 +595,18 @@ private:
         if (active != "") { parserLabel_->ForeColor = Theme::Success; parserLabel_->Text = "Parser installed and active (" + active + ")."; }
         else if (tmpl != "") { parserLabel_->ForeColor = Theme::Warning; parserLabel_->Text = "Parser '" + tmpl + "' assigned but not installed yet - waiting for the backend..."; }
         else if (requestedChats_->Contains(J::Str(b, "chatId"))) { parserLabel_->ForeColor = Theme::Success; parserLabel_->Text = "Parser requested - it installs automatically when it's ready. You can continue."; }
-        else { parserLabel_->ForeColor = Theme::TextMuted; parserLabel_->Text = "No parser yet - request a custom one below. The team builds it (up to ~10-15 min) and it installs automatically, no restart."; }
+        else { parserLabel_->ForeColor = Theme::TextMuted; parserLabel_->Text = "No parser yet - detect the format below, or request a custom one (the team builds it, and it installs automatically, no restart)."; }
         if (symbolCombo_->Text == "") symbolCombo_->Text = J::Str(b, "captureSymbol");
+    }
+    void OnDetectFormat(Object^, EventArgs^) {
+        int idx = srcCombo_->SelectedIndex;
+        if (sources_ == nullptr || idx < 0 || idx >= sources_->Count) { stepStatus_->ForeColor = Theme::Warning; stepStatus_->Text = "Add and pick a channel first."; return; }
+        JObj^ b = sources_[idx];
+        FormatDialog^ d = gcnew FormatDialog(client_, J::Str(b, "chatId"), J::Str(b, "title"), exampleBox_->Text);
+        if (d->ShowDialog(this) != System::Windows::Forms::DialogResult::OK) return;
+        stepStatus_->ForeColor = Theme::Success;
+        stepStatus_->Text = J::Str(b, "title") + " now uses the format you picked.";
+        client_->Call("sources.list", nullptr, gcnew ResponseHandler(this, &FirstRunWizard::OnParserPoll));
     }
     void OnRequestParser(Object^, EventArgs^) {
         int idx = srcCombo_->SelectedIndex;

@@ -1,10 +1,10 @@
 #pragma once
-// Signal rules = how each Telegram channel's messages are read. Parsers are built and maintained by the
-// Pipkite team: the user picks which parser a channel uses (on the Telegram sources page) and, when a
-// channel needs a new or adjusted parser, requests one here. The request (recent messages, redacted) goes
-// to the backend; the finished parser is delivered as a signed module the app hot-reloads with no restart.
-// There is no in-app parser editor, that complexity is handled for the user.
+// Signal rules = how each Telegram channel's messages are read. Per channel the user detects the format
+// (every installed parser tried on recent messages, built-in universal one included), teaches Pipkite by
+// marking the fields in a message, or requests a custom parser from the Pipkite team. Delivered parsers and
+// formats install while the app runs, with no restart.
 
+#include "FormatDialog.h"
 #include "Pages.h"
 
 using namespace System::Text;
@@ -74,11 +74,15 @@ public:
         grid_->AddCol("parser", "Parser", 220);
         DataGridViewTextBoxColumn^ st = grid_->AddCol("status", "Status", 360);
         st->AutoSizeMode = DataGridViewAutoSizeColumnMode::Fill;
-        grid_->EmptyText = "No channels yet. Add them on the Telegram sources page, then request a parser for each.";
+        grid_->EmptyText = "No channels yet. Add them on the Telegram sources page, then detect the format of each.";
         grid_->AccessibleName = "Channels and their parsers";
         grid_->SelectionChanged += gcnew EventHandler(this, &RulesPage::OnRowSelected);
         ch->Controls->Add(grid_);
-        request_ = L::Btn("Request a custom parser for this channel...", "accent",
+        detect_ = L::Btn("Detect format...", "accent",
+                         "Try every installed format on the selected channel's recent messages, see what each reads, and pick one. You can also teach "
+                         "Pipkite by marking the parts of a signal.");
+        detect_->Click += gcnew EventHandler(this, &RulesPage::OnDetect);
+        request_ = L::Btn("Request a custom parser...", nullptr,
                           "Ask the Pipkite team to build or adjust the parser for the selected channel. Recent messages (redacted) are included.");
         request_->Click += gcnew EventHandler(this, &RulesPage::OnRequest);
         Button^ refresh = L::Btn("Refresh", nullptr, "Reload the channel list and parser status.");
@@ -86,7 +90,7 @@ public:
         Button^ updates = L::Btn("Check for parser updates", nullptr,
                                  "Ask the backend for new or updated parsers. They install and take effect automatically, without restarting the app.");
         updates->Click += gcnew EventHandler(this, &RulesPage::OnCheckUpdates);
-        ch->Controls->Add(L::Row(request_, refresh, updates));
+        ch->Controls->Add(L::Row(detect_, request_, refresh, updates));
         status_ = L::Wrap("", "muted", 900);
         ch->Controls->Add(status_);
         stack->Controls->Add(L::Group("Your channels", ch));
@@ -109,7 +113,7 @@ public:
         stack->Controls->Add(L::Group("Installed parsers", inst));
 
         Controls->Add(stack);
-        Header("Signal rules", "How each channel's messages are read. Parsers are built for you and update automatically.", this);
+        Header("Signal rules", "How each channel's messages are read. Detect or teach a format here; delivered parsers update automatically.", this);
     }
 
     // Select a channel's row (used by the Telegram sources page "Edit signal rule" button).
@@ -125,7 +129,7 @@ public:
 
 private:
     BufferedGrid ^ grid_, ^installed_;
-    Button^ request_;
+    Button ^ request_, ^detect_;
     Label^ status_;
     array<Object^>^ sources_;
     array<Object^>^ parsers_;
@@ -141,8 +145,7 @@ private:
         for each (Object^ o in parsers_) {
             JObj^ v = J::Obj(o);
             if (!J::Bool(v, "active")) continue;  // one row per active parser
-            installed_->Rows->Add(gcnew array<Object^>{J::Str(v, "id"), J::Str(v, "version"),
-                                                       J::Bool(v, "native") ? "Built-in" : J::Str(v, "origin") == "package" ? "Delivered" : "Custom", "Active"});
+            installed_->Rows->Add(gcnew array<Object^>{J::Str(v, "id"), J::Str(v, "version"), OriginText(v), "Active"});
         }
         installed_->Invalidate();
         Client->Call("sources.list", nullptr, gcnew ResponseHandler(this, &RulesPage::OnSources));
@@ -167,11 +170,9 @@ private:
             JObj^ active = ActiveParser(pid);
             String^ statusText;
             if (active == nullptr)
-                statusText = "No parser installed — request one for this channel";
-            else if (J::Bool(active, "native"))
-                statusText = "Built-in parser · active";
+                statusText = "No parser yet — detect the format or request one";
             else
-                statusText = (J::Str(active, "origin") == "package" ? "Delivered parser · v" : "Custom parser · v") + J::Str(active, "version");
+                statusText = OriginText(active) + " · v" + J::Str(active, "version");
             int idx = grid_->Rows->Add(gcnew array<Object^>{J::Str(b, "title"), pid, statusText});
             grid_->Rows[idx]->Tag = b;
             if (focusChatId_ != nullptr && J::Str(b, "chatId") == focusChatId_) grid_->Rows[idx]->Selected = true;
@@ -194,7 +195,26 @@ private:
         }
     }
 
-    void OnRowSelected(Object^, EventArgs^) { request_->Enabled = SelectedSource() != nullptr; }
+    static String^ OriginText(JObj^ v) {
+        String^ o = J::Str(v, "origin");
+        if (J::Bool(v, "native")) return "Parser module";
+        return o == "builtin" ? "Built in" : o == "package" ? "Delivered" : "Taught here";
+    }
+
+    void OnRowSelected(Object^, EventArgs^) {
+        request_->Enabled = SelectedSource() != nullptr;
+        detect_->Enabled = request_->Enabled;
+    }
+
+    void OnDetect(Object^, EventArgs^) {
+        JObj^ b = SelectedSource();
+        if (b == nullptr) return ShowError("Select a channel first.");
+        FormatDialog^ d = gcnew FormatDialog(Client, J::Str(b, "chatId"), J::Str(b, "title"), nullptr);
+        if (d->ShowDialog(FindForm()) == Windows::Forms::DialogResult::OK) {
+            status_->Text = J::Str(b, "title") + " now uses the format you picked.";
+            Reload();
+        }
+    }
 
     void OnRequest(Object^, EventArgs^) {
         JObj^ b = SelectedSource();

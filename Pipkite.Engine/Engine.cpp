@@ -139,6 +139,29 @@ Status Engine::start() {
             return activateParserVersion(id, version, notes, false);
         });
     };
+    hooks.activateTemplate = [this](const std::string& id, const std::string& version, const json& tj, const json& fx, const json& notes) -> Status {
+        return callSync([&]() -> Status {
+            auto t = ParserTemplate::fromJson(tj);
+            if (!t) return t.error();
+            if (t.value().id != id || t.value().version != version) return failStatus("package_invalid", "template.json does not match its release entry");
+            bool reserved = id.rfind("channel_", 0) == 0;
+            for (auto& b : builtinTemplates()) reserved = reserved || b.id == id;
+            if (reserved) return failStatus("package_invalid", "Reserved parser id " + id);
+            auto c = CompiledTemplate::compile(t.value());
+            if (!c) return c.error();
+            std::vector<Fixture> fixtures;
+            for (auto& f : fx) fixtures.push_back(Fixture::fromJson(f));
+            std::vector<Fixture> all = fixtures;
+            for (auto& n : sharedNegativeCorpus()) all.push_back(n);
+            auto suite = runFixtures(TemplateSignalParser(c.value()), all);
+            if (!suite.allPassed()) return failStatus("fixtures_failed", std::to_string(suite.failed) + " fixture(s) fail; the active version was kept");
+            auto info = parsers_.publish(t.value(), "package", clock_.nowMs());  // identical republish is a no-op
+            if (!info) return info.error();
+            store_->saveParserVersion(info.value());
+            if (!fixtures.empty()) store_->saveFixtures(id, fixtures);
+            return activateParserVersion(id, version, notes, true);
+        });
+    };
     hooks.upgradeBridge = [this](const json& impl) {
         post([this, impl] {
             bridgeUpgrading_ = true;
@@ -247,8 +270,11 @@ void Engine::updateTelegramAllowlist() {
 
 void Engine::initParsers() {
     const auto now = clock_.nowMs();
-    // no built-in parsers, they all come from the backend per license.
-    // a source without one gets ParseStatus::Unsupported (-> "request a custom parser" in the UI).
+    // the shipped formats are built in (code, not stored); a channel uses one only once the user picks it after
+    // reviewing what it reads. Everything else comes from the backend per license or is taught locally.
+    // a source without a parser gets ParseStatus::Unsupported (-> detect / teach / request in the UI).
+    for (auto& t : builtinTemplates())
+        if (parsers_.publish(t, "builtin", now)) parsers_.activate(t.id, t.version, now);
     std::vector<ParserVersionInfo> activeLater;
     for (auto& v : store_->loadParserVersions()) {
         if (v.templateJson.is_null()) {
@@ -293,10 +319,11 @@ std::shared_ptr<const ParserGeneration> Engine::parserFor(const SourceBinding& b
         if (auto g = parsers_.lease(b.parserId)) return g;
     }
     // if exactly one parser is installed, channels without their own use it, so a freshly delivered
-    // parser works without binding it first. with 2+ we don't guess.
+    // parser works without binding it first. with 2+ we don't guess. only native modules count: template parsers
+    // (universal, delivered configs, taught) read a channel only after the user reviewed and picked them.
     std::string only;
     for (auto& info : parsers_.list()) {
-        if (!info.active) continue;
+        if (!info.active || !info.templateJson.is_null()) continue;
         if (only.empty()) only = info.parserId;
         else if (only != info.parserId) { only.clear(); break; }
     }

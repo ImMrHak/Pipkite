@@ -99,7 +99,7 @@ char32_t mapCodePoint(char32_t cp) {
 
 }  // namespace
 
-NormalizedText normalize(std::string_view original) {
+NormalizedText normalize(std::string_view original, const std::map<char32_t, std::string>* labels) {
     NormalizedText out;
     out.text.reserve(original.size());
     out.origBegin.reserve(original.size());
@@ -111,6 +111,16 @@ NormalizedText normalize(std::string_view original) {
         if (cp == '\r') {
             if (i < original.size() && original[i] == '\n') ++i;  // CRLF -> single LF
             cp = '\n';
+        }
+        if (labels) {
+            if (auto it = labels->find(cp); it != labels->end()) {
+                for (char c : " " + it->second + " ") {  // every byte maps back to the emoji
+                    out.text.push_back(c);
+                    out.origBegin.push_back(static_cast<std::uint32_t>(start));
+                    out.origEnd.push_back(static_cast<std::uint32_t>(i));
+                }
+                continue;
+            }
         }
         char32_t mapped = mapCodePoint(cp);
         if (mapped == 0) continue;

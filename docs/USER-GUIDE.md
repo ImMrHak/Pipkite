@@ -10,8 +10,18 @@ The setup wizard opens on first launch and walks you through these. You can redo
 3. **Channels.** Tick the channels and groups you want to copy. Only new messages are copied, never old ones.
 4. **MetaTrader 5.** Click **Start MetaTrader**, log in to your broker, then approve the pairing with your account
    number. Use a demo account first: once an account is paired, copying is live.
-5. **Parsers.** On **Signal rules**, select each channel and click **Request a custom parser**. We build one for that
-   channel's format and it installs by itself, no restart. Until it arrives, that channel's messages aren't traded.
+5. **Signal format.** On **Signal rules**, select each channel and click **Detect format**.
+   - Paste one of the channel's signals under **Your example** and click **Check example**. Every format shows what
+     it reads from it: symbol, side, entry, SL and TPs. The channel's recent messages are checked the same way below.
+   - Pick the format whose rows marked Signal are right, then click **Use this format**. Messages marked Review or
+     Ignored are never traded.
+   - Formats that come with Pipkite: **Universal** (English, French, German, Italian, Spanish, Portuguese, Arabic,
+     Persian, Russian; gold, forex, indices, crypto), **Emoji labels** (🎯 TP, 🛑 SL), **Comma decimals** (1,0850),
+     **Thousands separators** (18,250), **Turkish & Indonesian** and **Strict labels only**.
+   - None reads it right? Under **Teach Pipkite**, select each part of your example (symbol, Buy or Sell, entry, SL,
+     each TP), press its button, then **Test on recent messages**. If the result looks right, use it.
+   - Still no luck? Click **Request a custom parser**. We build one and it installs by itself, no restart.
+   Until a channel has a format, its messages aren't traded.
 
 Until all of this is done, the Dashboard shows a **Get started** list with what's still missing and a button
 to each step, and the top bar says **Not ready**.
@@ -35,7 +45,7 @@ the measured latency.
 
 ![MetaTrader](images/metatrader.png)
 
-**Signal rules.** Which parser reads each channel, and the button to request one.
+**Signal rules.** Which format reads each channel. Detect or teach one, or request a custom parser.
 
 ![Signal rules](images/signal-rules.png)
 
@@ -86,7 +96,7 @@ password stays in MetaTrader, Pipkite never asks for it.
 - **Telegram: not set up**: enter your API ID/hash and sign in.
 - **MT5 offline**: MetaTrader is closed or the EA isn't on a chart. Click Start MetaTrader (close MT5 first if it's
   already open).
-- **Signal shows Unsupported**: that channel has no parser yet, request one on Signal rules.
+- **Signal shows Unsupported**: that channel has no format yet. Detect or teach one on Signal rules.
 - **Signal shows Rejected or Review**: open the row in History to see why. Nothing was sent.
 - **Pairing never shows up**: start MetaTrader and log in to your broker first.
 - **SmartScreen warning on install**: More info, Run anyway.

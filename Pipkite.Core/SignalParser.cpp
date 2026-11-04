@@ -136,12 +136,18 @@ private:
     std::size_t matchSymbol(const std::vector<int>& L, std::size_t i) {
         const Token& first = tk(L, i);
         if (first.type != TokenType::Word) return 0;
+        // glued run: "US"+"30", and "EUR"/"USD", "BTC"/"USDT" across a slash
+        auto isSlash = [&](std::size_t k) { return tk(L, k).type == TokenType::Punct && tk(L, k).text == "/"; };
         std::size_t runEnd = i + 1;
-        while (runEnd < L.size() && runEnd - i < 3 && tk(L, runEnd).glued && (tk(L, runEnd).type == TokenType::Word || tk(L, runEnd).type == TokenType::Number))
+        while (runEnd < L.size() && runEnd - i < 4 && tk(L, runEnd).glued &&
+               (tk(L, runEnd).type == TokenType::Word || tk(L, runEnd).type == TokenType::Number ||
+                (isSlash(runEnd) && runEnd + 1 < L.size() && tk(L, runEnd + 1).glued && tk(L, runEnd + 1).type == TokenType::Word)))
             ++runEnd;
         for (std::size_t e = runEnd; e > i; --e) {
+            if (isSlash(e - 1)) continue;
             std::string joined;
-            for (std::size_t k = i; k < e; ++k) joined += tk(L, k).text;
+            for (std::size_t k = i; k < e; ++k)
+                if (!isSlash(k)) joined += tk(L, k).text;
             if (auto canon = symbolFor(joined)) {
                 symbols.push_back({joined, *canon, first.begin, tk(L, e - 1).end});
                 return e - i;
@@ -234,14 +240,17 @@ private:
     std::size_t scanDirection(const std::vector<int>& L, std::size_t i, std::size_t n, Side side) {
         directions.push_back({side, tk(L, i).begin, tk(L, i + n - 1).end, tk(L, i).line});
         std::size_t j = i + n;
-        // Order kind must follow the direction keyword directly. Never inferred.
-        if (j < L.size() && !matchAny(L, j, t_.sl)) {
-            if (std::size_t m = matchAny(L, j, t_.limit)) {
+        // Order kind must follow the direction keyword directly. Never inferred. It loses only to a longer
+        // SL label: "BUY STOP 2350" is a stop order, "BUY STOP LOSS 2340" is not.
+        if (j < L.size()) {
+            const std::size_t slLen = matchAny(L, j, t_.sl);
+            const std::size_t m = matchAny(L, j, t_.limit), m2 = m ? 0 : matchAny(L, j, t_.stop);
+            if (m && m >= slLen) {
                 kind = OrderKind::Limit;
                 kindNb = tk(L, j).begin;
                 kindNe = tk(L, j + m - 1).end;
                 j += m;
-            } else if (std::size_t m2 = matchAny(L, j, t_.stop)) {
+            } else if (m2 && m2 >= slLen) {
                 kind = OrderKind::Stop;
                 kindNb = tk(L, j).begin;
                 kindNe = tk(L, j + m2 - 1).end;
@@ -254,6 +263,7 @@ private:
             const Token& t = tk(L, j);
             if (t.type == TokenType::Number || t.type == TokenType::BadNumber) {
                 if (followedByPipWord(L, j)) { j += 2; continue; }
+                if (j + 1 < L.size() && tk(L, j + 1).glued && tk(L, j + 1).type == TokenType::Word && tk(L, j + 1).text == "X") { j += 2; continue; }  // leverage "20x"
                 if (firstNumber) checkGlue(t, "direction");
                 firstNumber = false;
                 if (auto num = numberAt(L, j)) eh.nums.push_back(*num);
@@ -422,7 +432,7 @@ Signal parseWithTemplate(std::string_view raw, const CompiledTemplate& t, const 
     s.rawText.assign(raw);
     if (!isValidUtf8(raw)) return finish(ParseStatus::Invalid, MessageKind::TradeSetup, "Message is not valid UTF-8");
 
-    const NormalizedText norm = normalize(raw);
+    const NormalizedText norm = normalize(raw, t.emoji.empty() ? nullptr : &t.emoji);
     {
         std::size_t lineStart = 0;
         for (std::size_t k = 0; k <= norm.text.size(); ++k) {

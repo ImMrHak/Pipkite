@@ -96,6 +96,7 @@
     <ClInclude Include="HistoryPage.h" />
     <ClInclude Include="SettingsPage.h" />
     <ClInclude Include="Dialogs.h" />
+    <ClInclude Include="FormatDialog.h" />
     <ClInclude Include="Wizard.h" />
     <ClInclude Include="MainForm.h" />
   </ItemGroup>

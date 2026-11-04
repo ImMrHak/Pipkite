@@ -14,6 +14,7 @@
 #include "TerminalLauncher.h"
 #include "Pipkite.Core/JsonModels.h"
 #include "Pipkite.Core/StateMachine.h"
+#include "Pipkite.Core/Text.h"
 #include "Pipkite.Core/Uuid.h"
 #include "Pipkite.Protocol/Crypto.h"
 #include "Pipkite.Protocol/Platform.h"
@@ -115,7 +116,7 @@ void Engine::onUiConnection(std::shared_ptr<ipc::PipeConnection> c) {
             }
             c->send(body, 5000);
         };
-        static const std::set<std::string> slow{"data.backup", "data.importPreview", "data.exportReport", "ai.test", "mt5.installEA", "mt5.launch", "mt5.detectTerminals", "mt5.checkFolder","parser.requestCustom", "license.validate", "telegram.deleteSession", "parser.test",
+        static const std::set<std::string> slow{"data.backup", "data.importPreview", "data.exportReport", "ai.test", "mt5.installEA", "mt5.launch", "mt5.detectTerminals", "mt5.checkFolder","parser.requestCustom", "license.validate", "telegram.deleteSession", "parser.test", "parser.learn", "source.detectFormat",
                                                  "history.page", "history.count", "history.detail"};
         if (slow.count(method)) std::thread(respond).detach();
         else respond();
@@ -359,8 +360,56 @@ json Engine::handleUiRequest(const std::string& method, const json& params) {
         j["ownFixtures"] = own;
         return j;
     }
+    if (method == "source.detectFormat") {
+        // Read-only: run the channel's recent messages (plus any given ones, first) through every active parser, or
+        // through one candidate template, and show what each would read. Nothing is recorded or executed.
+        const std::int64_t chatId = jsonInt64(params.value("chatId", json("0")));
+        std::vector<std::string> samples;
+        auto add = [&](std::string t) {
+            // long posts are rarely signals and would overflow the 64 KiB UI frame
+            if (!trim(t).empty() && t.size() <= 1200 && samples.size() < 20 && std::find(samples.begin(), samples.end(), t) == samples.end()) samples.push_back(std::move(t));
+        };
+        for (auto& s : params.value("samples", json::array()))
+            if (s.is_string()) add(s.get<std::string>());
+        if (chatId != 0 && telegram_)
+            for (auto& t : telegram_->recentMessages(chatId, 30, 8000)) add(std::move(t));
+        std::shared_ptr<const ISignalParser> candidate;
+        if (params.contains("template") && params["template"].is_object()) {
+            auto t = ParserTemplate::fromJson(params["template"]);
+            if (!t) fail(t.error().message);
+            auto c = CompiledTemplate::compile(t.value());
+            if (!c) fail(c.error().message);
+            candidate = std::make_shared<TemplateSignalParser>(c.value());
+        }
+        return callSync([&] {
+            std::vector<NamedParser> list;
+            if (candidate) list.push_back({"Your taught format", candidate});
+            else
+                for (auto& v : parsers_.list())
+                    if (auto g = v.active ? parsers_.lease(v.parserId) : nullptr)
+                        list.push_back({v.templateJson.is_null() ? v.parserId + " (native module)" : v.templateJson.value("name", v.parserId), g->parser});
+            const SourceBinding* b = policy_.findSource(chatId);
+            auto current = b ? parserFor(*b) : nullptr;
+            // ties keep this order: the channel's current format, then universal, then the rest
+            auto rank = [&](const NamedParser& n) { return current && n.parser->id() == current->parserId ? 0 : n.parser->id() == "universal" ? 1 : 2; };
+            std::stable_sort(list.begin(), list.end(), [&](const NamedParser& x, const NamedParser& y) { return rank(x) < rank(y); });
+            json candidates = json::array();
+            const std::size_t limit = std::clamp(params.value("limit", 3), 1, 8);  // 8 x 20 messages stays under the 64 KiB frame
+            for (auto& c : detectFormat(list, samples))
+                if (candidates.size() < limit) candidates.push_back(c.toJson());
+            return json{{"texts", samples}, {"candidates", candidates}, {"current", current ? current->parserId : ""}};
+        });
+    }
     if (method == "parser.learn") {
-        auto t = ParserTemplate::fromJson(params.value("template", json::object()));
+        // base: the given template, else the channel's own template parser, else the universal one
+        json base = params.value("template", json());
+        if (!base.is_object()) base = callSync([&] {
+            const SourceBinding* b = policy_.findSource(jsonInt64(params.value("chatId", json("0"))));
+            auto g = b ? parserFor(*b) : nullptr;
+            json t = g ? parserTemplateJson(g->parserId, g->version) : json();
+            return t.is_object() ? t : universalTemplate().toJson();
+        });
+        auto t = ParserTemplate::fromJson(base);
         if (!t) fail(t.error().message);
         std::vector<HighlightLabel> labels;
         for (auto& l : params.value("labels", json::array())) labels.push_back({l.value("field", ""), l.value("begin", 0u), l.value("end", 0u), l.value("canonical", "")});
@@ -725,6 +774,50 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         store_->saveParserVersion(info.value());
         store_->saveFixtures(t.value().id, fx);
         return {{"id", info.value().parserId}, {"version", info.value().version}, {"suite", suite.toJson()}};
+    }
+    if (method == "parser.adopt") {
+        // Saves a taught format as the channel's own parser (channel_<chatId>, next version) and switches the channel
+        // to it. The example message becomes a fixture; it and every earlier fixture plus the negative corpus must pass.
+        const std::int64_t chatId = jsonInt64(params.value("chatId", json("0")));
+        const SourceBinding* b = policy_.findSource(chatId);
+        if (!b) fail("This channel is not a saved source yet.");
+        auto t = ParserTemplate::fromJson(params.value("template", json::object()));
+        if (!t) fail(t.error().message);
+        ParserTemplate tp = t.value();
+        tp.id = "channel_" + std::to_string(chatId);
+        tp.name = b->title + " (taught)";
+        int versions = 0;
+        for (auto& v : parsers_.list())
+            if (v.parserId == tp.id) ++versions;
+        tp.version = "1.0." + std::to_string(versions);
+        auto c = CompiledTemplate::compile(tp);
+        if (!c) fail(c.error().message);
+        TemplateSignalParser parser(c.value());
+        ParseContext ctx;
+        Signal s = parser.parse(params.value("sample", ""), ctx);
+        if (outcomeOf(s) != "signal") fail("Pipkite still can't read the example as a complete signal" + (s.diagnostics.empty() ? std::string(".") : ": " + s.diagnostics.back()));
+        Fixture f = Fixture::fromJson(readOf(s));
+        f.id = "taught_" + std::to_string(versions);
+        f.text = s.rawText;
+        auto fixtures = store_->loadFixtures(tp.id);
+        fixtures.push_back(f);
+        std::vector<Fixture> all = fixtures;
+        for (auto& n : sharedNegativeCorpus()) all.push_back(n);
+        auto suite = runFixtures(parser, all);
+        if (!suite.allPassed()) fail(std::to_string(suite.failed) + " test message(s) fail with this format; the channel keeps its current parser");
+        auto info = parsers_.publish(tp, "local", now);
+        if (!info) fail(info.error().message);
+        store_->saveParserVersion(info.value());
+        store_->saveFixtures(tp.id, fixtures);
+        if (auto st = activateParserVersion(tp.id, tp.version, {{"releaseId", "local"}}, true); !st) fail(st.error().message);
+        ExecutionPolicy p = policy_;
+        for (auto& src : p.sources)
+            if (src.chatId == chatId) {
+                src.parserId = tp.id;
+                src.parserVersion.clear();
+            }
+        if (auto st = savePolicy(p, true); !st) fail(st.error().message);
+        return {{"id", tp.id}, {"version", tp.version}};
     }
     if (method == "parser.activate") {
         if (auto st = activateParserVersion(params.value("id", ""), params.value("version", ""), {{"releaseId", "local"}}, true); !st) fail(st.error().message);

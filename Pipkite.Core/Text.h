@@ -3,6 +3,7 @@
 // every normalized byte maps back to the original range, for evidence highlighting.
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -35,7 +36,8 @@ struct NormalizedText {
 //  Arabic-Indic, superscript, subscript, fullwidth digits -> ASCII digits;
 //  zero-width joiners, variation selectors and keycap combiners removed;
 //  emojis and Markdown decoration characters (* _ ` ~) -> ' '; ASCII upper-cased.
-NormalizedText normalize(std::string_view original);
+// `labels` (from a template) turns chosen emojis into label words instead, e.g. 🎯 -> " TP ".
+NormalizedText normalize(std::string_view original, const std::map<char32_t, std::string>* labels = nullptr);
 
 std::string toUpperAscii(std::string s);
 std::string trim(std::string_view s);

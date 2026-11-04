@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- New channels without a custom parser: **Detect format** shows what every format reads from your own example
+  and from the channel's recent messages, before you pick one.
+- Six formats ship with the app: Universal (9 languages; gold, forex, indices, crypto), Emoji labels (🎯 TP, 🛑 SL),
+  Comma decimals, Thousands separators, Turkish & Indonesian, Strict labels only.
+- Reads more layouts: EUR/USD and BTC/USDT, "Stop: 151.90" as the stop loss (BUY STOP stays a stop order),
+  leverage like "LONG 20x", TP lists split by / or commas.
+- **Teach Pipkite**: select the symbol, side, entry, SL and TPs in a message, test the result on recent messages,
+  then use it. Each change is a new version you can roll back.
+- Formats can be delivered and updated by the backend while Pipkite runs, without an app update.
+- Unchanged: a trade is only placed when symbol, side, entry (or NOW), SL and TP are all read with no conflict.
+
 ## 1.0.2
 
 - The AI review reads the market: MetaTrader sends the latest M1, M5, M15, H1 and H4 candles with each signal.

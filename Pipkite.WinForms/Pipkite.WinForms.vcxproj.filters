@@ -29,6 +29,9 @@
     <ClInclude Include="DashboardPage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FormatDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Dialogs.h">
       <Filter>Header Files</Filter>
     </ClInclude>

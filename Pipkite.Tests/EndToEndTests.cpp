@@ -14,6 +14,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "Pipkite.Core/ParserTemplate.h"
 #include "Pipkite.Core/Uuid.h"
 #include "Pipkite.Protocol/Crypto.h"
 #include "Pipkite.Protocol/Envelope.h"
@@ -403,4 +404,70 @@ TEST(demo_seed_running_instance) {
         Sleep(700);
     }
     ui.call("test.injectMessage", {{"chatId", "-1000000000002"}, {"text", "EURUSD SELL NOW 1.0850\nSL 1.0880\nTP 1.0800"}});
+}
+
+TEST(e2e_detect_teach_and_adopt_a_channel_format) {
+    const fs::path bin = platform::exeDir();
+    if (!fs::exists(bin / L"Pipkite.Engine.exe")) {
+        std::printf("        (skipped: engine not present in %s)\n", platform::narrow(bin.wstring()).c_str());
+        return;
+    }
+    const fs::path data = fs::temp_directory_path() / (L"PipkiteFmt-" + std::to_wstring(GetCurrentProcessId()));
+    fs::remove_all(data);
+    fs::create_directories(data);
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", data.c_str());
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", (L"fmt" + std::to_wstring(GetCurrentProcessId())).c_str());
+    Proc engine;
+    CHECK(engine.start(L"\"" + (bin / L"Pipkite.Engine.exe").wstring() + L"\""));
+    UiClient ui;
+    bool connected = false;
+    for (int i = 0; i < 40 && !connected; ++i) {
+        connected = ui.connect();
+        if (!connected) Sleep(250);
+    }
+    CHECK(connected);
+    const std::string chat = "-1000000000077";
+    ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Kanal"}, {"chatType", "channel"}, {"template", ""}, {"aiMode", "off"}}})}});
+
+    // detection: the built-in universal format reads the common layout, not the Dutch one
+    const std::string dutch = "GOLD KOPEN 2350\nVERLIES 2340\nDOEL 2360";  // not a built-in language
+    json det = ui.call("source.detectFormat", {{"chatId", chat}, {"limit", 8}, {"samples", json::array({"\xF0\x9F\x9F\xA2 BUY XAUUSD @ 2350\nSL 2340\nTP 2360", dutch})}});
+    json uni;
+    for (auto& c : det["candidates"])
+        if (c.value("id", "") == "universal") uni = c;
+    CHECK(uni.is_object());
+    CHECK(det["candidates"].size() >= builtinTemplates().size());  // every shipped format is installed and tried
+    // ties: the channel's current parser first (the sample module, when installed), else universal over the narrower formats
+    const std::string current = det.value("current", "");
+    CHECK_EQ(det["candidates"][0].value("id", ""), current.empty() ? std::string("universal") : current);
+    if (!current.empty()) CHECK_EQ(det["candidates"][1].value("id", ""), std::string("universal"));
+    CHECK_EQ(uni.value("signals", 0), 1);
+    CHECK(uni["samples"][1].value("outcome", "") != "signal");
+
+    // teach: mark the Dutch words, test, adopt
+    auto mark = [&](const char* field, const std::string& word) {
+        const auto at = dutch.find(word);
+        return json{{"field", field}, {"begin", at}, {"end", at + word.size()}};
+    };
+    json labels = json::array({mark("buy", "KOPEN"), mark("sl", "2340"), mark("tp", "2360")});
+    json learned = ui.call("parser.learn", {{"chatId", chat}, {"sample", dutch}, {"labels", labels}});
+    CHECK(learned["template"].is_object());
+    json taught = ui.call("source.detectFormat", {{"chatId", chat}, {"template", learned["template"]}, {"samples", json::array({dutch})}});
+    CHECK_EQ(taught["candidates"][0].value("signals", 0), 1);
+    json adopted = ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", dutch}});
+    CHECK_EQ(adopted.value("id", ""), "channel_" + chat);
+    CHECK_EQ(adopted.value("version", ""), std::string("1.0.0"));
+    json tp = ui.call("source.testParse", {{"chatId", chat}, {"text", "GOLD KOPEN 2400\nVERLIES 2390\nDOEL 2410"}});
+    CHECK_EQ(tp["signal"].value("status", ""), std::string("Valid"));
+    CHECK_EQ(tp.value("parser", ""), "channel_" + chat + "@1.0.0");
+    // teaching again makes a new version, the old one stays for rollback
+    CHECK_EQ(ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", dutch}}).value("version", ""), std::string("1.0.1"));
+    // an example that still doesn't read as a signal is refused
+    bool refused = false;
+    try {
+        ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", "GOLD KOPEN 2350"}});
+    } catch (const srtest::Failure&) {
+        refused = true;
+    }
+    CHECK(refused);
 }

@@ -52,7 +52,16 @@ UI (WinForms) <-> Engine over a local named pipe
 
 - The engine is native C++ and does all the work; the UI only displays and sends commands.
 - Every order is written to the journal before it's sent, so a crash never sends twice.
-- Parsers are signed modules in `plugins\<id>\<version>\`, verified and hot-reloaded.
+- Parsers are either signed modules in `plugins\<id>\<version>\` or JSON formats (`ParserTemplate`) run by the
+  core parser. Both are verified and hot-reloaded. The shipped formats are `builtinTemplates()` (exported to
+  `config/templates/` by `Pipkite.Tests.exe --export-samples <repo>`); a channel uses a format only after the user
+  picked it in **Detect format**. `emojiLabels` maps an emoji to a label word (🎯 -> TP).
+- `Pipkite.Tests/FormatCorpusTests.cpp` holds real-world layouts with what each format must read, and results and
+  chatter no format may read as a signal. Add a case there for every new layout. Taught formats are saved as `channel_<chatId>`, one version each time.
+- The backend delivers a format as a `parser_template` component: a folder with `manifest.json`
+  (`{"type": "parser_template", "version": "1.2.0"}`), `template.json` (same id and version) and optionally
+  `fixtures.json`. Put it in `_shared/<id>/` to offer it to everyone, or in a license folder. It has to pass its
+  fixtures and the shared negative corpus before it activates. Serving an older version rolls clients back.
 - `Pipkite.Plugin.GoldParser` is a sample parser module, handy for tests.
 
 ## Rules for changes
