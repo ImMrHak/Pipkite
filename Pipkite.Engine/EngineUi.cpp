@@ -143,7 +143,7 @@ void Engine::onUiConnection(std::shared_ptr<ipc::PipeConnection> c) {
             }
             c->send(body, 5000);
         };
-        static const std::set<std::string> slow{"data.backup", "data.importPreview", "data.exportReport", "ai.test", "mt5.installEA", "mt5.launch", "mt5.detectTerminals", "mt5.checkFolder","parser.requestCustom", "license.validate", "telegram.deleteSession", "parser.test", "parser.learn", "source.detectFormat", "ai.suggestFormat", "ai.setOwnKey",
+        static const std::set<std::string> slow{"data.backup", "data.importPreview", "data.exportReport", "ai.test", "mt5.installEA", "mt5.launch", "mt5.detectTerminals", "mt5.checkFolder","parser.requestCustom", "license.validate", "telegram.deleteSession", "parser.test", "parser.learn", "source.detectFormat", "ai.suggestFormat", "ai.setOwnKey", "app.downloadUpdate",
                                                  "history.page", "history.count", "history.detail"};
         if (slow.count(method)) std::thread(respond).detach();
         else respond();
@@ -336,6 +336,12 @@ json Engine::handleUiRequest(const std::string& method, const json& params) {
         for (auto& p : pts) realized.push_back({p.timeMs, p.value});
         curve["realized"] = realized;
         return curve;
+    }
+    // downloads ~30 MB: runs on the request thread, never on the engine thread
+    if (method == "app.downloadUpdate") {
+        auto path = updater_->downloadAppUpdate();
+        if (!path) fail(path.error().message);
+        return {{"path", platform::narrow(path.value())}};
     }
     if (method == "updates.history") return store_->updateHistory(std::clamp(params.value("limit", 20), 1, 20));
     if (method == "updates.markShown") {
@@ -1292,6 +1298,10 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
     if (method == "updates.status") return updater_->status();
     if (method == "updates.check") {
         updater_->checkNowAsync();
+        return {{"started", true}};
+    }
+    if (method == "updates.checkApp") {
+        updater_->checkAppAsync();
         return {{"started", true}};
     }
 

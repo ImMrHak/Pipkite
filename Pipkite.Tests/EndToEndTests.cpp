@@ -57,6 +57,7 @@ struct FakeAiProvider {
     SOCKET listener = INVALID_SOCKET;
     int port = 0;
     std::string chatAnswer;  // the model's answer text
+    std::map<std::string, std::string> files;  // other paths served as-is, e.g. a fake GitHub release
     std::mutex mu;
     std::vector<std::string> requests;  // request line, headers and body of each
     std::thread worker;
@@ -98,6 +99,17 @@ struct FakeAiProvider {
                 const int n = recv(c, buf, sizeof buf, 0);
                 if (n <= 0) break;
                 req.append(buf, n);
+            }
+            const auto sp = req.find(' ');
+            const std::string path = sp == std::string::npos ? "" : req.substr(sp + 1, req.find(' ', sp + 1) - sp - 1);
+            if (files.count(path)) {
+                const std::string& f = files[path];
+                const std::string head = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(f.size()) +
+                                         "\r\nConnection: close\r\n\r\n";
+                send(c, head.data(), static_cast<int>(head.size()), 0);
+                send(c, f.data(), static_cast<int>(f.size()), 0);
+                closesocket(c);
+                continue;
             }
             const bool models = req.find(" /v1/models ") != std::string::npos;
             const std::string body = models ? std::string(R"({"object":"list","data":[]})")
@@ -673,6 +685,84 @@ TEST(e2e_ai_format_help_with_the_users_own_key) {
     ai.stop();
     SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", nullptr);
     SetEnvironmentVariableW(L"PIPKITE_INSTANCE", nullptr);
+    std::error_code ec;
+    fs::remove_all(data, ec);
+}
+
+// The "update available" bar: a newer release on (a fake) GitHub is offered, and only an installer signed like
+// this copy of Pipkite is accepted. Set PIPKITE_TEST_SETUP to a signed installer to check the accepted case.
+TEST(e2e_app_update_is_offered_and_an_unsigned_installer_is_refused) {
+    const fs::path bin = platform::exeDir();
+    if (!fs::exists(bin / L"Pipkite.Engine.exe")) {
+        std::printf("        (skipped: engine not present in %s)\n", platform::narrow(bin.wstring()).c_str());
+        return;
+    }
+    const fs::path data = fs::temp_directory_path() / (L"PipkiteUpd-" + std::to_wstring(GetCurrentProcessId()));
+    fs::remove_all(data);
+    fs::create_directories(data);
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", data.c_str());
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", (L"upd" + std::to_wstring(GetCurrentProcessId())).c_str());
+    SetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", L"1");
+    wchar_t signedSetup[MAX_PATH] = {};
+    const bool expectAccepted = GetEnvironmentVariableW(L"PIPKITE_TEST_SETUP", signedSetup, MAX_PATH) > 0;
+    FakeAiProvider github;
+    CHECK(github.start());
+    const std::string base = "http://127.0.0.1:" + std::to_string(github.port);
+    github.files["/latest"] = json{{"tag_name", "v99.0.0"},
+                                   {"html_url", "https://github.com/ImMrHak/Pipkite/releases/tag/v99.0.0"},
+                                   {"assets", json::array({{{"name", "Pipkite-99.0.0-setup.exe"}, {"browser_download_url", base + "/setup"}}})}}
+                                  .dump();
+    github.files["/setup"] = expectAccepted ? platform::readFileUtf8(signedSetup, 256 * 1024 * 1024).value_or("") : std::string("MZ not a real installer");
+    SetEnvironmentVariableW(L"PIPKITE_RELEASES_URL", platform::widen(base + "/latest").c_str());
+    // The engine only offers to install into a copy made by the setup program (it has an uninstaller).
+    const fs::path uninstaller = bin / L"unins000.exe";
+    const bool madeUninstaller = !fs::exists(uninstaller);
+    if (madeUninstaller) platform::writeFileAtomic(uninstaller.wstring(), "test");
+    struct RemoveAtEnd {
+        fs::path p;
+        ~RemoveAtEnd() {
+            std::error_code ec;
+            if (!p.empty()) fs::remove(p, ec);  // also when a check fails: never leave it next to the build
+        }
+    } removeUninstaller{madeUninstaller ? uninstaller : fs::path{}};
+    {
+        Proc engine;
+        CHECK(engine.start(L"\"" + (bin / L"Pipkite.Engine.exe").wstring() + L"\""));
+        UiClient ui;
+        bool connected = false;
+        for (int i = 0; i < 40 && !connected; ++i) {
+            connected = ui.connect();
+            if (!connected) Sleep(250);
+        }
+        CHECK(connected);
+        ui.call("updates.check");
+        json offer;
+        for (int i = 0; i < 40 && offer.is_null(); ++i) {
+            json st = ui.call("updates.status");
+            if (st.contains("appUpdate")) offer = st["appUpdate"];
+            else Sleep(250);
+        }
+        CHECK(!offer.is_null());
+        CHECK_EQ(offer.value("version", ""), std::string("99.0.0"));
+        CHECK(offer.value("installable", false));
+        const fs::path saved = data / L"updates" / L"Pipkite-99.0.0-setup.exe";
+        if (expectAccepted) {
+            json r = ui.call("app.downloadUpdate", json::object(), 120000);
+            CHECK(fs::exists(platform::widen(r.value("path", ""))));
+        } else {
+            std::string error;
+            try {
+                ui.call("app.downloadUpdate", json::object(), 60000);
+            } catch (const srtest::Failure& f) {
+                error = f.message;
+            }
+            CHECK(error.find("signed") != std::string::npos);  // unsigned dev build, or an installer not signed by Pipkite
+            CHECK(!fs::exists(saved));
+        }
+        ui.call("engine.shutdown");
+    }
+    SetEnvironmentVariableW(L"PIPKITE_RELEASES_URL", nullptr);
+    github.stop();
     std::error_code ec;
     fs::remove_all(data, ec);
 }

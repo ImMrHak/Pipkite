@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Update from inside the app.** When a new version is out, a bar at the top says so. **Update now** downloads it,
+  checks it is signed by Pipkite, closes Pipkite, installs it and opens it again. Open trades are not touched.
+  Portable copies get a **Download** button instead. Pipkite asks GitHub for the latest version each time it
+  starts and every few hours after. The bar slides in, with a light running along its edge while it downloads.
+- Removed the old, unused "staged core update" code; the launcher now just starts Pipkite.
+
 ## 1.0.3
 
 - New channels without a custom parser: **Detect format** shows what every format reads from your own example

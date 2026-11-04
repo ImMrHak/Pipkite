@@ -353,6 +353,63 @@ protected:
     virtual void OnPaint(PaintEventArgs^ e) override { e->Graphics->FillRectangle(gcnew SolidBrush(Theme::Border), ClientRectangle); }
 };
 
+// Thin accent line under the update bar: a soft light sweeps across it once when the bar appears, and keeps
+// sweeping while Busy (downloading). Static when Windows animation effects are off.
+public ref class SweepLine : public Control {
+public:
+    SweepLine() {
+        SetStyle(ControlStyles::OptimizedDoubleBuffer | ControlStyles::AllPaintingInWmPaint | ControlStyles::UserPaint | ControlStyles::ResizeRedraw, true);
+        Height = 3;
+        Dock = DockStyle::Bottom;
+        Tag = "keep";
+        TabStop = false;
+        clock_ = gcnew Diagnostics::Stopwatch();
+        timer_ = gcnew Windows::Forms::Timer();
+        timer_->Interval = 16;
+        timer_->Tick += gcnew EventHandler(this, &SweepLine::OnTick);
+    }
+    property bool Busy {
+        bool get() { return busy_; }
+        void set(bool v) {
+            busy_ = v;
+            if (v) Sweep();
+        }
+    }
+    void Sweep() {
+        if (!SystemInformation::UIEffectsEnabled) return Invalidate();
+        clock_->Restart();
+        timer_->Start();
+    }
+
+protected:
+    virtual void OnPaint(PaintEventArgs^ e) override {
+        Graphics^ g = e->Graphics;
+        Color bg = Parent != nullptr ? Parent->BackColor : Theme::Surface;
+        g->Clear(Theme::Mix(bg, Theme::Accent, 0.22f));  // resting track
+        if (!timer_->Enabled || Width <= 0) return;
+        double p = clock_->Elapsed.TotalMilliseconds / kSweepMs;
+        p -= Math::Floor(p);
+        p = p < 0.5 ? 4 * p * p * p : 1 - Math::Pow(-2 * p + 2, 3) / 2;  // ease in-out
+        const float w = Math::Max(60.0f, Width * 0.28f), x = static_cast<float>(-w + (Width + w) * p);
+        LinearGradientBrush^ glow = gcnew LinearGradientBrush(RectangleF(x - 1, 0, w + 2, static_cast<float>(Height)), bg, bg, 0.0f);
+        ColorBlend^ blend = gcnew ColorBlend(3);
+        blend->Colors = gcnew array<Color>{Color::FromArgb(0, Theme::Accent), Theme::Mix(Theme::Accent, Color::White, 0.45f), Color::FromArgb(0, Theme::Accent)};
+        blend->Positions = gcnew array<float>{0.0f, 0.5f, 1.0f};
+        glow->InterpolationColors = blend;
+        g->FillRectangle(glow, x, 0.0f, w, static_cast<float>(Height));
+    }
+
+private:
+    literal double kSweepMs = 1100;
+    Diagnostics::Stopwatch^ clock_;
+    Windows::Forms::Timer^ timer_;
+    bool busy_;
+    void OnTick(Object^, EventArgs^) {
+        if (!busy_ && clock_->Elapsed.TotalMilliseconds >= kSweepMs) timer_->Stop();
+        Invalidate();
+    }
+};
+
 // Brand mark: the Pipkite kite, drawn from the logo's 1000-unit outline (brand/svg/pipkite-symbol.svg).
 public ref class BrandMark : public Control {
 public:
