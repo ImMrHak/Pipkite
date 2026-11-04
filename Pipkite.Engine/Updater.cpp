@@ -1,9 +1,13 @@
 #include "Updater.h"
 
 #include <windows.h>
+#include <softpub.h>
+#include <wincrypt.h>
+#include <wintrust.h>
 
 #include <filesystem>
 
+#include "AppRelease.h"
 #include "Http.h"
 #include "Pipkite.Core/Models.h"
 #include "Pipkite.Protocol/Crypto.h"
@@ -16,35 +20,80 @@ namespace fs = std::filesystem;
 
 namespace {
 
-int compareVersions(const std::string& a, const std::string& b) {
-    auto parts = [](const std::string& v) {
-        std::vector<int> p;
-        std::size_t start = 0;
-        while (start <= v.size()) {
-            auto dot = v.find('.', start);
-            try {
-                p.push_back(std::stoi(v.substr(start, dot - start)));
-            } catch (...) {
-                p.push_back(0);
-            }
-            if (dot == std::string::npos) break;
-            start = dot + 1;
-        }
-        while (p.size() < 3) p.push_back(0);
-        return p;
-    };
-    auto pa = parts(a), pb = parts(b);
-    for (std::size_t i = 0; i < 3; ++i)
-        if (pa[i] != pb[i]) return pa[i] < pb[i] ? -1 : 1;
-    return 0;
-}
-
 std::string baseOf(const std::string& url) {
     auto slash = url.find_last_of("/\\");
     return slash == std::string::npos ? std::string{} : url.substr(0, slash + 1);
 }
 
 bool safeName(const std::string& n) { return !n.empty() && n.find_first_of("/\\:") == std::string::npos && n.find("..") == std::string::npos && n.size() < 128; }
+
+// Tests point the release check at a local server; a normal install always asks GitHub.
+std::string latestReleaseUrl() {
+    wchar_t hooks[4] = {}, url[512] = {};
+    if (GetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", hooks, 4) == 1 && hooks[0] == L'1') {
+        const DWORD n = GetEnvironmentVariableW(L"PIPKITE_RELEASES_URL", url, 512);
+        if (n > 0 && n < 512) return platform::narrow(url);
+    }
+    return kLatestReleaseUrl;
+}
+
+// Installed by the setup program (portable copies have no uninstaller and update by hand).
+bool installedCopy() { return fs::exists(platform::exeDir() + L"\\unins000.exe"); }
+
+// The Authenticode signature is intact and chains to a trusted root (the installer trusts Pipkite's).
+bool signatureValid(const std::wstring& path) {
+    WINTRUST_FILE_INFO file{sizeof file};
+    file.pcwszFilePath = path.c_str();
+    WINTRUST_DATA data{sizeof data};
+    data.dwUIChoice = WTD_UI_NONE;
+    data.fdwRevocationChecks = WTD_REVOKE_NONE;
+    data.dwUnionChoice = WTD_CHOICE_FILE;
+    data.pFile = &file;
+    data.dwStateAction = WTD_STATEACTION_VERIFY;
+    GUID action = WINTRUST_ACTION_GENERIC_VERIFY_V2;
+    const LONG r = WinVerifyTrust(static_cast<HWND>(INVALID_HANDLE_VALUE), &action, &data);
+    data.dwStateAction = WTD_STATEACTION_CLOSE;
+    WinVerifyTrust(static_cast<HWND>(INVALID_HANDLE_VALUE), &action, &data);
+    return r == ERROR_SUCCESS;
+}
+
+// SHA-1 thumbprint of the certificate that signed a file, "" when it isn't signed.
+std::string signerThumbprint(const std::wstring& path) {
+    HCERTSTORE store = nullptr;
+    HCRYPTMSG msg = nullptr;
+    if (!CryptQueryObject(CERT_QUERY_OBJECT_FILE, path.c_str(), CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED_EMBED, CERT_QUERY_FORMAT_FLAG_BINARY, 0, nullptr, nullptr, nullptr,
+                          &store, &msg, nullptr))
+        return {};
+    std::string out;
+    DWORD size = 0;
+    if (CryptMsgGetParam(msg, CMSG_SIGNER_INFO_PARAM, 0, nullptr, &size)) {
+        std::vector<BYTE> buf(size);
+        if (CryptMsgGetParam(msg, CMSG_SIGNER_INFO_PARAM, 0, buf.data(), &size)) {
+            const auto* signer = reinterpret_cast<const CMSG_SIGNER_INFO*>(buf.data());
+            CERT_INFO wanted{};
+            wanted.Issuer = signer->Issuer;
+            wanted.SerialNumber = signer->SerialNumber;
+            if (PCCERT_CONTEXT cert = CertFindCertificateInStore(store, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, 0, CERT_FIND_SUBJECT_CERT, &wanted, nullptr)) {
+                crypto::Bytes hash(20);
+                DWORD n = static_cast<DWORD>(hash.size());
+                if (CertGetCertificateContextProperty(cert, CERT_HASH_PROP_ID, hash.data(), &n)) {
+                    hash.resize(n);
+                    out = crypto::toHex(hash);
+                }
+                CertFreeCertificateContext(cert);
+            }
+        }
+    }
+    CryptMsgClose(msg);
+    CertCloseStore(store, 0);
+    return out;
+}
+
+std::wstring selfPath() {
+    wchar_t buf[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, buf, MAX_PATH);
+    return buf;
+}
 
 }  // namespace
 
@@ -83,19 +132,57 @@ json Updater::status() const {
     std::lock_guard lock(mu_);
     json s = status_;
     s["installedVersion"] = kProductVersion;
-    // A staged CORE update (new app/UI binaries) needs a restart to apply; parser/bridge updates hot-reload
-    // and never set this. The UI uses restartPending to prompt the user "update now or later".
-    const std::wstring pending = platform::ensureSubdir(L"versions") + L"\\pending.json";
-    if (std::filesystem::exists(pending)) {
-        if (auto txt = platform::readFileUtf8(pending, 64 * 1024)) {
-            json pj = json::parse(*txt, nullptr, false);
-            if (!pj.is_discarded()) {
-                s["restartPending"] = true;
-                s["pendingVersion"] = pj.value("version", "");
-            }
-        }
+    if (!appUpdate_.is_null()) {
+        s["appUpdate"] = appUpdate_;
+        s["appUpdate"]["installable"] = installedCopy() && !appUpdate_.value("setupUrl", "").empty();
     }
     return s;
+}
+
+void Updater::checkAppRelease(bool force) {
+    // GitHub allows 60 unauthenticated requests an hour per address: every 6 hours is plenty.
+    const std::int64_t now = clock_.nowMs();
+    if (!force && lastAppCheckMs_ != 0 && now - lastAppCheckMs_ < 6LL * 3600 * 1000) return;
+    lastAppCheckMs_ = now;
+    auto r = httpRequest("GET", latestReleaseUrl(), "", "", 10000, 512 * 1024, {{"Accept", "application/vnd.github+json"}});
+    if (r.status != 200) return;  // offline or rate-limited: try again next time
+    json info;
+    try {
+        info = appReleaseInfo(json::parse(r.body), kProductVersion);
+    } catch (...) {
+        return;
+    }
+    bool fresh = false;
+    {
+        std::lock_guard lock(mu_);
+        fresh = !info.is_null() && (appUpdate_.is_null() || appUpdate_.value("version", "") != info.value("version", ""));
+        appUpdate_ = info;
+    }
+    if (fresh && hooks_.notify) hooks_.notify("Pipkite " + info.value("version", "") + " is available. Update from the bar at the top of the window.");
+}
+
+Result<std::wstring> Updater::downloadAppUpdate() {
+    json info;
+    {
+        std::lock_guard lock(mu_);
+        info = appUpdate_;
+    }
+    if (info.is_null()) return Error{"no_update", "No newer version of Pipkite was found."};
+    if (!installedCopy()) return Error{"portable", "This is the portable version: download the new one from the release page."};
+    const std::string name = info.value("setupName", ""), url = info.value("setupUrl", "");
+    if (url.empty() || !safeName(name)) return Error{"no_installer", "This release has no installer to download."};
+    const std::string mine = signerThumbprint(selfPath());
+    if (mine.empty()) return Error{"unsigned", "This copy of Pipkite isn't signed, so it can't check the update. Download it from the release page."};
+    auto r = httpRequest("GET", url, "", "", 120000, 256 * 1024 * 1024, {});
+    if (r.status != 200 || r.body.empty()) return Error{"download_failed", "Couldn't download the update. Check your connection and try again."};
+    const std::wstring path = platform::ensureSubdir(L"updates") + L"\\" + platform::widen(name);
+    if (!platform::writeFileAtomic(path, r.body)) return Error{"write_failed", "Couldn't save the update."};
+    // Only run an installer signed with the same certificate as this copy of Pipkite.
+    if (signerThumbprint(path) != mine || !signatureValid(path)) {
+        DeleteFileW(path.c_str());
+        return Error{"untrusted", "The downloaded installer isn't signed by Pipkite, so it wasn't run."};
+    }
+    return path;
 }
 
 void Updater::startBackgroundCheck() {
@@ -107,6 +194,7 @@ void Updater::checkNowAsync() {
     std::thread([this] {
         auto st = checkOnce();
         if (!st) setStatus("failed", st.error().message);
+        checkAppRelease(true);
     }).detach();
 }
 
@@ -117,6 +205,7 @@ void Updater::run(bool once) {
     int backoffSec = 30;
     while (running_) {
         auto st = checkOnce();
+        checkAppRelease(false);
         if (once) break;
         int waitSec = kRecheckSec;
         if (st) {
@@ -172,7 +261,7 @@ Status Updater::processManifest(const json& manifest, const std::string& baseUrl
         setStatus("up_to_date", "Release is rolling out gradually; this installation is not yet included");
         return okStatus();
     }
-    int installed = 0, staged = 0, failed = 0;
+    int installed = 0, failed = 0;
     for (auto& c : manifest.value("components", json::array())) {
         const std::string type = c.value("type", "");
         if (c.value("minHostAbi", 1) > 1) {
@@ -191,15 +280,10 @@ Status Updater::processManifest(const json& manifest, const std::string& baseUrl
             auto st = installTemplate(manifest, c, baseUrl);
             if (st) ++installed;
             else ++failed;
-        } else if (type == "core") {
-            if (compareVersions(c.value("version", "0"), kProductVersion) <= 0) continue;
-            auto st = stageCore(manifest, c, baseUrl);
-            if (st) ++staged;
-            else ++failed;
         }
     }
     setStatus(failed ? "partial" : "checked",
-              std::to_string(installed) + " module(s) activated, " + std::to_string(staged) + " core release(s) staged, " + std::to_string(failed) + " failed");
+              std::to_string(installed) + " module(s) activated, " + std::to_string(failed) + " failed");
     return okStatus();
 }
 
@@ -300,24 +384,6 @@ Status Updater::installTemplate(const json& release, const json& c, const std::s
     if (!st) return fail(st.error().message);
     store_.putSetting(appliedKey, version);
     store_.addUpdateHistory(releaseId, id, "", version, "activated", notes, false);
-    return okStatus();
-}
-
-Status Updater::stageCore(const json& release, const json& c, const std::string& baseUrl) {
-    const std::string version = c.value("version", "");
-    if (!safeName(version)) return failStatus("package_invalid", "Invalid core version");
-    const std::wstring dir = platform::ensureSubdir(L"versions\\" + platform::widen(version));
-    auto dl = download(c, baseUrl, dir);
-    if (!dl) {
-        store_.addUpdateHistory(release.value("releaseId", ""), "core", kProductVersion, version, "failed", {{"error", dl.error().message}}, true);
-        return dl.error();
-    }
-    json pending = {{"version", version}, {"dir", platform::narrow(dir)}, {"entry", c.value("entry", "Pipkite.Launcher.exe")}, {"releaseId", release.value("releaseId", "")},
-                    {"requiresReconciliation", true}};
-    platform::writeFileAtomic(platform::ensureSubdir(L"versions") + L"\\pending.json", pending.dump(2));
-    json changelog = release.value("changelog", json::array());
-    store_.addUpdateHistory(release.value("releaseId", ""), "core", kProductVersion, version, "staged", {{"changelog", changelog}, {"restartRequired", true}}, true);
-    if (hooks_.notify) hooks_.notify("Pipkite " + version + " is staged and will be applied on the next safe restart");
     return okStatus();
 }
 

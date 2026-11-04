@@ -114,6 +114,15 @@ $iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if ($iscc) {
     & $iscc "/DAppVersion=$Version" "/DStageDir=$stage" "/O$dist" (Join-Path $PSScriptRoot "Pipkite.iss")
     if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
+    # In-app updates only run an installer signed with the same certificate as the installed app.
+    $setup = Join-Path $dist "Pipkite-$Version-setup.exe"
+    $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -eq "CN=Pipkite" -and $_.HasPrivateKey } | Sort-Object NotAfter -Descending | Select-Object -First 1
+    if ($cert) {
+        $r = Set-AuthenticodeSignature -FilePath $setup -Certificate $cert -HashAlgorithm SHA256
+        if ($r.Status -ne 'Valid') { throw "Signing the installer failed: $($r.Status)" }
+    } else {
+        Write-Warning "No CN=Pipkite signing certificate: the installer is unsigned and in-app updates will refuse it."
+    }
 } else {
     Write-Host "Inno Setup not found: skipped Pipkite-$Version-setup.exe (install Inno Setup and re-run to produce it)."
 }

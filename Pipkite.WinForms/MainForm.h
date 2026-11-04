@@ -168,9 +168,35 @@ public:
         status_->Font = Theme::Small;
         status_->Padding = Windows::Forms::Padding(12, 2, 8, 2);
 
+        // shown when a newer Pipkite is on GitHub
+        updateText_ = L::Text("");
+        updateText_->Margin = Windows::Forms::Padding(0, 8, 16, 0);
+        updateNow_ = L::Btn("Update now", "accent", "Download the new version, close Pipkite, install it and open it again. Open trades are not touched.");
+        updateNow_->Click += gcnew EventHandler(this, &MainForm::OnUpdateNow);
+        Button^ updateNotes = L::Btn("What's new", nullptr, "Open the release notes in your browser.");
+        updateNotes->Click += gcnew EventHandler(this, &MainForm::OnUpdateNotes);
+        Button^ updateLater = L::Btn("Later", nullptr, "Hide this until Pipkite starts again.");
+        updateLater->Click += gcnew EventHandler(this, &MainForm::OnUpdateLater);
+        FlowLayoutPanel^ updateRow = gcnew FlowLayoutPanel();
+        updateRow->Dock = DockStyle::Fill;
+        updateRow->WrapContents = false;
+        updateRow->Tag = "surface";
+        updateRow->Controls->Add(updateText_);
+        updateRow->Controls->Add(updateNow_);
+        updateRow->Controls->Add(updateNotes);
+        updateRow->Controls->Add(updateLater);
+        updateBar_ = gcnew Panel();
+        updateBar_->Dock = DockStyle::Top;
+        updateBar_->Height = 46;
+        updateBar_->Padding = Windows::Forms::Padding(18, 6, 18, 6);
+        updateBar_->Tag = "surface";
+        updateBar_->Visible = false;
+        updateBar_->Controls->Add(updateRow);
+
         Controls->Add(content_);
         Controls->Add(navLine);
         Controls->Add(nav_);
+        Controls->Add(updateBar_);
         Controls->Add(topLine);
         Controls->Add(top_);
         Controls->Add(status_);
@@ -258,7 +284,12 @@ private:
     bool minimizeToTray_;
     bool notifications_;
     bool settingsLoaded_;
-    bool restartPrompted_;
+    Panel^ updateBar_;
+    Label^ updateText_;
+    Button^ updateNow_;
+    String^ updateVersion_;
+    String^ updatePage_;
+    bool updateInstallable_, updateHidden_, updating_;
     bool paused_;
     String^ mode_;
     JObj^ snapshot_;
@@ -335,15 +366,16 @@ private:
     void OnSnapshot(JObj^ s) {
         frameWatch_->Restart();
         snapshot_ = s;
-        // A core/UI update that needs a restart: offer now or later (parser/bridge updates hot-reload silently).
-        JObj^ upd = J::Obj(s, "updates");
-        if (!restartPrompted_ && upd != nullptr && J::Bool(upd, "restartPending")) {
-            restartPrompted_ = true;
-            String^ ver = J::Str(upd, "pendingVersion");
-            if (MessageBox::Show(this, "A Pipkite update" + (ver != "" ? " (v" + ver + ")" : "") +
-                                           " is downloaded and ready. It needs a quick restart to apply.\n\nUpdate now?",
-                                 "Update ready", MessageBoxButtons::YesNo, MessageBoxIcon::Information) == System::Windows::Forms::DialogResult::Yes)
-                client_->Call("engine.shutdown", nullptr);  // the launcher relaunches and applies the staged update
+        // A newer Pipkite on GitHub: show the update bar (parser and format updates install by themselves).
+        JObj^ app = J::Obj(J::Obj(s, "updates"), "appUpdate");
+        if (app != nullptr && !updateHidden_ && !updating_ && J::Str(app, "version") != updateVersion_) {
+            updateVersion_ = J::Str(app, "version");
+            updatePage_ = J::Str(app, "page");
+            updateInstallable_ = J::Bool(app, "installable");
+            updateText_->Text = "Pipkite " + updateVersion_ + " is available.";
+            updateNow_->Text = updateInstallable_ ? "Update now" : "Download";
+            if (!updateInstallable_) L::Tip(updateNow_, "Open the release page to download the new version (portable copies update by hand).");
+            updateBar_->Visible = true;
         }
         mode_ = J::Str(s, "mode");
         paused_ = J::Bool(s, "paused");
@@ -432,6 +464,45 @@ private:
     }
 
     void OnExitMenu(Object^, EventArgs^) { ExitApplication(); }
+
+    void OnUpdateNotes(Object^, EventArgs^) {
+        if (updatePage_ != nullptr && updatePage_->StartsWith("https://")) Diagnostics::Process::Start(updatePage_);
+    }
+
+    void OnUpdateLater(Object^, EventArgs^) {
+        updateHidden_ = true;
+        updateBar_->Visible = false;
+    }
+
+    void OnUpdateNow(Object^, EventArgs^) {
+        if (!updateInstallable_) return OnUpdateNotes(nullptr, nullptr);  // portable copy: download by hand
+        if (MessageBox::Show(this, "Pipkite will download version " + updateVersion_ + ", close, install it and open again.\n\n" +
+                                       "Copying stops for about a minute. Open trades stay at your broker and are not touched.\n\nUpdate now?",
+                             "Update Pipkite", MessageBoxButtons::YesNo, MessageBoxIcon::Question) != Windows::Forms::DialogResult::Yes)
+            return;
+        updating_ = true;
+        updateNow_->Enabled = false;
+        updateText_->Text = "Downloading Pipkite " + updateVersion_ + "...";
+        client_->Call("app.downloadUpdate", nullptr, gcnew ResponseHandler(this, &MainForm::OnUpdateDownloaded));
+    }
+
+    void OnUpdateDownloaded(bool ok, Object^ result, String^ error) {
+        if (!ok) {
+            updating_ = false;
+            updateNow_->Enabled = true;
+            updateText_->Text = "Pipkite " + updateVersion_ + " is available.";
+            return Prompt::Error(this, error);
+        }
+        // The engine checked the installer is signed like this copy. It closes Pipkite, installs and opens it again.
+        String^ installer = J::Str(J::Obj(result), "path");
+        exiting_ = true;
+        client_->Call("engine.shutdown", nullptr);  // orderly engine shutdown
+        Threading::Thread::Sleep(300);
+        Diagnostics::ProcessStartInfo^ start = gcnew Diagnostics::ProcessStartInfo(installer, "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS");
+        start->UseShellExecute = false;
+        Diagnostics::Process::Start(start);
+        Close();
+    }
 
     void ExitApplication() {
         if (MessageBox::Show(this->Visible ? this : nullptr, "Exit Pipkite and stop the engine? New signals will not be copied until you start it again. Existing positions stay at the broker.",

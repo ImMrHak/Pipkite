@@ -55,6 +55,8 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 Filename: "{sys}\certutil.exe"; Parameters: "-user -addstore -f Root ""{app}\Pipkite-publisher.cer"""; Flags: runhidden; StatusMsg: "Trusting the Pipkite publisher certificate..."
 Filename: "{sys}\certutil.exe"; Parameters: "-user -addstore -f TrustedPublisher ""{app}\Pipkite-publisher.cer"""; Flags: runhidden
 Filename: "{app}\Pipkite.Launcher.exe"; Description: "Start Pipkite"; Flags: nowait postinstall skipifsilent
+; In-app updates run this installer silently: open Pipkite again afterwards.
+Filename: "{app}\Pipkite.Launcher.exe"; Flags: nowait skipifnotsilent
 
 [UninstallRun]
 ; Remove the publisher certificate we trusted at install time.

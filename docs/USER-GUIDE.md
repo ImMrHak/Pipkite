@@ -4,7 +4,7 @@ Pipkite copies trading signals from your Telegram channels into MetaTrader 5. Th
 and every screen. You don't need to know any programming.
 
 **Contents:** [Before you start](#before-you-start) · [Setup](#setup-step-by-step) · [Screens](#screens) ·
-[Pausing](#pausing) · [AI review](#ai-review) · [Your data](#your-data) · [Something wrong?](#something-wrong) ·
+[Updating](#updating) · [Pausing](#pausing) · [AI review](#ai-review) · [Your data](#your-data) · [Something wrong?](#something-wrong) ·
 [Words you'll see](#words-youll-see)
 
 ## Before you start
@@ -146,6 +146,18 @@ message Pipkite couldn't read and click **Teach Pipkite from this message...** t
 **Settings.** Theme, start with Windows, how long data is kept, backups, license key, updates. Under **Signal
 formats and AI help**: whether to look up and share formats with other users of a channel, and which AI helps with
 formats (Pipkite's, or your own OpenAI, DeepSeek or other OpenAI-compatible key, stored encrypted on your PC).
+
+## Updating
+
+When a new version is out, a bar at the top of the window says **Pipkite X is available**.
+
+- **Update now** downloads it, checks it's signed by Pipkite, closes Pipkite, installs the new version and opens it
+  again. Copying stops for about a minute. Your settings, channels and history are kept, and open trades aren't
+  touched.
+- **What's new** opens the release notes. **Later** hides the bar until Pipkite starts again.
+- The portable version shows **Download** instead: get the new zip and unzip it over the old folder.
+
+Signal formats and parsers update by themselves, without this bar.
 
 ## Pausing
 

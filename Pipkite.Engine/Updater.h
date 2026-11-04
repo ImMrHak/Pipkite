@@ -1,7 +1,7 @@
 #pragma once
 // update check on every launch, in the background (3s timeout, then backoff), and every 30 minutes after.
-// manifest signature and file hashes are verified. parser/bridge modules hot-reload, core releases
-// go through the launcher. never touches copying mode, risk or sources.
+// manifest signature and file hashes are verified. parser/bridge modules hot-reload. new app versions come
+// from GitHub releases: the UI offers them and runs the installer. never touches copying mode, risk or sources.
 
 #include <atomic>
 #include <functional>
@@ -39,6 +39,8 @@ public:
     void startBackgroundCheck();
     void checkNowAsync();
     nlohmann::json status() const;
+    // Downloads the newer version's installer and checks it is signed like this copy. Returns its path.
+    Result<std::wstring> downloadAppUpdate();
 
     std::string manifestUrl() const;
     std::string channel() const;
@@ -50,7 +52,7 @@ private:
     Status processManifest(const nlohmann::json& manifest, const std::string& baseUrl);
     Status installModule(const nlohmann::json& release, const nlohmann::json& component, const std::string& baseUrl);
     Status installTemplate(const nlohmann::json& release, const nlohmann::json& component, const std::string& baseUrl);
-    Status stageCore(const nlohmann::json& release, const nlohmann::json& component, const std::string& baseUrl);
+    void checkAppRelease(bool force);
     Result<std::wstring> download(const nlohmann::json& component, const std::string& baseUrl, const std::wstring& destDir);
     HttpHeaders licenseHeaders() const;
     void setStatus(const std::string& state, const std::string& detail);
@@ -63,6 +65,8 @@ private:
     std::thread thread_;
     mutable std::mutex mu_;
     nlohmann::json status_ = {{"state", "idle"}};
+    nlohmann::json appUpdate_;  // newer GitHub release, null when up to date (guarded by mu_)
+    std::atomic<std::int64_t> lastAppCheckMs_{0};
 };
 
 }  // namespace sr::engine
