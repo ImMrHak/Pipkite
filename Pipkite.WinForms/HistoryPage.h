@@ -16,7 +16,7 @@ public:
         search_ = L::Box(280);
         search_->AccessibleName = "Search history";
         search_->KeyDown += gcnew KeyEventHandler(this, &HistoryPage::OnSearchKey);
-        state_ = L::Combo(150, gcnew array<String^>{"(any state)", "Dispatched", "Previewed", "Waiting", "Review", "Rejected", "Expired", "Historical", "Planned", "Validated"});
+        state_ = L::Combo(150, gcnew array<String^>{"(any state)", "Dispatched", "Previewed", "Waiting", "Review", "Rejected", "Ignored", "Expired", "Historical", "Planned", "Validated"});
         Button^ go = L::Btn("Search", "accent", "Find past messages by text and state.");
         go->Click += gcnew EventHandler(this, &HistoryPage::OnSearch);
         Button^ csv = L::Btn("Export CSV...", nullptr, "Save the current results as a spreadsheet-friendly CSV file.");

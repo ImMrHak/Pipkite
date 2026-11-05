@@ -11,6 +11,37 @@ public ref class PolicyPage : public PageBase {
 public:
     PolicyPage() {
         FlowLayoutPanel^ stack = L::Stack();
+        limitMap_ = gcnew Dictionary<String^, array<double>^>();
+        catalog_ = gcnew List<String^>();
+
+        // First on the page: a symbol without a max spread is never traded.
+        FlowLayoutPanel^ sl = gcnew FlowLayoutPanel();
+        sl->FlowDirection = FlowDirection::TopDown;
+        sl->AutoSize = true;
+        sl->Controls->Add(L::Wrap("Pipkite only trades a symbol that has a max spread. Pick a symbol, set its limits, then click Save policy.", nullptr, 680));
+        TableLayoutPanel^ lf = L::Form2();
+        symbol_ = L::Combo(200, gcnew array<String^>{});
+        symbol_->MaxDropDownItems = 18;
+        symbol_->AccessibleName = "Broker symbol";
+        symbol_->SelectedIndexChanged += gcnew EventHandler(this, &PolicyPage::OnSymbolPicked);
+        L::AddField(lf, "Broker symbol", symbol_, "Symbols from your MetaTrader. The ones you already set are listed first.");
+        spread_ = L::Num(0, 100000, 0, 5, 0.01);
+        L::AddField(lf, "Max spread (price units)", spread_, "Skip the trade if the spread is wider than this. For gold, 0.40 means 40 cents. 0 = this symbol is not traded.");
+        deviation_ = L::Num(0, 100000, 0, 5, 0.01);
+        L::AddField(lf, "Entry deviation (price units)", deviation_, "How far the price may be from the signal's entry and still be taken. For gold, 1.00 means $1.");
+        symLots_ = L::Num(0, 1000, 0, 2, 0.01);
+        L::AddField(lf, "Max lots (0 = none)", symLots_, "The biggest trade size on this symbol. 0 = no cap.");
+        for each (NumericUpDown^ n in gcnew array<NumericUpDown^>{spread_, deviation_, symLots_}) n->ValueChanged += gcnew EventHandler(this, &PolicyPage::OnLimitEdited);
+        sl->Controls->Add(lf);
+        suggest_ = L::Wrap("", "muted", 500);
+        useSuggest_ = L::Btn("Use suggested limits", nullptr, "Fill in the suggested limits for this symbol. Nothing is traded until you click Save policy.");
+        useSuggest_->Click += gcnew EventHandler(this, &PolicyPage::OnUseSuggested);
+        suggestRow_ = L::Row(suggest_, useSuggest_);
+        suggestRow_->Visible = false;
+        sl->Controls->Add(suggestRow_);
+        symStatus_ = L::Text("", "muted");
+        sl->Controls->Add(symStatus_);
+        stack->Controls->Add(L::Group("Symbol limits", sl));
 
         TableLayoutPanel^ sz = L::Form2();
         sizingMode_ = L::Combo(220, gcnew array<String^>{"fixed_total_lots", "risk_percent"});
@@ -78,23 +109,6 @@ public:
         L::AddField(ac, "Trading hours (HH:MM - HH:MM)", L::Row(startMin_, L::Text("to"), endMin_), "Only copy during these local hours. Use 00:00 to 24:00 for all day.");
         stack->Controls->Add(L::Group("Account limits", ac));
 
-        FlowLayoutPanel^ sl = gcnew FlowLayoutPanel();
-        sl->FlowDirection = FlowDirection::TopDown;
-        sl->AutoSize = true;
-        limits_ = gcnew BufferedGrid();
-        limits_->ReadOnly = false;
-        limits_->AllowUserToAddRows = true;
-        limits_->AllowUserToDeleteRows = true;
-        limits_->Width = 720;
-        limits_->Height = 140;
-        limits_->AddCol("symbol", "Broker symbol", 160);
-        limits_->AddCol("spread", "Max spread (price units)", 170);
-        limits_->AddCol("deviation", "Entry deviation (price units)", 190);
-        limits_->AddCol("lots", "Max lots (0 = none)", 150);
-        limits_->AccessibleName = "Symbol limits";
-        sl->Controls->Add(limits_);
-        stack->Controls->Add(L::Group("Symbol limits", sl));
-
         TableLayoutPanel^ ai = L::Form2();
         alwaysAssess_ = L::Check("Review every signal with AI (shows Good / Uncertain / Bad in the feed)");
         L::Tip(alwaysAssess_, "On: the fields of every valid signal (never your account or messages) are sent to the Pipkite AI and kept to help it learn. Its verdict shows in the Live feed's AI column. It's advice: it never blocks a trade.");
@@ -126,7 +140,9 @@ public:
     }
 
     virtual void OnActivated() override {
-        if (Client != nullptr && Client->Connected) OnReload(nullptr, nullptr);
+        if (Client == nullptr || !Client->Connected) return;
+        OnReload(nullptr, nullptr);
+        Client->Call("mt5.status", nullptr, gcnew ResponseHandler(this, &PolicyPage::OnStatus));  // broker symbols for the picker
     }
 
 private:
@@ -136,14 +152,109 @@ private:
         ^maxLots_, ^maxDailyLoss_, ^resetOffset_, ^maxRisk_, ^deadline_, ^threshold_;
     CheckBox ^ messageLot_, ^fallback_, ^catchUp_, ^semantic_, ^forceEnter_, ^alwaysAssess_;
     TextBox ^ allocations_, ^startMin_, ^endMin_;
-    BufferedGrid^ limits_;
-    Label^ status_;
+    ComboBox^ symbol_;
+    NumericUpDown ^ spread_, ^deviation_, ^symLots_;
+    Label ^ symStatus_, ^status_, ^suggest_;
+    Button^ useSuggest_;
+    FlowLayoutPanel^ suggestRow_;
+    Dictionary<String^, array<double>^>^ limitMap_;  // symbol -> {max spread, entry deviation, max lots}
+    List<String^>^ catalog_;                          // every broker symbol from MetaTrader
     JObj^ policy_;
     bool loading_, dirty_;
 
-    void OnDirty(Object^, EventArgs^) {
-        if (loading_) return;
+    void OnDirty(Object^ sender, EventArgs^) {
+        if (loading_ || sender == symbol_) return;  // picking a symbol to look at is not a change
         SetStatus(true);
+    }
+
+    void OnStatus(bool ok, Object^ result, String^) {
+        if (!ok) return;
+        JObj^ r = J::Obj(result);
+        catalog_->Clear();
+        array<Object^>^ catalog = J::Arr(r, "catalog");
+        if (catalog != nullptr && catalog->Length > 0) {
+            for each (Object^ o in catalog) { String^ n = o->ToString(); if (n != "") catalog_->Add(n); }
+        } else {
+            for each (Object^ o in J::Arr(r, "symbols")) { String^ n = J::Str(J::Obj(o), "name"); if (n != "") catalog_->Add(n); }
+        }
+        RebuildSymbols();
+    }
+
+    // Symbols already set come first, then the rest of the broker's list.
+    void RebuildSymbols() {
+        bool was = loading_;
+        loading_ = true;
+        String^ keep = symbol_->Text;
+        List<String^>^ set = gcnew List<String^>(limitMap_->Keys);
+        set->Sort();
+        symbol_->Items->Clear();
+        for each (String^ s in set) symbol_->Items->Add(s);
+        for each (String^ s in catalog_) if (!limitMap_->ContainsKey(s)) symbol_->Items->Add(s);
+        int i = symbol_->Items->IndexOf(keep);
+        symbol_->SelectedIndex = i >= 0 ? i : (symbol_->Items->Count > 0 ? 0 : -1);
+        loading_ = was;
+        ShowSymbol();
+    }
+
+    void OnSymbolPicked(Object^, EventArgs^) { ShowSymbol(); }
+
+    void ShowSymbol() {
+        bool was = loading_;
+        loading_ = true;  // showing stored values is not an edit
+        array<double>^ v;
+        if (symbol_->Text == "" || !limitMap_->TryGetValue(symbol_->Text, v)) v = gcnew array<double>{0, 0, 0};
+        SetNum(spread_, v[0]);
+        SetNum(deviation_, v[1]);
+        SetNum(symLots_, v[2]);
+        loading_ = was;
+        array<double>^ s = limitMap_->ContainsKey(symbol_->Text) ? nullptr : Suggested(symbol_->Text);
+        suggestRow_->Visible = s != nullptr;
+        if (s != nullptr)
+            suggest_->Text = "Suggested: max spread " + J::Fmt(s[0]) + ", entry deviation " + J::Fmt(s[1]) + ", max lots " + J::Fmt(s[2]) +
+                             ". Check the spread against your broker's in MetaTrader before you save.";
+        UpdateSymStatus();
+    }
+
+    // Starting values shipped with the app. Only a suggestion: the user applies them and saves, never automatic.
+    // Matched on the letters of the broker's name, so XAUUSD.m or GOLD# get the gold values.
+    static array<double>^ Suggested(String^ sym) {
+        String^ n = "";
+        for each (wchar_t c in sym->ToUpperInvariant()) if (Char::IsLetter(c)) n += c;
+        if (n->StartsWith("GOLD") || n->Contains("XAUUSD")) return gcnew array<double>{0.40, 1.00, 0.01};
+        if (n->StartsWith("SILVER") || n->Contains("XAGUSD")) return gcnew array<double>{0.04, 0.05, 0.01};
+        array<String^>^ majors = {"EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF", "EURGBP"};
+        array<String^>^ yen = {"USDJPY", "EURJPY", "GBPJPY"};
+        for each (String^ fx in majors) {
+            if (n->Contains(fx)) return gcnew array<double>{0.0002, 0.0003, 0.01};
+        }
+        for each (String^ fx in yen) {
+            if (n->Contains(fx)) return gcnew array<double>{0.03, 0.05, 0.01};
+        }
+        return nullptr;
+    }
+
+    void OnUseSuggested(Object^, EventArgs^) {
+        array<double>^ s = Suggested(symbol_->Text);
+        if (s == nullptr || symbol_->Text == "") return;
+        limitMap_[symbol_->Text] = s;
+        ShowSymbol();
+        SetStatus(true);  // filled in, but only used after Save policy
+    }
+
+    void OnLimitEdited(Object^, EventArgs^) {
+        if (loading_ || symbol_->Text == "") return;
+        if (Val(spread_) > 0) limitMap_[symbol_->Text] = gcnew array<double>{Val(spread_), Val(deviation_), Val(symLots_)};
+        else limitMap_->Remove(symbol_->Text);  // no max spread = not traded
+        UpdateSymStatus();
+    }
+
+    void UpdateSymStatus() {
+        List<String^>^ on = gcnew List<String^>();
+        for each (KeyValuePair<String^, array<double>^> kv in limitMap_)
+            if (kv.Value[0] > 0) on->Add(kv.Key);
+        on->Sort();
+        String^ hint = catalog_->Count == 0 ? " Connect MetaTrader to list all your broker's symbols." : "";
+        symStatus_->Text = (on->Count == 0 ? "No symbol is set yet, so nothing is traded." : "Traded: " + String::Join(", ", on)) + hint;
     }
     void SetStatus(bool dirty) {
         dirty_ = dirty;
@@ -201,13 +312,14 @@ private:
         SetNum(maxRisk_, J::Num(a, "maxRiskPercentPerSignal", 2));
         startMin_->Text = Hm((int)J::Num(a, "tradingStartMinute", 0));
         endMin_->Text = Hm((int)J::Num(a, "tradingEndMinute", 1440));
-        limits_->Rows->Clear();
+        limitMap_->Clear();
         JObj^ lim = J::Obj(policy_, "symbolLimits");
         if (lim != nullptr)
             for each (KeyValuePair<String^, Object^> kv in lim) {
                 JObj^ l = J::Obj(kv.Value);
-                limits_->Rows->Add(gcnew array<Object^>{kv.Key, J::Fmt(J::Num(l, "maxSpreadPrice")), J::Fmt(J::Num(l, "maxEntryDeviationPrice")), J::Fmt(J::Num(l, "maxLots"))});
+                limitMap_[kv.Key] = gcnew array<double>{J::Num(l, "maxSpreadPrice"), J::Num(l, "maxEntryDeviationPrice"), J::Num(l, "maxLots")};
             }
+        RebuildSymbols();
         JObj^ ai = J::Obj(policy_, "ai");
         alwaysAssess_->Checked = J::Bool(ai, "alwaysAssess", true);
         SetNum(deadline_, J::Num(ai, "backendGateDeadlineMs", 250));
@@ -261,19 +373,12 @@ private:
         a["tradingEndMinute"] = ParseHm(endMin_->Text, 1440);
         policy_["accountLimits"] = a;
         JObj^ lim = J::New();
-        limits_->EndEdit();
-        for each (DataGridViewRow^ r in limits_->Rows) {
-            if (r->IsNewRow) continue;
-            String^ sym = Convert::ToString(r->Cells[0]->Value);
-            if (String::IsNullOrWhiteSpace(sym)) continue;
-            double sp, dev, lots;
-            if (!J::TryNum(Convert::ToString(r->Cells[1]->Value), sp) || !J::TryNum(Convert::ToString(r->Cells[2]->Value), dev)) return ShowError("Symbol limits for " + sym + " must be numbers");
-            if (!J::TryNum(Convert::ToString(r->Cells[3]->Value), lots)) lots = 0;
+        for each (KeyValuePair<String^, array<double>^> kv in limitMap_) {
             JObj^ l = J::New();
-            l["maxSpreadPrice"] = sp;
-            l["maxEntryDeviationPrice"] = dev;
-            l["maxLots"] = lots;
-            lim[sym->Trim()] = l;
+            l["maxSpreadPrice"] = kv.Value[0];
+            l["maxEntryDeviationPrice"] = kv.Value[1];
+            l["maxLots"] = kv.Value[2];
+            lim[kv.Key] = l;
         }
         policy_["symbolLimits"] = lim;
         JObj^ ai = J::Obj(policy_, "ai");

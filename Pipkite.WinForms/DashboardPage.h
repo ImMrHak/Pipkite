@@ -43,6 +43,18 @@ public:
         exposure_ = gcnew StatCard("Open exposure");
         profitCards_ = gcnew array<StatCard^>{balance_, equity_, free_, floating_, today_, week_, exposure_};
         for each (StatCard^ c in profitCards_) profit_->Controls->Add(c);
+        L::Tip(telegram_, "Your Telegram sign-in. Pipkite reads signals from the channels you picked.");
+        L::Tip(account_, "The MetaTrader account orders are sent to, and whether it is connected.");
+        L::Tip(mode_, "Whether Pipkite is copying right now: Live, Not ready or Paused.");
+        L::Tip(health_, "Every order is written to the journal before it is sent, so a crash never sends it twice. Also shows free disk space.");
+        L::Tip(latency_, "How fast signals reach MetaTrader: 95% of them took less than this.");
+        L::Tip(balance_, "Your account balance in MetaTrader.");
+        L::Tip(equity_, "Balance plus the profit or loss of trades that are still open.");
+        L::Tip(free_, "Margin still available for new trades.");
+        L::Tip(floating_, "Profit or loss of all open trades right now.");
+        L::Tip(today_, "Profit or loss of Pipkite's trades today, after fees.");
+        L::Tip(week_, "Profit or loss of Pipkite's trades over the last 7 days, after fees.");
+        L::Tip(exposure_, "Lots and positions Pipkite has open right now.");
         profit_->Resize += gcnew EventHandler(this, &DashboardPage::OnCardsResize);
         freshness_ = gcnew Badge();
         freshness_->Margin = Windows::Forms::Padding(0, 13, 12, 6);
@@ -63,7 +75,7 @@ public:
 
         // live feed
         Label^ feedTitle = L::Text("Live feed", "h2");
-        L::Tip(feedTitle, "Double-click a row for details. Right-click the header to choose columns.");
+        L::Tip(feedTitle, "Signals that were accepted or are still running. Rejected, ignored and held ones are in History. Double-click a row for details.");
         FlowLayoutPanel^ feedHeader = L::Row(feedTitle);
         feedHeader->WrapContents = false;
         feed_ = gcnew BufferedGrid();
@@ -176,7 +188,7 @@ public:
         setupProgress_ = L::Text("");
         setupProgress_->Font = Theme::BodyBold;
         setupNext_ = L::Text("");
-        setupGo_ = L::Btn("Open", "accent");
+        setupGo_ = L::Btn("Open", "accent", "Go to the page for the next setup step.");
         setupGo_->Click += gcnew EventHandler(this, &DashboardPage::OnSetupGo);
         setupToggle_ = L::Btn("Show all steps", nullptr, "Show or hide every setup step.");
         setupToggle_->Click += gcnew EventHandler(this, &DashboardPage::OnSetupToggle);
@@ -479,11 +491,21 @@ private:
         String^ key = J::Stringify(items);
         if (key == lastFeed_) return;  // repaint only when data changed
         lastFeed_ = key;
-        feedItems_ = items;
+        // Only signals that were accepted or are still running; rejected, ignored and held ones stay in History.
+        List<Object^>^ shown = gcnew List<Object^>();
+        for each (Object^ o in items) {
+            String^ st = J::Str(J::Obj(o), "state");
+            if (st != "Rejected" && st != "Ignored" && st != "Expired" && st != "Historical" && st != "Review" && st != "Previewed") shown->Add(o);
+        }
+        feedItems_ = shown->ToArray();  // row index = position here (double-click opens it)
+        feed_->EmptyText = items->Length > shown->Count
+                               ? "No accepted signals right now. Rejected, ignored and held signals are in History."
+                               : "No signals yet. Add a Telegram source and keep Pipkite running; new messages from your chats appear here. "
+                                 "Use Signal rules to test a sample without sending anything.";
         String^ selected = feed_->SelectedRows->Count > 0 ? dynamic_cast<String^>(feed_->SelectedRows[0]->Tag) : nullptr;
         feed_->SuspendLayout();
         feed_->Rows->Clear();
-        for each (Object^ o in items) {
+        for each (Object^ o in feedItems_) {
             JObj^ f = J::Obj(o);
             String^ entry = "";
             array<Object^>^ en = J::Arr(f, "entry");

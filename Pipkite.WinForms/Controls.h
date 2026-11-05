@@ -938,6 +938,7 @@ public:
         tips_->SetToolTip(c, help);
         c->AccessibleDescription = help;
     }
+    static String^ TipOf(Control^ c) { return tips_ == nullptr ? "" : tips_->GetToolTip(c); }
     static TextBox^ Box(int width) {
         TextBox^ t = gcnew TextBox();
         t->Width = width;

@@ -81,6 +81,8 @@ private:
     std::string aiSymbol(const Signal& s, const SourceBinding& b, const Decision& d) const;
     void flushPendingRates(std::int64_t now);
     void onAiResult(const std::string& key, AiAssessment a);
+    bool reuseAiReview(const std::string& key, const Signal& s, std::int64_t now);
+    void setFeedAi(const std::string& key, const nlohmann::json& aj);
 
     // bridge
     void onBridgeConnection(std::shared_ptr<ipc::PipeConnection> c);
@@ -201,6 +203,16 @@ private:
         AiMode mode;
     };
     std::map<std::string, Gate> gates_;
+
+    // One advisory AI review per trade: an edit or repost of the same setup from the same chat reuses the first
+    // verdict, so the backend never stores the same signal twice.
+    struct AiReviewed {
+        std::string key;  // the signal that was sent
+        std::int64_t atMs = 0;
+        nlohmann::json detail;  // its result, null while waiting
+    };
+    std::map<std::string, AiReviewed> aiReviewed_;               // trade fingerprint -> first review (24 h)
+    std::map<std::string, std::vector<std::string>> aiRepeats_;  // sent key -> repeats waiting for its result
 
     struct PlanRun {
         ExecutionPlan plan;
