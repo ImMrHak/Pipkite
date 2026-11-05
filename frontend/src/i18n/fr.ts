@@ -20,7 +20,7 @@ export const fr: Dict = {
     guideDesc:
       'Guide pas à pas pour copier les signaux Telegram vers MetaTrader 5 : connecter Telegram et MT5, choisir le format de chaque canal, régler le risque, tester sans risque.',
     changelogTitle: `Journal des versions Pipkite – Nouveautés ${VERSION}`,
-    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION} : mettez Pipkite à jour depuis l’application.`,
+    changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION} : limites par symbole simplifiées, visites guidées et un flux en direct plus clair.`,
     privacyTitle: 'Confidentialité – Ce que Pipkite collecte et pourquoi',
     privacyDesc:
       'Ce que Pipkite garde sur votre PC, ce que reçoivent les services de licence, de revue IA et de parsers, et ce qui n’est jamais collecté. En clair.',
@@ -145,7 +145,7 @@ export const fr: Dict = {
     ],
     dashTitle: 'Un tableau de bord qui dit la vérité',
     dashText:
-      'Solde, équité, P/L latent et réalisé net de frais, un flux en direct de chaque signal et de son sort, et les percentiles de latence mesurés sur votre propre PC. Les données du courtier font foi.',
+      'Solde, équité, P/L latent et réalisé net de frais, un flux en direct des signaux copiés, et les percentiles de latence mesurés sur votre propre PC. Les données du courtier font foi.',
     equity: 'Équité',
     floating: 'P/L latent',
     latency: 'Latence p95',
@@ -463,7 +463,8 @@ export const fr: Dict = {
         html: `<ul>
 <li><strong>Taille de position :</strong> un lot fixe, ou un pourcentage de l’équité risqué au stop-loss. Le calcul au risque arrondit toujours au pas de lot inférieur ; si même le lot minimum est trop gros, le trade est ignoré plutôt que forcé.</li>
 <li><strong>Take-profits :</strong> un seul objectif, ou une position répartie sur plusieurs.</li>
-<li><strong>Limites :</strong> âge maximal du signal, spread et slippage maximums par symbole, positions ouvertes, perte journalière et horaires de trading.</li>
+<li><strong>Limites par symbole :</strong> en haut de la page, choisissez chaque symbole tradé dans la liste de votre courtier et réglez son spread maximal, son écart d’entrée et sa taille de lot. Un symbole sans spread maximal n’est jamais tradé. L’or, l’argent et les principales paires de devises ont des limites suggérées : cliquez sur <em>Use suggested limits</em>, vérifiez-les, puis enregistrez.</li>
+<li><strong>Autres limites :</strong> âge maximal du signal, positions ouvertes, perte journalière et horaires de trading.</li>
 <li><strong>Zones d’entrée :</strong> pour les signaux « buy 4299–4295 », Pipkite attend que le prix entre dans la zone. L’option <em>force-enter</em> prend le trade si le prix l’a dépassée de quelques pips que vous choisissez.</li>
 <li><strong>Revue IA :</strong> activez « review every signal » pour voir un avis Bon / Incertain / Mauvais à côté de chaque signal dans le flux en direct.</li>
 </ul>`,
@@ -474,7 +475,7 @@ export const fr: Dict = {
         html: `<p>Il n’y a pas de mode aperçu séparé : dès que MT5 est associé et que vous avez cliqué sur « Start copying » pour un canal, ses signaux valides sont copiés. Testez donc avant d’engager de l’argent :</p>
 <ul>
 <li>Dans l’étape <strong>Test a sample</strong> de l’assistant, collez un vrai message du canal pour voir exactement ce que Pipkite en lit. Rien n’est envoyé.</li>
-<li>Commencez sur un <strong>compte démo</strong> et observez quelques vrais signaux dans le tableau de bord et l’historique. Chaque ligne explique sa décision : un signal rejeté vous dit pourquoi (pas de stop-loss, symbole non associé, spread trop large, etc.).</li>
+<li>Commencez sur un <strong>compte démo</strong> et observez quelques vrais signaux. Le tableau de bord montre ceux qui sont copiés ; l’historique montre chaque message avec sa décision : un signal rejeté vous dit pourquoi (pas de stop-loss, symbole non associé, spread trop large, etc.).</li>
 <li>Utilisez <strong>Pause copying</strong> dans la barre du haut (ou l’icône de la barre des tâches) pour stopper immédiatement les nouveaux trades, et <strong>Resume copying</strong> pour reprendre. La pause ne ferme jamais les positions ouvertes.</li>
 </ul>`,
       },
@@ -546,6 +547,29 @@ export const fr: Dict = {
     downloadButton: (v: string) => `Télécharger la ${v}`,
     latest: "Dernière version",
     releases: {
+      '1.0.5': [
+        {
+          h: 'Règles d’exécution',
+          items: [
+            'Les limites par symbole sont en haut de la page : choisissez un symbole dans la liste de votre courtier et réglez son spread maximal, son écart d’entrée et ses lots maximums.',
+            'Des limites suggérées pour l’or, l’argent et les principales paires de devises : cliquez sur Use suggested limits, vérifiez les chiffres, puis enregistrez. Rien n’est tradé avant l’enregistrement.',
+          ],
+        },
+        {
+          h: 'Tableau de bord et aide',
+          items: [
+            'Le flux en direct n’affiche que les signaux acceptés ou en cours. Les signaux rejetés, ignorés ou en attente de vérification sont dans l’historique.',
+            'Une courte visite guidée sur chaque page, à la première ouverture, explique chaque bouton. Les paramètres proposent Show page tours again.',
+            'Les cartes du tableau de bord s’expliquent au survol de la souris.',
+          ],
+        },
+        {
+          h: 'Revue IA',
+          items: [
+            'Une seule revue par signal : quand un canal modifie ou republie un signal sans le changer, Pipkite réaffiche le premier avis au lieu de redemander.',
+          ],
+        },
+      ],
       '1.0.4': [
         {
           h: "Mises à jour",
