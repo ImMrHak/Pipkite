@@ -112,8 +112,12 @@ struct FakeAiProvider {
                 continue;
             }
             const bool models = req.find(" /v1/models ") != std::string::npos;
-            const std::string body = models ? std::string(R"({"object":"list","data":[]})")
-                                            : json{{"choices", json::array({{{"index", 0}, {"message", {{"role", "assistant"}, {"content", chatAnswer}}}}})}}.dump();
+            std::string body = models ? std::string(R"({"object":"list","data":[]})")
+                                      : json{{"choices", json::array({{{"index", 0}, {"message", {{"role", "assistant"}, {"content", chatAnswer}}}}})}}.dump();
+            if (path.find("/ai/suggest") != std::string::npos) {  // a signal review: a Good verdict for its requestId
+                const json in = json::parse(req.substr(req.find("\r\n\r\n") + 4), nullptr, false);
+                body = json{{"requestId", in.is_object() ? in.value("requestId", "") : ""}, {"verdict", "Good"}, {"reasons", json::array()}, {"modelVersion", "test"}}.dump();
+            }
             const std::string resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " + std::to_string(body.size()) +
                                      "\r\nConnection: close\r\n\r\n" + body;
             {
@@ -683,6 +687,70 @@ TEST(e2e_ai_format_help_with_the_users_own_key) {
         CHECK(engine.waitExit(10000));
     }
     ai.stop();
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", nullptr);
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", nullptr);
+    std::error_code ec;
+    fs::remove_all(data, ec);
+}
+
+// The backend stores each AI review it is asked for, so the same trade from the same channel is reviewed once:
+// an edit or a repost that changes nothing gets the first verdict; a changed trade is reviewed again.
+TEST(e2e_same_signal_is_sent_for_ai_review_once) {
+    const fs::path bin = platform::exeDir();
+    if (!fs::exists(bin / L"Pipkite.Engine.exe") || !fs::exists(bin / L"trusted_keys")) {
+        std::printf("        (skipped: engine/signed modules not present in %s)\n", platform::narrow(bin.wstring()).c_str());
+        return;
+    }
+    const fs::path data = fs::temp_directory_path() / (L"PipkiteRev-" + std::to_wstring(GetCurrentProcessId()));
+    fs::remove_all(data);
+    fs::create_directories(data);
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", data.c_str());
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", (L"rev" + std::to_wstring(GetCurrentProcessId())).c_str());
+    SetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", L"1");
+    FakeAiProvider backend;
+    CHECK(backend.start());
+    {
+        Proc engine;
+        CHECK(engine.start(L"\"" + (bin / L"Pipkite.Engine.exe").wstring() + L"\""));
+        UiClient ui;
+        bool connected = false;
+        for (int i = 0; i < 40 && !connected; ++i) {
+            connected = ui.connect();
+            if (!connected) Sleep(250);
+        }
+        CHECK(connected);
+        const std::string chat = "-1000000000099";
+        ui.call("settings.save", {{"values", {{"license.key", "PK-TEST"}}}});
+        ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Gold"}, {"chatType", "channel"}, {"template", "gold_parser_native"}, {"aiMode", "advisory"}}})}});
+        json policy = ui.call("policy.get");
+        policy["ai"]["endpoint"] = "http://127.0.0.1:" + std::to_string(backend.port) + "/api/v1/ai/suggest";
+        ui.call("policy.save", {{"policy", policy}});
+        auto reviews = [&] {
+            Sleep(1500);  // reviews are sent in the background
+            std::lock_guard lock(backend.mu);
+            return std::count_if(backend.requests.begin(), backend.requests.end(), [](const std::string& r) { return r.rfind("POST /api/v1/ai/suggest", 0) == 0; });
+        };
+        auto ai = [&](const json& injected, int revision) {
+            return ui.call("history.detail", {{"chatId", chat}, {"messageId", injected.value("messageId", "")}, {"revision", revision}}).dump();
+        };
+        const std::string text = "GOLD BUY 4300 4295\nTP1 4305\nSL 4287";
+        json first = ui.call("test.injectMessage", {{"chatId", chat}, {"text", text}});
+        CHECK_EQ(reviews(), 1);
+        // the channel edits the message without changing the trade, then posts it again
+        ui.call("test.injectMessage", {{"chatId", chat}, {"text", text + "\nGood luck"}, {"messageId", first.value("messageId", "")}, {"editVersion", 1}});
+        Sleep(20);
+        json repost = ui.call("test.injectMessage", {{"chatId", chat}, {"text", text}});
+        CHECK_EQ(reviews(), 1);
+        CHECK(ai(repost, 0).find("\"Good\"") != std::string::npos);  // the repost shows the first verdict
+        // a different trade is reviewed
+        Sleep(20);
+        ui.call("test.injectMessage", {{"chatId", chat}, {"text", "GOLD BUY 4300 4295\nTP1 4310\nSL 4287"}});
+        CHECK_EQ(reviews(), 2);
+        ui.call("engine.shutdown");
+        CHECK(engine.waitExit(10000));
+    }
+    backend.stop();
+    SetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", nullptr);
     SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", nullptr);
     SetEnvironmentVariableW(L"PIPKITE_INSTANCE", nullptr);
     std::error_code ec;

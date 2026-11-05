@@ -16,6 +16,7 @@ public ref class SettingsPage : public PageBase {
 public:
     static ThemeRequest^ ThemeChangeRequested;
     static MethodInvoker^ ExitRequested;
+    static MethodInvoker^ ToursResetRequested;
 
     SettingsPage() {
         FlowLayoutPanel^ stack = L::Stack();
@@ -34,10 +35,12 @@ public:
         L::AddField(ap, "", keepAwake_);
         setupList_ = L::Check("Show the Get started list on the Dashboard until setup is complete");
         L::AddField(ap, "", setupList_);
-        Button^ saveAp = L::Btn("Apply", "accent");
+        Button^ saveAp = L::Btn("Apply", "accent", "Save the theme, tray, startup and notification choices above.");
         saveAp->Click += gcnew EventHandler(this, &SettingsPage::OnSaveGeneral);
+        Button^ tours = L::Btn("Show page tours again", nullptr, "Each page shows its short tour again the next time you open it.");
+        tours->Click += gcnew EventHandler(this, &SettingsPage::OnResetTours);
         ap->Controls->Add(gcnew Label());
-        ap->Controls->Add(saveAp);
+        ap->Controls->Add(L::Row(saveAp, tours));
         stack->Controls->Add(L::Group("Appearance, startup and notifications", ap));
 
         TableLayoutPanel^ rt = L::Form2();
@@ -45,9 +48,9 @@ public:
         L::AddField(rt, "Raw message text retention (days)", rawDays_);
         metaDays_ = L::Num(1, 3650, 180, 0, 1);
         L::AddField(rt, "Execution metadata retention (days)", metaDays_);
-        Button^ saveRt = L::Btn("Save retention");
+        Button^ saveRt = L::Btn("Save retention", nullptr, "Save how many days message text and trade details are kept on this PC.");
         saveRt->Click += gcnew EventHandler(this, &SettingsPage::OnSaveRetention);
-        Button^ purge = L::Btn("Apply retention now");
+        Button^ purge = L::Btn("Apply retention now", nullptr, "Delete data older than the days above right now, instead of waiting for the daily clean-up.");
         purge->Click += gcnew EventHandler(this, &SettingsPage::OnPurge);
         rt->Controls->Add(gcnew Label());
         rt->Controls->Add(L::Row(saveRt, purge));
@@ -76,11 +79,11 @@ public:
         L::AddField(up, "", autoUpd_);
         manifestUrl_ = L::Box(460);
         L::AddField(up, "Release manifest URL", manifestUrl_);
-        Button^ saveUp = L::Btn("Save");
+        Button^ saveUp = L::Btn("Save", nullptr, "Save the update channel and automatic-fix choice.");
         saveUp->Click += gcnew EventHandler(this, &SettingsPage::OnSaveUpdates);
-        Button^ check = L::Btn("Check now");
+        Button^ check = L::Btn("Check now", nullptr, "Look for new parser and bridge fixes now.");
         check->Click += gcnew EventHandler(this, &SettingsPage::OnCheckUpdates);
-        Button^ history = L::Btn("Update history / What's changed...");
+        Button^ history = L::Btn("Update history / What's changed...", nullptr, "See what each installed update changed.");
         history->Click += gcnew EventHandler(this, &SettingsPage::OnUpdateHistory);
         up->Controls->Add(gcnew Label());
         up->Controls->Add(L::Row(saveUp, check, history));
@@ -162,7 +165,7 @@ public:
         healthText_ = L::Wrap("", nullptr, 900);
         healthText_->Font = Theme::Mono;
         dg->Controls->Add(healthText_);
-        dg->Controls->Add(L::Text("Pipkite 1.0.4", "muted"));
+        dg->Controls->Add(L::Text("Pipkite 1.0.5", "muted"));
         stack->Controls->Add(L::Group("Diagnostics and connection", dg));
         Controls->Add(stack);
         Header("Settings", "Appearance, startup, local data, updates, signal formats and AI help.", this);
@@ -491,6 +494,10 @@ private:
 
     void OnExit(Object^, EventArgs^) {
         if (ExitRequested != nullptr) ExitRequested();
+    }
+
+    void OnResetTours(Object^, EventArgs^) {
+        if (ToursResetRequested != nullptr) ToursResetRequested();
     }
 };
 

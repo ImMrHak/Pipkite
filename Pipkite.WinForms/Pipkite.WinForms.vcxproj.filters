@@ -65,6 +65,9 @@
     <ClInclude Include="SourcesPage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Tour.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Theme.h">
       <Filter>Header Files</Filter>
     </ClInclude>

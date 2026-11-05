@@ -11,6 +11,7 @@
 #include "RulesPage.h"
 #include "SettingsPage.h"
 #include "SourcesPage.h"
+#include "Tour.h"
 #include "Wizard.h"
 
 using namespace Microsoft::Win32;
@@ -128,7 +129,7 @@ public:
         nav_->Width = 220;
         nav_->Tag = "surface";
         nav_->Padding = Windows::Forms::Padding(0, 12, 0, 0);
-        Label^ navFooter = L::Text("Version 1.0.4", "muted");
+        Label^ navFooter = L::Text("Version 1.0.5", "muted");
         navFooter->Dock = DockStyle::Bottom;
         navFooter->AutoSize = false;
         navFooter->Height = 34;
@@ -143,6 +144,11 @@ public:
         pages_ = gcnew array<PageBase^>{gcnew DashboardPage(), gcnew SourcesPage(), gcnew MetaTraderPage(), gcnew RulesPage(), gcnew PolicyPage(), gcnew HistoryPage(),
                                         gcnew SettingsPage()};
         array<String^>^ names = {"Dashboard", "Telegram sources", "MetaTrader", "Signal rules", "Execution policy", "History", "Settings"};
+        pageNames_ = names;
+        toursSeen_ = "";
+        tourTimer_ = gcnew Windows::Forms::Timer();
+        tourTimer_->Interval = 700;  // let the page load its data and settle its layout first
+        tourTimer_->Tick += gcnew EventHandler(this, &MainForm::OnTourTick);
         array<String^>^ glyphs = {L"\xE80F", L"\xE8BD", L"\xE7F4", L"\xE943", L"\xE72E", L"\xE81C", L"\xE713"};
         navButtons_ = gcnew array<NavButton^>(pages_->Length);
         for (int i = pages_->Length - 1; i >= 0; --i) {
@@ -161,7 +167,7 @@ public:
         statusText_ = gcnew ToolStripStatusLabel("Starting...");
         statusText_->Spring = true;
         statusText_->TextAlign = ContentAlignment::MiddleLeft;
-        statusRight_ = gcnew ToolStripStatusLabel("Pipkite 1.0.4");
+        statusRight_ = gcnew ToolStripStatusLabel("Pipkite 1.0.5");
         status_->Items->Add(statusText_);
         status_->Items->Add(statusRight_);
         status_->Renderer = gcnew FlatStripRenderer();
@@ -228,6 +234,7 @@ public:
         DashboardPage::Navigate = gcnew GoToPage(this, &MainForm::ShowPage);
         SettingsPage::ThemeChangeRequested = gcnew ThemeRequest(this, &MainForm::ApplyThemeName);
         SettingsPage::ExitRequested = gcnew MethodInvoker(this, &MainForm::ExitApplication);
+        SettingsPage::ToursResetRequested = gcnew MethodInvoker(this, &MainForm::ResetTours);
         FirstRunWizard::Navigate = gcnew NavigateRequest(this, &MainForm::ShowPage);
         SourcesPage::EditRuleRequested = gcnew EditRuleRequest(this, &MainForm::OpenRuleForSource);
 
@@ -306,11 +313,18 @@ private:
     bool paused_;
     String^ mode_;
     JObj^ snapshot_;
+    array<String^>^ pageNames_;
+    Tour^ tour_;
+    int tourPage_;
+    String^ toursSeen_;  // comma list of page keys whose tour was finished or skipped
+    Windows::Forms::Timer^ tourTimer_;
+    bool wizardOpen_;
     Diagnostics::Stopwatch^ frameWatch_;
     double frameMs_;
 
     void ShowPage(int index) {
         if (index < 0 || index >= pages_->Length) return;
+        if (tour_ != nullptr && index != current_) tour_->Cancel();  // its controls are on the page being left
         current_ = index;
         content_->SuspendLayout();
         for (int i = 0; i < pages_->Length; ++i) {
@@ -322,6 +336,56 @@ private:
         if (dynamic_cast<NavButton^>(ActiveControl) != nullptr) navButtons_[index]->Focus();  // keyboard focus follows the selection
         if (snapshot_ != nullptr) pages_[index]->OnSnapshot(snapshot_);
         pages_[index]->OnActivated();
+        MaybeTour();
+    }
+
+    // Page tours: one per page, shown once, after the setup wizard.
+    String^ TourKey(int page) { return pageNames_[page]; }
+
+    void MaybeTour() {
+        if (!settingsLoaded_ || wizardOpen_ || tour_ != nullptr) return;
+        tourTimer_->Stop();
+        tourTimer_->Start();
+    }
+
+    void OnTourTick(Object^, EventArgs^) {
+        tourTimer_->Stop();
+        if (tour_ != nullptr || wizardOpen_ || ("," + toursSeen_ + ",")->Contains("," + TourKey(current_) + ",")) return;
+        if (!Visible || WindowState == FormWindowState::Minimized) return;
+        if (Form::ActiveForm != this) return tourTimer_->Start();  // a dialog is open or another app is in front: wait
+        List<TourStep^>^ steps = gcnew List<TourStep^>();
+        if (current_ == 0) {  // the first tour also covers the window around the pages
+            steps->AddRange(Tour::StepsFrom(top_));
+            steps->Add(gcnew TourStep(nav_, "Pages", "Move between Pipkite's pages here, or press Ctrl+1 to Ctrl+7. Each page shows a short tour like this the first time you open it."));
+        }
+        steps->AddRange(Tour::StepsFrom(pages_[current_]));
+        if (steps->Count == 0) return MarkTourSeen(current_);
+        tourPage_ = current_;
+        tour_ = Tour::Start(this, pageNames_[current_], steps, gcnew TourFinished(this, &MainForm::OnTourFinished));
+    }
+
+    void OnTourFinished(bool completed) {
+        tour_ = nullptr;
+        if (completed) MarkTourSeen(tourPage_);
+    }
+
+    void MarkTourSeen(int page) {
+        toursSeen_ = toursSeen_ == "" ? TourKey(page) : toursSeen_ + "," + TourKey(page);
+        SaveToursSeen();
+    }
+
+    void SaveToursSeen() {
+        JObj^ v = J::New();
+        v["ui.toursSeen"] = toursSeen_;
+        JObj^ p = J::New();
+        p["values"] = v;
+        client_->Call("settings.save", p);
+    }
+
+    void ResetTours() {
+        toursSeen_ = "";
+        SaveToursSeen();
+        MaybeTour();
     }
 
     void OpenRuleForSource(String^ chatId) {
@@ -353,7 +417,12 @@ private:
         DashboardPage::SetupHidden = J::Str(s, "ui.setupHidden", "false") == "true";
         if (!settingsLoaded_) {
             settingsLoaded_ = true;
-            if (J::Str(s, "ui.firstRunComplete", "false") != "true") BeginInvoke(gcnew MethodInvoker(this, &MainForm::ShowWizard));
+            toursSeen_ = J::Str(s, "ui.toursSeen", "");
+            if (J::Str(s, "ui.firstRunComplete", "false") != "true") {
+                wizardOpen_ = true;  // tours wait until the wizard is closed
+                BeginInvoke(gcnew MethodInvoker(this, &MainForm::ShowWizard));
+            } else
+                MaybeTour();
             JObj^ p = J::New();
             p["limit"] = 20;
             client_->Call("updates.history", p, gcnew ResponseHandler(this, &MainForm::OnUpdateHistory));
@@ -361,9 +430,12 @@ private:
     }
 
     void ShowWizard() {
+        wizardOpen_ = Visible;
         if (!Visible) return;
         FirstRunWizard^ w = gcnew FirstRunWizard(client_);
         w->ShowDialog(this);
+        wizardOpen_ = false;
+        MaybeTour();
     }
 
     void OnUpdateHistory(bool ok, Object^ result, String^) {

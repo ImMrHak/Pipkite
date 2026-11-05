@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Builds the Pipkite 1.0.4 distributable: a portable per-user zip and (when Inno Setup 6/7 is installed)
+  Builds the Pipkite 1.0.5 distributable: a portable per-user zip and (when Inno Setup 6/7 is installed)
   a Windows installer. Symbols are archived separately and never shipped.
 
 .EXAMPLE
@@ -9,7 +9,7 @@
 param(
     [string]$Configuration = "Release",
     [switch]$Build,
-    [string]$Version = "1.0.4"
+    [string]$Version = "1.0.5"
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot

@@ -44,7 +44,7 @@ json summaryJson(const ProfitSummary& s) {
             {"withdrawals", s.withdrawals}, {"deals", s.dealCount}, {"unresolved", s.unresolvedCount}, {"wins", s.wins}, {"losses", s.losses}};
 }
 
-const std::set<std::string> kUiSettings{"ui.theme",         "ui.minimizeToTray",   "ui.startWithWindows", "ui.notifications",     "ui.firstRunComplete", "ui.language", "ui.setupHidden",
+const std::set<std::string> kUiSettings{"ui.theme",         "ui.minimizeToTray",   "ui.startWithWindows", "ui.notifications",     "ui.firstRunComplete", "ui.language", "ui.setupHidden", "ui.toursSeen",
                                         "retention.rawTextDays", "retention.metadataDays", "updates.channel", "updates.autoCompatible", "updates.manifestUrl", "support.requestUrl", "license.key", "license.portalUrl", "ai.storeLocally",
                                         "diagnostics.verbose", "engine.keepAwake", "backup.scheduleDays", "backup.directory", "license.status",
                                         "mt5.autoLaunch", "mt5.dataPath", "mt5.exePath", "mt5.chartSymbol", "telegram.apiId", "telegram.apiHash", "telegram.phone",
@@ -1311,7 +1311,8 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         IncomingMessage m;
         m.chatId = jsonInt64(params.value("chatId", json("0")));
         if (!policy_.findSource(m.chatId)) fail("Unknown source");
-        m.messageId = now;
+        m.messageId = params.contains("messageId") ? jsonInt64(params["messageId"]) : now;
+        m.editVersion = params.value("editVersion", m.editVersion);  // tests: an edit of an earlier message
         m.publishedAtMs = now;
         m.receivedAtMs = now;
         m.receivedMonoUs = clock_.monotonicUs();

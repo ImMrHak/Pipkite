@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.5
+
+- **Symbol limits are easier to set.** They are now at the top of Execution policy: pick a symbol from your
+  broker's list and fill in its max spread, entry deviation and max lots. A line shows which symbols are traded.
+- **Suggested limits for common symbols.** For gold, silver and the main currency pairs, Pipkite shows starting
+  values. Click **Use suggested limits**, check them, then save. Nothing is traded until you save.
+- **Page tours.** The first time you open a page, a short tour points at each button and explains it. Each tour
+  shows once; Settings has **Show page tours again**.
+- The Dashboard cards and a few Settings buttons now explain themselves when you hover over them.
+- **One AI review per signal.** When a channel edits or reposts a signal without changing it, Pipkite shows the
+  first AI verdict again instead of asking for a new review, so the same signal is no longer saved several times.
+- **A calmer Live feed.** The Dashboard shows only signals that were accepted or are still running. Rejected, ignored
+  and held signals are in History, which can now also filter by Ignored.
+
 ## 1.0.4
 
 - **Update from inside the app.** When a new version is out, a bar at the top says so. **Update now** downloads it,

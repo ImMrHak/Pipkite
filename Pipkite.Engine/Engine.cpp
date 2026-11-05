@@ -24,6 +24,25 @@ namespace {
 
 std::string signalKey(std::int64_t chatId, std::int64_t messageId) { return std::to_string(chatId) + ":" + std::to_string(messageId); }
 
+// What an AI review is about: the chat and the trade. Edits and reposts that change neither share one review.
+std::string tradeFingerprint(const Signal& s) {
+    std::string f = std::to_string(s.source.chatId) + "|" + s.symbol + "|" + (s.side ? actionString(*s.side, s.orderKind) : "");
+    char num[40];
+    auto add = [&](double v) {
+        std::snprintf(num, sizeof num, "|%.10g", v);
+        f += num;
+    };
+    if (s.entry) {
+        add(s.entry->low);
+        add(s.entry->high);
+    } else {
+        f += "|now";
+    }
+    add(s.stopLoss.value_or(0));
+    for (auto& t : s.targets) add(t.price);
+    return f;
+}
+
 int localMinuteOfDay(std::int64_t nowMs) {
     std::time_t t = static_cast<std::time_t>(nowMs / 1000);
     std::tm lt{};
@@ -673,7 +692,7 @@ void Engine::applyDecision(Signal s, const SourceBinding& b, Decision d, json ti
     // Ask the backend about every valid signal when "always assess" is on (advisory, non-blocking), unless
     // the source is already doing a backend gate (which contacts the backend anyway).
     if (s.status == ParseStatus::Valid && (b.aiMode == AiMode::Advisory || (policy_.ai.alwaysAssess && b.aiMode != AiMode::BackendGate)))
-        requestAi(s, AiMode::Advisory, now + 5000, aiSymbol(s, b, d));
+        if (licenseKey_.empty() || !reuseAiReview(key, s, now)) requestAi(s, AiMode::Advisory, now + 5000, aiSymbol(s, b, d));
 
     auto persist = [&](SignalState st) {
         item["state"] = toString(st);
@@ -976,6 +995,17 @@ void Engine::requestAi(const Signal& s, AiMode mode, std::int64_t deadlineMs, co
     queueAi(std::move(job));
 }
 
+void Engine::setFeedAi(const std::string& key, const json& aj) {
+    auto fit = feed_.find(key);
+    if (fit == feed_.end()) return;
+    fit->second["ai"] = aj.value("verdict", "");
+    fit->second["aiDetail"] = aj;
+    const auto chat = std::stoll(fit->second.value("chatId", "0"));
+    const auto msg = std::stoll(fit->second.value("messageId", "0"));
+    store_->updateSignalAi({chat, msg}, fit->second.value("revision", 0), aj);
+    if (store_->getSetting("ai.storeLocally").value_or("true") == "true") store_->saveAiAssessment({chat, msg}, fit->second.value("revision", 0), aj);
+}
+
 // The broker's name for the signal's symbol (XAUUSD.m, GOLD...) so the EA finds its candles: resolved as the
 // planner does, also when there is no plan (copying paused, signal rejected).
 std::string Engine::aiSymbol(const Signal& s, const SourceBinding& b, const Decision& d) const {
@@ -986,7 +1016,38 @@ std::string Engine::aiSymbol(const Signal& s, const SourceBinding& b, const Deci
 
 void Engine::queueAi(AiJob job) {
     const std::string key = job.key;
-    if (!aiQueue_.tryPush(std::move(job))) feed_[key]["ai"] = "Unavailable";
+    if (aiQueue_.tryPush(std::move(job))) return;
+    if (gates_.count(key)) {
+        feed_[key]["ai"] = "Unavailable";  // a gate keeps waiting for its deadline, as before
+        return;
+    }
+    AiAssessment a;
+    a.unavailableReason = "too many reviews waiting";
+    a.assessedAtMs = clock_.nowMs();
+    onAiResult(key, a);  // also lets repeats waiting for this review move on
+}
+
+// True when the same trade from the same chat was already sent for review: this signal gets that verdict
+// (now, or when it arrives) instead of a second request.
+bool Engine::reuseAiReview(const std::string& key, const Signal& s, std::int64_t now) {
+    constexpr std::int64_t kRememberMs = 24LL * 3600 * 1000;
+    for (auto it = aiReviewed_.begin(); it != aiReviewed_.end();) {
+        if (now - it->second.atMs <= kRememberMs) {
+            ++it;
+            continue;
+        }
+        aiRepeats_.erase(it->second.key);
+        it = aiReviewed_.erase(it);
+    }
+    const std::string fp = tradeFingerprint(s);
+    auto it = aiReviewed_.find(fp);
+    if (it == aiReviewed_.end()) {
+        aiReviewed_[fp] = AiReviewed{key, now, nullptr};
+        return false;
+    }
+    if (!it->second.detail.is_null()) post([this, key, aj = it->second.detail] { setFeedAi(key, aj); });  // after the signal is stored
+    else if (it->second.key != key) aiRepeats_[it->second.key].push_back(key);
+    return true;
 }
 
 void Engine::flushPendingRates(std::int64_t now) {
@@ -1047,14 +1108,17 @@ void Engine::onAiResult(const std::string& key, AiAssessment a) {
                {"latencyMs", a.latencyMs},
                {"unavailableReason", a.unavailableReason},
                {"disclaimer", "AI assessments are estimates, not guaranteed predictions of profitable trades"}};
-    auto fit = feed_.find(key);
-    if (fit != feed_.end()) {
-        fit->second["ai"] = toString(a.verdict);
-        fit->second["aiDetail"] = aj;
-        const auto chat = std::stoll(fit->second.value("chatId", "0"));
-        const auto msg = std::stoll(fit->second.value("messageId", "0"));
-        store_->updateSignalAi({chat, msg}, fit->second.value("revision", 0), aj);
-        if (store_->getSetting("ai.storeLocally").value_or("true") == "true") store_->saveAiAssessment({chat, msg}, fit->second.value("revision", 0), aj);
+    setFeedAi(key, aj);
+    for (auto it = aiReviewed_.begin(); it != aiReviewed_.end(); ++it) {
+        if (it->second.key != key) continue;
+        // a failed review is not kept, so the next repeat of the trade asks again
+        if (a.verdict == AiVerdict::Unavailable) aiReviewed_.erase(it);
+        else it->second.detail = aj;
+        break;
+    }
+    if (auto rit = aiRepeats_.find(key); rit != aiRepeats_.end()) {
+        for (auto& repeat : rit->second) setFeedAi(repeat, aj);
+        aiRepeats_.erase(rit);
     }
     auto git = gates_.find(key);
     if (git == gates_.end()) return;  // advisory, or a late gate response that can no longer revive the entry

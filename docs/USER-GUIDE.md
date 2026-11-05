@@ -99,8 +99,10 @@ The same check comes back whenever a channel's format changes or gets a new vers
 
 ### 6. Your rules
 
-On **Execution policy**, choose the lot size (or risk %) and set a **max spread and deviation for every symbol you
-trade**. A symbol without them isn't traded. See [Execution policy](#screens) below.
+On **Execution policy**, set a **max spread and deviation for every symbol you trade** in **Symbol limits**, at the
+top: pick the symbol from the list, fill in its limits (or click **Use suggested limits** for common symbols like gold
+and the main currency pairs, then check them), and click **Save policy**. A symbol without a max spread
+isn't traded. Then choose the lot size (or risk %). See [Execution policy](#screens) below.
 
 **Tip:** before risking money, use **Test a sample** in the wizard: paste a real message and see what Pipkite
 reads. Nothing is sent.
@@ -110,8 +112,11 @@ each step, and the top bar says **Not ready**.
 
 ## Screens
 
-**Dashboard.** Whether Telegram and MetaTrader are connected, your balance and profit, a live feed of signals and
-what happened to each, and how fast Pipkite was.
+The first time you open a page, a short tour points at each button and says what it does. Click **Next**, or
+**Skip tour** to close it. Each tour shows once; **Settings → Show page tours again** brings them back.
+
+**Dashboard.** Whether Telegram and MetaTrader are connected, your balance and profit, a live feed of the signals
+that were accepted or are still running, and how fast Pipkite was. Rejected, ignored and held signals are in **History**.
 
 ![Dashboard](images/dashboard.png)
 
@@ -195,7 +200,7 @@ MetaTrader, Pipkite never asks for it.
 | "New format for this channel, not copied yet" | The channel's format is new or changed. If the reading is right, click **Start copying** on Signal rules. |
 | "Pipkite couldn't fully read 2 of its last 4 signals" | The channel may have changed how it writes signals. Run **Detect format** again. |
 | The pairing never shows up | Start MetaTrader and log in to your broker first. |
-| A symbol isn't traded | Give it a max spread and deviation on Execution policy, and check its name matches your broker's (MetaTrader screen). |
+| A symbol isn't traded | On Execution policy, pick it under **Symbol limits** and give it a max spread and deviation. |
 | SmartScreen warning on install | Click **More info**, then **Run anyway**. |
 
 Settings has a **Run health check** button that checks everything at once.

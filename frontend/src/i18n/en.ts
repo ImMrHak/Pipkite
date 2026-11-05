@@ -21,7 +21,7 @@ export const en = {
     guideDesc:
       'Step-by-step guide to copy Telegram trading signals to MetaTrader 5 automatically: connect Telegram and MT5, pick each channel’s format, set risk rules, test safely.',
     changelogTitle: `Pipkite Changelog – What's New in ${VERSION}`,
-    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}: update Pipkite from inside the app.`,
+    changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}: easier symbol limits, page tours and a calmer live feed.`,
     privacyTitle: 'Privacy – What Pipkite Collects and Why',
     privacyDesc:
       'What Pipkite keeps on your PC, what the license, AI review and custom parser services receive, and what is never collected. Plain language.',
@@ -146,7 +146,7 @@ export const en = {
     ],
     dashTitle: 'A live dashboard that tells the truth',
     dashText:
-      'Balance, equity, floating and realized P/L net of fees, a live feed of every signal and what happened to it, and latency percentiles measured on your own PC. Broker data is authoritative.',
+      'Balance, equity, floating and realized P/L net of fees, a live feed of the signals being copied, and latency percentiles measured on your own PC. Broker data is authoritative.',
     equity: 'Equity',
     floating: 'Floating P/L',
     latency: 'Latency p95',
@@ -464,7 +464,8 @@ export const en = {
         html: `<ul>
 <li><strong>Position size:</strong> a fixed lot size, or a percentage of equity risked at the stop-loss. Risk sizing always rounds down to your broker's lot step; if even the minimum lot is too much, the trade is skipped rather than forced.</li>
 <li><strong>Take-profits:</strong> use one target, or split the position across several.</li>
-<li><strong>Limits:</strong> maximum signal age, maximum spread and slippage per symbol, open positions, daily loss and trading hours.</li>
+<li><strong>Symbol limits:</strong> at the top of the page, pick each symbol you trade from your broker's list and set its maximum spread, entry deviation and lot size. A symbol without a max spread is never traded. Gold, silver and the main currency pairs come with suggested limits: click <em>Use suggested limits</em>, check them, then save.</li>
+<li><strong>Other limits:</strong> maximum signal age, open positions, daily loss and trading hours.</li>
 <li><strong>Entry ranges:</strong> for "buy 4299–4295" signals, Pipkite waits for price to enter the range. Optional <em>force-enter</em> takes the trade if price slipped just past it by a few pips you choose.</li>
 <li><strong>AI review:</strong> turn on "review every signal" to see a Good / Uncertain / Bad opinion next to each signal in the live feed.</li>
 </ul>`,
@@ -475,7 +476,7 @@ export const en = {
         html: `<p>There's no separate preview mode: once MT5 is paired and you've clicked Start copying for a channel, its valid signals are copied. So test before risking money:</p>
 <ul>
 <li>In the setup wizard's <strong>Test a sample</strong> step, paste a real message from the channel to see exactly what Pipkite reads from it. Nothing is sent.</li>
-<li>Run on a <strong>demo account</strong> first and watch a few real signals on the Dashboard and in History. Each row explains its decision, so a rejected signal tells you why (no stop-loss, symbol not mapped, spread too wide and so on).</li>
+<li>Run on a <strong>demo account</strong> first and watch a few real signals. The Dashboard shows the ones being copied; History shows every message with its decision, so a rejected signal tells you why (no stop-loss, symbol not mapped, spread too wide and so on).</li>
 <li>Use <strong>Pause copying</strong> in the top bar (or the tray icon) to stop new trades instantly, and <strong>Resume copying</strong> to start again. Pausing never closes open trades.</li>
 </ul>`,
       },
@@ -547,6 +548,29 @@ export const en = {
     downloadButton: (v: string) => `Download ${v}`,
     latest: "Latest",
     releases: {
+      '1.0.5': [
+        {
+          h: 'Execution policy',
+          items: [
+            'Symbol limits are at the top of the page: pick a symbol from your broker’s list and set its max spread, entry deviation and max lots.',
+            'Suggested limits for gold, silver and the main currency pairs: click Use suggested limits, check the numbers, then save. Nothing trades until you save.',
+          ],
+        },
+        {
+          h: 'Dashboard and help',
+          items: [
+            'The live feed shows only signals that were accepted or are still running. Rejected, ignored and held signals are in History.',
+            'A short tour on each page, the first time you open it, explains every button. Settings has Show page tours again.',
+            'The Dashboard cards explain themselves when you hover over them.',
+          ],
+        },
+        {
+          h: 'AI review',
+          items: [
+            'One review per signal: when a channel edits or reposts a signal without changing it, Pipkite shows the first verdict again instead of asking twice.',
+          ],
+        },
+      ],
       '1.0.4': [
         {
           h: "Updates",
