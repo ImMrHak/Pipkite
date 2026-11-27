@@ -1,5 +1,10 @@
 #include "Policy.h"
 
+#include <cctype>
+
+#include "ParserTemplate.h"
+#include "SignalParser.h"
+
 #include <cmath>
 #include <set>
 
@@ -56,7 +61,6 @@ json SourceBinding::toJson() const {
             {"template", parserId},
             {"templateVersion", parserVersion},
             {"entryMode", toString(entryMode)},
-            {"immediateTolerancePrice", immediateTolerancePrice},
             {"overrideSizing", overrideSizing},
             {"sizing", sizingJson(sizing)},
             {"overrideTargets", overrideTargets},
@@ -79,7 +83,6 @@ Result<SourceBinding> SourceBinding::fromJson(const json& j) {
         auto em = entryModeFromString(j.value("entryMode", "wait_for_range"));
         if (!em) return Error{"policy_invalid", "Unknown entryMode for source " + std::to_string(b.chatId)};
         b.entryMode = *em;
-        b.immediateTolerancePrice = j.value("immediateTolerancePrice", 0.5);
         b.overrideSizing = j.value("overrideSizing", false);
         if (j.contains("sizing")) {
             auto s = sizingFrom(j["sizing"]);
@@ -106,7 +109,7 @@ Result<SourceBinding> SourceBinding::fromJson(const json& j) {
 
 json ExecutionPolicy::toJson(bool includeSources) const {
     json limits = json::object();
-    for (auto& [sym, l] : symbolLimits) limits[sym] = {{"maxSpreadPrice", l.maxSpreadPrice}, {"maxEntryDeviationPrice", l.maxEntryDeviationPrice}, {"maxLots", l.maxLots}};
+    for (auto& [sym, l] : symbolLimits) limits[sym] = {{"maxSpreadPrice", l.maxSpreadPrice}, {"maxEntryDeviationPrice", l.maxEntryDeviationPrice}, {"maxLots", l.maxLots}, {"maxStopDistancePrice", l.maxStopDistancePrice}};
     json j = {{"schemaVersion", schemaVersion},
               {"configVersion", configVersion},
               {"executionMode", toString(executionMode)},
@@ -121,6 +124,7 @@ json ExecutionPolicy::toJson(bool includeSources) const {
               {"allowMessageLot", allowMessageLot},
               {"forceEnterMissed", forceEnterMissed},
               {"forceEnterPips", forceEnterPips},
+              {"tradeWithoutStopLoss", tradeWithoutStopLoss},
               {"semanticDuplicate", {{"enabled", semanticDuplicateEnabled}, {"windowSeconds", semanticDuplicateWindowSeconds}}},
               {"sizing", sizingJson(sizing)},
               {"targets", targetsJson(targets)},
@@ -173,6 +177,7 @@ Result<ExecutionPolicy> ExecutionPolicy::fromJson(const json& j) {
         p.allowMessageLot = j.value("allowMessageLot", false);
         p.forceEnterMissed = j.value("forceEnterMissed", false);
         p.forceEnterPips = j.value("forceEnterPips", 2.0);
+        p.tradeWithoutStopLoss = j.value("tradeWithoutStopLoss", false);
         if (j.contains("semanticDuplicate")) {
             p.semanticDuplicateEnabled = j["semanticDuplicate"].value("enabled", false);
             p.semanticDuplicateWindowSeconds = j["semanticDuplicate"].value("windowSeconds", 60);
@@ -214,6 +219,7 @@ Result<ExecutionPolicy> ExecutionPolicy::fromJson(const json& j) {
                 sl.maxSpreadPrice = l.value("maxSpreadPrice", 0.0);
                 sl.maxEntryDeviationPrice = l.value("maxEntryDeviationPrice", 0.0);
                 sl.maxLots = l.value("maxLots", 0.0);
+                sl.maxStopDistancePrice = l.value("maxStopDistancePrice", 0.0);
                 p.symbolLimits[sym] = sl;
             }
         }
@@ -278,12 +284,13 @@ Status ExecutionPolicy::validate() const {
     if (auto t = validateTargets(targets, "Global targets"); !t) return t;
     if (account.maxOpenPositions < 1 || account.maxPendingOrders < 0 || !(account.maxTotalLots > 0)) return failStatus("policy_invalid", "Account limits must be positive");
     if (!(account.maxRiskPercentPerSignal > 0 && account.maxRiskPercentPerSignal <= 20)) return failStatus("policy_invalid", "maxRiskPercentPerSignal must be > 0 and <= 20");
-    if (account.tradingStartMinute < 0 || account.tradingEndMinute > 1440 || account.tradingStartMinute >= account.tradingEndMinute)
-        return failStatus("policy_invalid", "Trading hours are invalid");
+    if (account.tradingStartMinute < 0 || account.tradingStartMinute >= 1440 || account.tradingEndMinute < 0 || account.tradingEndMinute > 1440 ||
+        account.tradingStartMinute == account.tradingEndMinute)
+        return failStatus("policy_invalid", "Trading hours need a different start and end (00:00 to 24:00 is all day, 22:00 to 06:00 runs overnight)");
     if (ai.backendGateDeadlineMs < 50 || ai.backendGateDeadlineMs > 10000) return failStatus("policy_invalid", "AI gate deadline must be 50-10000 ms");
     if (ai.gateTimeoutAction != "review" && ai.gateTimeoutAction != "skip") return failStatus("policy_invalid", "AI gate timeout action must be review or skip");
     for (auto& [sym, l] : symbolLimits) {
-        if (!(l.maxSpreadPrice >= 0 && l.maxEntryDeviationPrice >= 0 && l.maxLots >= 0)) return failStatus("policy_invalid", "Symbol limits for " + sym + " must be non-negative");
+        if (!(l.maxSpreadPrice >= 0 && l.maxEntryDeviationPrice >= 0 && l.maxLots >= 0 && l.maxStopDistancePrice >= 0)) return failStatus("policy_invalid", "Symbol limits for " + sym + " must be non-negative");
     }
     std::set<std::int64_t> ids;
     for (auto& s : sources) {
@@ -293,7 +300,6 @@ Status ExecutionPolicy::validate() const {
             if (auto r = validateSizing(s.sizing, "Source " + s.title); !r) return r;
         if (s.overrideTargets)
             if (auto r = validateTargets(s.targets, "Source " + s.title); !r) return r;
-        if (s.immediateTolerancePrice < 0) return failStatus("policy_invalid", "Immediate tolerance must be non-negative");
     }
     return okStatus();
 }
@@ -307,6 +313,57 @@ const SourceBinding* ExecutionPolicy::findSource(std::int64_t chatId) const {
 bool requiresExplicitBrokerMapping(const std::string& canonical) {
     static const std::set<std::string> kMustMap{"USOIL", "UKOIL", "WTI", "BRENT", "US30", "NAS100"};
     return kMustMap.count(canonical) > 0;
+}
+
+namespace {
+
+// the name without the broker's suffix: XAUUSD.m, XAUUSDm, XAUUSD_i, GOLDmicro, #US30 -> XAUUSD, GOLD, US30
+std::string brokerCore(const std::string& name) {
+    std::string core;
+    std::size_t i = 0;
+    while (i < name.size() && !std::isalnum(static_cast<unsigned char>(name[i]))) ++i;
+    for (; i < name.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(name[i]);
+        if (!std::isalnum(c) || (std::islower(c) && core.size() >= 3)) break;
+        core += static_cast<char>(std::toupper(c));
+    }
+    return core;
+}
+
+std::string lettersAndDigits(const std::string& name) {
+    std::string out;
+    for (unsigned char c : name)
+        if (std::isalnum(c)) out += static_cast<char>(std::toupper(c));
+    return out;
+}
+
+}  // namespace
+
+std::string canonicalSymbolOf(const std::string& brokerName) {
+    // the names the shipped formats know, plus a few broker-only ones
+    static const std::map<std::string, std::string> names = [] {
+        auto m = universalTemplate().symbolAliases;
+        for (auto [k, v] : std::initializer_list<std::pair<const char*, const char*>>{
+                 {"WS30", "US30"}, {"USA30", "US30"}, {"USA100", "NAS100"}, {"USTECH", "NAS100"}, {"USA500", "US500"}, {"USOUSD", "USOIL"}, {"UKOUSD", "UKOIL"}})
+            m[k] = v;
+        return m;
+    }();
+    for (const std::string& name : {brokerCore(brokerName), lettersAndDigits(brokerName)}) {
+        if (name.size() < 3) continue;
+        if (auto it = names.find(name); it != names.end()) return it->second;
+        if (isCurrencyPair(name)) return name;
+    }
+    return {};
+}
+
+bool sameInstrument(const std::string& brokerName, const std::string& canonical, const std::string& alias) {
+    const std::string pinned = canonicalSymbolOf(brokerName);
+    // the message side too: a taught format may have kept the channel's own word (GOLD) as its symbol
+    std::string wanted = canonicalSymbolOf(canonical);
+    if (wanted.empty()) wanted = lettersAndDigits(canonical);
+    if (!pinned.empty()) return pinned == wanted || (!alias.empty() && canonicalSymbolOf(alias) == pinned);
+    const std::string core = brokerCore(brokerName);  // a name we don't know: only the same name
+    return !core.empty() && (core == wanted || (!alias.empty() && core == lettersAndDigits(alias)));
 }
 
 }  // namespace sr

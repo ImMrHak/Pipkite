@@ -90,6 +90,9 @@ private:
     void onBridgeEnvelope(const ipc::Envelope& e);
     void onBridgeDisconnected(const std::shared_ptr<ipc::PipeConnection>& c);
     void sendToBridge(const std::string& type, const nlohmann::json& payload, const std::string& id = {});
+    // the broker symbols Pipkite needs prices for: Symbol limits, the symbol map and each channel's own symbol
+    std::set<std::string> wantedSymbols() const;
+    void requestSymbols();
     void requestReconciliation();
     void handleCommandStatus(const nlohmann::json& p);
     void handleTradeEvent(const nlohmann::json& p);
@@ -107,6 +110,12 @@ private:
     void broadcast(const std::string& topic, const nlohmann::json& data);
     void notify(const std::string& level, const std::string& message);
     void addError(const std::string& message);
+
+    // detailed log (Settings > Keep a detailed log); true when it was just turned on
+    bool applyLogSetting();
+    void logContext(const std::string& why);  // versions, settings, rules, formats and connections, at the top of a log
+    void logStatus();
+    std::string marketNote(const std::string& brokerSymbol) const;  // the price a decision saw
 
     // configuration
     void loadConfiguration();
@@ -243,6 +252,8 @@ private:
     std::string lastSnapshot_;
     std::int64_t lastEquitySnapshotMs_ = 0;
     std::int64_t lastRetentionMs_ = 0;
+    std::int64_t lastLogStatusMs_ = 0;
+    std::int64_t lastLoggedAccountMs_ = 0;  // account updates come every few seconds: logged once a minute
 
     // bridge state (decision thread)
     std::shared_ptr<ipc::PipeConnection> bridge_;
@@ -253,6 +264,7 @@ private:
     std::optional<AccountSnapshot> account_;
     std::map<std::string, SymbolSpec> symbols_;
     std::vector<std::string> symbolCatalog_;  // every broker symbol name (from the EA), for pick-lists
+    std::set<std::string> requestedSymbols_;  // what the EA was last asked to stream
     std::map<std::string, Quote> quotes_;
     std::int64_t lastHeartbeatMs_ = 0;
     bool bridgeHealthy_ = false;

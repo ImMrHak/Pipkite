@@ -186,7 +186,8 @@
     "TRADE CLOSED",
     "EXIT NOW",
     "BOOK PROFIT",
-    "TAKE PARTIAL"
+    "TAKE PARTIAL",
+    "HOLD"
   ],
   "maxTargets": 10,
   "name": "Comma decimals (1,0850)",
@@ -288,5 +289,5 @@
     "الذهب": "XAUUSD",
     "ذهب": "XAUUSD"
   },
-  "version": "1.0.0"
+  "version": "1.1.0"
 }

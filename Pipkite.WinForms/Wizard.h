@@ -2,6 +2,8 @@
 // first-run wizard: license key, telegram, chats, MT5, parsers, sample test
 
 #include "Controls.h"
+#include "ChannelCheck.h"
+#include "ChannelDialog.h"
 #include "EngineClient.h"
 #include "FormatDialog.h"
 
@@ -48,9 +50,10 @@ public:
              "Tick auto-start if you want MetaTrader to open with Pipkite, then Detect & start MetaTrader. "
              "Log in to your account and Pipkite pairs it automatically (demo or real).",
              "2"},
-            {"5. Each channel: symbol & parser",
-             "For every source, set the symbol it should capture and press Detect format: Pipkite tries the channel's recent messages and shows "
-             "what it reads. Pick a format, teach one by marking the parts of a signal, or request a custom parser (it installs automatically, no restart).",
+            {"5. Each channel: what Pipkite reads",
+             "Pick each channel: Pipkite reads its latest messages and shows its signals as it reads them. If they're right, press Start copying. "
+             "Not right? Pick another format or show Pipkite one of its signals, or request a custom parser (it installs automatically, no restart). "
+             "Set a symbol only for a channel that posts one instrument.",
              "1"},
             {"6. Test a sample",
              "Pick a channel, paste a real message it posted, and Test to see exactly what Pipkite reads from it - nothing is sent. Better to check "
@@ -95,23 +98,25 @@ public:
         apiHash_ = L::Box(280);
         apiHash_->UseSystemPasswordChar = true;
         L::AddField(tg, "API hash", apiHash_);
-        Button^ saveCred = L::Btn("Save credentials", "accent");
-        saveCred->Click += gcnew EventHandler(this, &FirstRunWizard::OnSaveCred);
-        tg->Controls->Add(gcnew Label());
-        tg->Controls->Add(saveCred);
+        tgSaveCred_ = L::Btn("Save credentials", "accent");
+        tgSaveCred_->Click += gcnew EventHandler(this, &FirstRunWizard::OnSaveCred);
+        L::AddField(tg, "", tgSaveCred_);
         phone_ = L::Box(180);
         Button^ sendPhone = L::Btn("Send code");
         sendPhone->Click += gcnew EventHandler(this, &FirstRunWizard::OnPhone);
-        L::AddField(tg, "Phone (+...)", L::Row(phone_, sendPhone));
+        tgPhoneRow_ = L::Row(phone_, sendPhone);
+        L::AddField(tg, "Phone (+...)", tgPhoneRow_);
         code_ = L::Box(120);
         Button^ submitCode = L::Btn("Submit code");
         submitCode->Click += gcnew EventHandler(this, &FirstRunWizard::OnCode);
-        L::AddField(tg, "Login code", L::Row(code_, submitCode));
+        tgCodeRow_ = L::Row(code_, submitCode);
+        L::AddField(tg, "Login code", tgCodeRow_);
         password_ = L::Box(180);
         password_->UseSystemPasswordChar = true;
         Button^ submitPwd = L::Btn("Submit password");
         submitPwd->Click += gcnew EventHandler(this, &FirstRunWizard::OnPassword);
-        L::AddField(tg, "Two-step password", L::Row(password_, submitPwd));
+        tgPasswordRow_ = L::Row(password_, submitPwd);
+        L::AddField(tg, "Two-step password", tgPasswordRow_);
         tgPanel_ = tg;
 
         // Step 3, choose source chats right here (checkbox list + actions).
@@ -144,7 +149,10 @@ public:
         symbolCombo_->Width = 240;
         symbolCombo_->DropDownStyle = ComboBoxStyle::DropDownList;  // select only; symbols come from MetaTrader
         symbolCombo_->MaxDropDownItems = 18;
-        L::AddField(ps, "Symbol to capture", symbolCombo_);
+        symbolCombo_->SelectedIndexChanged += gcnew EventHandler(this, &FirstRunWizard::OnSymbolPicked);
+        L::AddField(ps, "Symbol to trade", symbolCombo_,
+                    "Only for a channel that posts one instrument: its signals trade this broker symbol. Leave it on \"each message's own symbol\" "
+                    "otherwise. You can change it later in Signal rules > Channel settings.");
         exampleBox_ = gcnew TextBox();
         exampleBox_->Multiline = true;
         exampleBox_->Width = 440;
@@ -153,13 +161,15 @@ public:
         L::AddField(ps, "Example message", exampleBox_);
         parserLabel_ = L::Wrap("", "muted", 440);
         L::AddField(ps, "Current parser", parserLabel_);
-        Button^ detect = L::Btn("Detect format...", "accent", "Try every installed format on this channel's recent messages and pick the one that reads it right.");
+        Button^ detect = L::Btn("Detect format...", nullptr, "Try every installed format on this channel's recent messages and pick the one that reads it right.");
         detect->Click += gcnew EventHandler(this, &FirstRunWizard::OnDetectFormat);
         Button^ reqParser = L::Btn("Request a custom parser");
         reqParser->Click += gcnew EventHandler(this, &FirstRunWizard::OnRequestParser);
         ps->Controls->Add(gcnew Label());
         ps->Controls->Add(L::Row(detect, reqParser));
         parserStep_ = ps;
+        check_ = gcnew ChannelCheck(660);  // what Pipkite reads in the channel picked, with Start copying
+        check_->Changed += gcnew EventHandler(this, &FirstRunWizard::OnCheckChanged);
 
         // Step 6, test a sample message against a channel's active parser (read-only, nothing is sent).
         FlowLayoutPanel^ tst = gcnew FlowLayoutPanel();
@@ -191,7 +201,7 @@ public:
         content_->WrapContents = false;
         content_->AutoScroll = true;
         content_->Padding = System::Windows::Forms::Padding(24, 18, 24, 8);
-        for each (Control ^ c in gcnew array<Control^>{title_, body_, licRow_, getKeyLink_, licenseStatus_, tgLink_, tgPanel_, chatsList_, chatsBtns_, mtAuto_, mtBtns_, mtSteps_, parserStep_, testStep_, stepStatus_}) {
+        for each (Control ^ c in gcnew array<Control^>{title_, body_, licRow_, getKeyLink_, licenseStatus_, tgLink_, tgPanel_, chatsList_, chatsBtns_, mtAuto_, mtBtns_, mtSteps_, parserStep_, check_, testStep_, stepStatus_}) {
             c->Margin = System::Windows::Forms::Padding(0, 6, 0, 6);
             content_->Controls->Add(c);
         }
@@ -248,6 +258,8 @@ private:
     TextBox ^ licenseKey_, ^apiId_, ^apiHash_, ^phone_, ^code_, ^password_;
     LinkLabel ^ getKeyLink_, ^tgLink_;
     TableLayoutPanel^ tgPanel_;
+    Button^ tgSaveCred_;
+    FlowLayoutPanel ^ tgPhoneRow_, ^tgCodeRow_, ^tgPasswordRow_;
     FlowLayoutPanel ^ content_, ^bottomBar_;
     Control ^ licRow_, ^chatsBtns_, ^mtBtns_;
     CheckedListBox^ chatsList_;
@@ -257,6 +269,7 @@ private:
     System::Collections::Generic::HashSet<String^>^ requestedChats_;
     String^ requestingChat_;
     TableLayoutPanel^ parserStep_;
+    ChannelCheck^ check_;
     ComboBox ^ srcCombo_, ^testCombo_, ^symbolCombo_;
     TextBox ^ testBox_, ^exampleBox_;
     Control^ testStep_;
@@ -267,7 +280,7 @@ private:
     array<Object^>^ chats_;
     System::Collections::Generic::List<JObj^> ^ chatRows_, ^sources_;
     String ^ mtDataPath_, ^mtExePath_, ^mtChartSymbol_;
-    bool loadingChats_, pairingSent_;
+    bool loadingChats_, pairingSent_, symbolLoading_;
     System::Windows::Forms::Timer^ pollTimer_;
 
     void ShowStep(int i) {
@@ -289,6 +302,7 @@ private:
         mtBtns_->Visible = i == 4;
         mtSteps_->Visible = i == 4;
         parserStep_->Visible = i == 5;  // per-channel symbol + parser
+        if (i != 5) check_->Visible = false;  // shown for the channel picked on step 5
         testStep_->Visible = i == 6;    // test a sample
         stepStatus_->Visible = !lic;
         if (pollTimer_ != nullptr) { if (i == 5) pollTimer_->Start(); else pollTimer_->Stop(); }
@@ -346,13 +360,21 @@ private:
         if (step_ == 2) {  // Telegram
             String^ st = J::Str(J::Obj(lastSnap_, "telegram"), "state");
             String^ user = J::Str(J::Obj(lastSnap_, "telegram"), "user");
+            // only the sign-in step Telegram is waiting for is shown
+            const bool ready = st == "Ready";
+            L::ShowField(apiId_, !ready);
+            L::ShowField(apiHash_, !ready);
+            L::ShowField(tgSaveCred_, !ready);
+            L::ShowField(tgPhoneRow_, !ready && st != "WaitCode" && st != "WaitPassword" && st != "LibraryMissing");
+            L::ShowField(tgCodeRow_, st == "WaitCode");
+            L::ShowField(tgPasswordRow_, st == "WaitPassword");
             if (st == "Ready") { text = "Telegram connected" + (user != "" ? " as " + user : ""); color = Theme::Success; }
             else if (st == "LibraryMissing") { text = "Telegram library missing - reinstall the app"; color = Theme::Danger; }
             else if (st == "NotConfigured" || st == "") { text = "Telegram not set up yet - enter your API ID/hash above and sign in"; color = Theme::Warning; }
             else { text = "Telegram: " + st + "..."; color = Theme::Warning; }
         } else if (step_ == 3) {  // Sources
             int n = J::Int(J::Obj(lastSnap_, "telegram"), "sources");
-            text = n > 0 ? n + " source chat(s) selected" : "No source chats yet - tick chats above and press Add checked as sources";
+            text = n > 0 ? n + " source chat(s) selected" : "No source chats yet - tick the chats above that you want to copy.";
             color = n > 0 ? Theme::Success : Theme::Warning;
         } else if (step_ == 4) {  // MT5 connection
             JObj^ br = J::Obj(lastSnap_, "bridge");
@@ -440,62 +462,55 @@ private:
         loadingChats_ = false;
         if (chatsList_->Items->Count == 0) stepStatus_->Text = "No chats yet. Make sure you're signed in to Telegram (previous step), then Refresh.";
     }
-    // Checking a chat adds it as a source immediately; unchecking removes it. No separate "Add" button.
+    // Checking a chat adds it (a new one copies after Start copying on step 5); unchecking pauses it and keeps its settings. Only that chat is sent.
     void OnChatItemCheck(Object^, ItemCheckEventArgs^ e) {
         if (loadingChats_ || chatRows_ == nullptr || e->Index < 0 || e->Index >= chatRows_->Count) return;
-        if (sources_ == nullptr) sources_ = gcnew System::Collections::Generic::List<JObj^>();
-        JObj^ c = chatRows_[e->Index];
-        String^ chatId = J::Str(c, "chatId");
-        bool willCheck = e->NewValue == System::Windows::Forms::CheckState::Checked;
-        if (willCheck) {
-            if (!HasSource(chatId)) sources_->Add(NewBinding(chatId, J::Str(c, "title"), J::Str(c, "type")));
-        } else {
-            for (int k = sources_->Count - 1; k >= 0; --k)
-                if (J::Str(sources_[k], "chatId") == chatId) sources_->RemoveAt(k);
+        if (sources_ == nullptr) {  // channels not loaded yet: don't guess
+            e->NewValue = e->CurrentValue;
+            stepStatus_->ForeColor = Theme::Warning;
+            stepStatus_->Text = "Still loading your channels - tick it again in a moment.";
+            return;
         }
-        SaveSources(willCheck ? "Added " + J::Str(c, "title") : "Removed " + J::Str(c, "title"));
+        JObj^ c = chatRows_[e->Index];
+        const bool willCheck = e->NewValue == System::Windows::Forms::CheckState::Checked;
+        JObj^ p = J::New();
+        p["chatId"] = J::Str(c, "chatId");
+        if (willCheck) {
+            p["title"] = J::Str(c, "title");
+            p["chatType"] = J::Str(c, "type");
+        } else {
+            p["enabled"] = false;
+        }
+        pendingSaveNote_ = willCheck ? "Added " + J::Str(c, "title") : "Paused " + J::Str(c, "title") + " (its settings are kept)";
+        client_->Call(willCheck ? "sources.add" : "source.update", p, gcnew ResponseHandler(this, &FirstRunWizard::OnSourcesSaved));
+    }
+    // the channels being copied (paused ones keep their settings but aren't listed)
+    static System::Collections::Generic::List<JObj^>^ CopiedChannels(Object^ result) {
+        System::Collections::Generic::List<JObj^>^ list = gcnew System::Collections::Generic::List<JObj^>();
+        for each (Object ^ o in J::Arr(result))
+            if (J::Bool(J::Obj(o), "enabled", true)) list->Add(J::Obj(o));
+        return list;
     }
     void OnSources(bool ok, Object^ result, String^ error) {
         if (!ok) return;
-        sources_ = gcnew System::Collections::Generic::List<JObj^>();
-        for each (Object ^ o in J::Arr(result)) sources_->Add(J::Obj(o));
+        sources_ = CopiedChannels(result);
         UpdateStepStatus();
         UpdateNav();
     }
-    bool HasSource(String^ chatId) {
+    bool HasSource(String^ chatId) {  // sources_ holds only the copied channels
         if (sources_ == nullptr) return false;
         for each (JObj ^ b in sources_) if (J::Str(b, "chatId") == chatId) return true;
         return false;
     }
-    JObj^ NewBinding(String^ chatId, String^ title, String^ type) {
-        JObj^ b = J::New();
-        b["chatId"] = chatId;
-        b["title"] = title;
-        b["chatType"] = type;
-        b["enabled"] = true;
-        b["template"] = "";  // no parser yet; request one per channel on the next step
-        b["entryMode"] = "wait_for_range";
-        b["aiMode"] = "off";
-        b["immediateTolerancePrice"] = 0.5;
-        return b;
-    }
-    void SaveSources(String^ note) {
-        array<Object^>^ list = gcnew array<Object^>(sources_->Count);
-        for (int i = 0; i < sources_->Count; ++i) list[i] = sources_[i];
-        JObj^ p = J::New();
-        p["sources"] = list;
-        pendingSaveNote_ = note;
-        client_->Call("sources.save", p, gcnew ResponseHandler(this, &FirstRunWizard::OnSourcesSaved));
-    }
     void OnSourcesSaved(bool ok, Object^ result, String^ error) {
         if (!ok) {
             stepStatus_->ForeColor = Theme::Danger;
-            stepStatus_->Text = "Could not save sources: " + error;
-            return;
+            stepStatus_->Text = "Could not save: " + error;
+        } else {
+            stepStatus_->ForeColor = Theme::Success;
+            stepStatus_->Text = pendingSaveNote_;
         }
-        stepStatus_->ForeColor = Theme::Success;
-        stepStatus_->Text = pendingSaveNote_ + " (" + sources_->Count + " total)";
-        UpdateNav();
+        client_->Call("sources.list", nullptr, gcnew ResponseHandler(this, &FirstRunWizard::OnSources));  // what was really saved
     }
 
     // Step 4: MetaTrader
@@ -543,8 +558,7 @@ private:
     // Step 5: per-channel symbol + parser + request
     void OnSourcesForParser(bool ok, Object^ result, String^) {
         if (!ok) return;
-        sources_ = gcnew System::Collections::Generic::List<JObj^>();
-        for each (Object ^ o in J::Arr(result)) sources_->Add(J::Obj(o));
+        sources_ = CopiedChannels(result);
         srcCombo_->Items->Clear();
         for each (JObj ^ b in sources_) srcCombo_->Items->Add(J::Str(b, "title"));
         if (srcCombo_->Items->Count > 0) srcCombo_->SelectedIndex = 0;
@@ -560,8 +574,7 @@ private:
     }
     void OnParserPoll(bool ok, Object^ result, String^) {
         if (!ok) return;
-        sources_ = gcnew System::Collections::Generic::List<JObj^>();
-        for each (Object ^ o in J::Arr(result)) sources_->Add(J::Obj(o));
+        sources_ = CopiedChannels(result);
         OnSrcChanged(nullptr, nullptr);  // refresh the current channel's parser label
         UpdateNav();
     }
@@ -575,7 +588,9 @@ private:
         if (!ok) return;
         JObj^ r = J::Obj(result);
         String^ keep = symbolCombo_->Text;
+        symbolLoading_ = true;
         symbolCombo_->Items->Clear();
+        symbolCombo_->Items->Add(SymbolPickerDialog::AnySymbol);
         array<Object^>^ catalog = J::Arr(r, "catalog");  // every broker symbol (names only)
         if (catalog != nullptr && catalog->Length > 0) {
             for each (Object ^ o in catalog) { String^ n = o->ToString(); if (n != "") symbolCombo_->Items->Add(n); }
@@ -583,7 +598,9 @@ private:
             for each (Object ^ o in J::Arr(r, "symbols")) { String^ n = J::Str(J::Obj(o), "name"); if (n != "") symbolCombo_->Items->Add(n); }
         }
         symbolCombo_->Text = keep;  // re-select previous choice if still present
-        if (symbolCombo_->Items->Count == 0)
+        if (symbolCombo_->SelectedIndex < 0) symbolCombo_->SelectedIndex = 0;
+        symbolLoading_ = false;
+        if (symbolCombo_->Items->Count == 1)
             stepStatus_->Text = "No symbols from MetaTrader yet - connect it on the previous step; symbols import automatically.";
     }
     void OnSrcChanged(Object^, EventArgs^) {
@@ -595,9 +612,32 @@ private:
         if (active != "") { parserLabel_->ForeColor = Theme::Success; parserLabel_->Text = "Parser installed and active (" + active + ")."; }
         else if (tmpl != "") { parserLabel_->ForeColor = Theme::Warning; parserLabel_->Text = "Parser '" + tmpl + "' assigned but not installed yet - waiting for the backend..."; }
         else if (requestedChats_->Contains(J::Str(b, "chatId"))) { parserLabel_->ForeColor = Theme::Success; parserLabel_->Text = "Parser requested - it installs automatically when it's ready. You can continue."; }
-        else { parserLabel_->ForeColor = Theme::TextMuted; parserLabel_->Text = "No parser yet - detect the format below, or request a custom one (the team builds it, and it installs automatically, no restart)."; }
-        if (symbolCombo_->Text == "") symbolCombo_->Text = J::Str(b, "captureSymbol");
+        else { parserLabel_->ForeColor = Theme::TextMuted; parserLabel_->Text = "No format yet: below is what Pipkite reads in it. Or request a custom parser (the team builds it, and it installs automatically, no restart)."; }
+        if (step_ == 5) check_->ShowChannel(client_, b);
+        symbolLoading_ = true;  // show this channel's symbol without saving it again
+        String^ sym = J::Str(b, "tradeSymbol");
+        symbolCombo_->Text = sym == "" ? SymbolPickerDialog::AnySymbol : sym;
+        if (symbolCombo_->SelectedIndex < 0 && symbolCombo_->Items->Count > 0) symbolCombo_->SelectedIndex = 0;
+        symbolLoading_ = false;
     }
+    void OnSymbolPicked(Object^, EventArgs^) {
+        int idx = srcCombo_->SelectedIndex;
+        if (symbolLoading_ || sources_ == nullptr || idx < 0 || idx >= sources_->Count || symbolCombo_->SelectedIndex < 0) return;
+        String^ sym = symbolCombo_->SelectedIndex == 0 ? "" : symbolCombo_->Text;
+        JObj^ b = sources_[idx];
+        if (sym == J::Str(b, "tradeSymbol")) return;
+        b["tradeSymbol"] = sym;
+        JObj^ p = J::New();
+        p["chatId"] = J::Str(b, "chatId");
+        p["tradeSymbol"] = sym;
+        pendingSaveNote_ = sym == "" ? J::Str(b, "title") + " trades each message's own symbol." : J::Str(b, "title") + " trades " + sym + " only.";
+        client_->Call("source.update", p, gcnew ResponseHandler(this, &FirstRunWizard::OnSymbolSaved));
+    }
+    void OnSymbolSaved(bool ok, Object^, String^ error) {
+        stepStatus_->ForeColor = ok ? Theme::Success : Theme::Danger;
+        stepStatus_->Text = ok ? pendingSaveNote_ : "Could not save the symbol: " + error;
+    }
+    void OnCheckChanged(Object^, EventArgs^) { client_->Call("sources.list", nullptr, gcnew ResponseHandler(this, &FirstRunWizard::OnParserPoll)); }
     void OnDetectFormat(Object^, EventArgs^) {
         int idx = srcCombo_->SelectedIndex;
         if (sources_ == nullptr || idx < 0 || idx >= sources_->Count) { stepStatus_->ForeColor = Theme::Warning; stepStatus_->Text = "Add and pick a channel first."; return; }
@@ -605,14 +645,15 @@ private:
         FormatDialog^ d = gcnew FormatDialog(client_, J::Str(b, "chatId"), J::Str(b, "title"), exampleBox_->Text);
         if (d->ShowDialog(this) != System::Windows::Forms::DialogResult::OK) return;
         stepStatus_->ForeColor = Theme::Success;
-        stepStatus_->Text = J::Str(b, "title") + " now uses the format you picked. Its first signals are shown, not copied: press Start copying in Signal rules once they read right.";
+        stepStatus_->Text = J::Str(b, "title") + " now uses the format you picked. Its signals are not copied until you press Start copying.";
+        check_->Recheck();
         client_->Call("sources.list", nullptr, gcnew ResponseHandler(this, &FirstRunWizard::OnParserPoll));
     }
     void OnRequestParser(Object^, EventArgs^) {
         int idx = srcCombo_->SelectedIndex;
         if (sources_ == nullptr || idx < 0 || idx >= sources_->Count) { stepStatus_->ForeColor = Theme::Warning; stepStatus_->Text = "Add and pick a channel first."; return; }
         JObj^ b = sources_[idx];
-        String^ sym = symbolCombo_->Text->Trim();
+        String^ sym = symbolCombo_->SelectedIndex > 0 ? symbolCombo_->Text->Trim() : "";
         String^ example = exampleBox_->Text->Trim();
         JObj^ p = J::New();
         p["chatId"] = J::Str(b, "chatId");
@@ -622,8 +663,6 @@ private:
         p["note"] = note;
         requestingChat_ = J::Str(b, "chatId");
         client_->Call("parser.requestCustom", p, gcnew ResponseHandler(this, &FirstRunWizard::OnParserRequested));
-        // Remember the chosen symbol on the binding so it shows next time.
-        if (sym != "") { b["captureSymbol"] = sym; SaveSources("Saved."); }
         stepStatus_->ForeColor = Theme::TextMuted;
         stepStatus_->Text = "Sending parser request for " + J::Str(b, "title") + "...";
     }
@@ -648,8 +687,7 @@ private:
     // Step 6: test a sample
     void OnSourcesForTest(bool ok, Object^ result, String^) {
         if (!ok) return;
-        sources_ = gcnew System::Collections::Generic::List<JObj^>();
-        for each (Object ^ o in J::Arr(result)) sources_->Add(J::Obj(o));
+        sources_ = CopiedChannels(result);
         testCombo_->Items->Clear();
         for each (JObj ^ b in sources_) testCombo_->Items->Add(J::Str(b, "title"));
         if (testCombo_->Items->Count > 0) testCombo_->SelectedIndex = 0;

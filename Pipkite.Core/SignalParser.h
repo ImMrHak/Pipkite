@@ -44,4 +44,7 @@ Signal parseWithTemplate(std::string_view rawText, const CompiledTemplate& t, co
 // Returns an empty string when valid, otherwise a human-readable reason.
 std::string checkGeometry(const Signal& s);
 
+// EURUSD-style: six capital letters, two different ISO currencies (XAU and XAG count).
+bool isCurrencyPair(std::string_view text);
+
 }  // namespace sr

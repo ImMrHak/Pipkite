@@ -129,7 +129,7 @@ public:
         nav_->Width = 220;
         nav_->Tag = "surface";
         nav_->Padding = Windows::Forms::Padding(0, 12, 0, 0);
-        Label^ navFooter = L::Text("Version 1.0.5", "muted");
+        Label^ navFooter = L::Text("Version 1.0.6", "muted");
         navFooter->Dock = DockStyle::Bottom;
         navFooter->AutoSize = false;
         navFooter->Height = 34;
@@ -167,7 +167,7 @@ public:
         statusText_ = gcnew ToolStripStatusLabel("Starting...");
         statusText_->Spring = true;
         statusText_->TextAlign = ContentAlignment::MiddleLeft;
-        statusRight_ = gcnew ToolStripStatusLabel("Pipkite 1.0.5");
+        statusRight_ = gcnew ToolStripStatusLabel("Pipkite 1.0.6");
         status_->Items->Add(statusText_);
         status_->Items->Add(statusRight_);
         status_->Renderer = gcnew FlatStripRenderer();
@@ -240,7 +240,14 @@ public:
 
         Theme::Apply(this);
         BackColor = Theme::Bg;
-        ShowPage(0);
+        ShowPage(StartPage());
+    }
+
+    // test-only: with PIPKITE_TEST_HOOKS=1, PIPKITE_TEST_PAGE=0..6 opens that page at start (screenshots without the mouse)
+    static int StartPage() {
+        int page = 0;
+        if (Environment::GetEnvironmentVariable("PIPKITE_TEST_HOOKS") == "1") Int32::TryParse(Environment::GetEnvironmentVariable("PIPKITE_TEST_PAGE"), page);
+        return page;
     }
 
 protected:

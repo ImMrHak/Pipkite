@@ -16,7 +16,7 @@ struct Case {
     const char* text;
     const char* side;  // nullptr = expect not a signal
     const char* symbol;
-    double entryLow, entryHigh;  // 0 = market (no entry price)
+    double entryLow, entryHigh;  // a signal always has an entry price (NOW alone is not one)
     double sl;
     std::vector<double> tps;
     const char* kind = nullptr;  // "LIMIT" / "STOP" when the case is a pending order
@@ -71,13 +71,35 @@ const std::vector<Case>& cases() {
         {"turkish_indonesian", "XAUUSD SAT 2350\nZARAR DURDUR 2360\nHEDEF 2340", "SELL", "XAUUSD", 2350, 2350, 2360, {2340}},
         {"turkish_indonesian", "ALTIN AL 2340\nSL 2330\nHEDEF 2350", "BUY", "XAUUSD", 2340, 2340, 2330, {2350}},
         {"turkish_indonesian", "EMAS BELI 2340\nSL 2330\nTP 2350", "BUY", "XAUUSD", 2340, 2340, 2330, {2350}},
-        {"turkish_indonesian", "XAUUSD JUAL SEKARANG\nSL 2360\nTP 2340", "SELL", "XAUUSD", 0, 0, 2360, {2340}},
+        {"turkish_indonesian", "XAUUSD JUAL SEKARANG 2350\nSL 2360\nTP 2340", "SELL", "XAUUSD", 2350, 2350, 2360, {2340}},
         // strict labels
         {"strict_labels", "XAUUSD BUY\nEntry: 2340\nSL: 2330\nTP: 2350", "BUY", "XAUUSD", 2340, 2340, 2330, {2350}},
+        // a direction word in running text ("long term success" in a footer) is not a direction
+        {"universal", "1. GOLD SELL SETUP\n\nGold Sell Zone 3481 - 3486\n\nSL : 3491\n\nTP1 : 3476\nTP2 : 3471\nTP3 : 3466\nTP4 : Hold\n\n🔑 Use suitable lot sizes based on your capital. Money management is key to long term success", "SELL", "XAUUSD", 3481, 3486, 3491, {3476, 3471, 3466}},
+        {"strict_labels", "1. GOLD SELL SETUP\n\nGold Sell Zone 3481 - 3486\n\nSL : 3491\n\nTP1 : 3476\nTP2 : 3471\nTP3 : 3466\nTP4 : Hold\n\n🔑 Use suitable lot sizes based on your capital. Money management is key to long term success", "SELL", "XAUUSD", 3481, 3486, 3491, {3476, 3471, 3466}},
+        {"universal", "1. GOLD BUY SETUP\n\nGold Buy Zone 3476 - 3471\n\nSL : 3466\n\nTP1 : 3481\nTP2 : 3486\nTP3 : 3491\nTP4 : Hold\n\n🔑 Use suitable lot sizes based on your capital. Money management is key to long term success", "BUY", "XAUUSD", 3471, 3476, 3466, {3481, 3486, 3491}},
+        {"universal", "XAUUSD SELL 3481\nSL 3491\nTP 3476\nBuy the dip, sell the news: discipline wins", "SELL", "XAUUSD", 3481, 3481, 3491, {3476}},
+        {"universal", "XAUUSD\nSELL SETUP\nEntry: 3481\nSL: 3491\nTP: 3476", "SELL", "XAUUSD", 3481, 3481, 3491, {3476}},
+        {"universal", "Sell gold\nEntry 3481\nSL 3491\nTP 3476", "SELL", "XAUUSD", 3481, 3481, 3491, {3476}},
+        // layouts from real channels (prices changed): "FROM", a breakeven tip under the signal, styled letters, "TP4 #Open"
+        {"universal", "XAUUSD BUY NOW FROM 4140/4137\nTP1 4144\nTP2 4148\nTP3 4152 OPEN TP\nSL : 4130\nAfter 40 Pips Profit Set Breakeven for a risk-free Trade", "BUY", "XAUUSD", 4137, 4140, 4130, {4144, 4148, 4152}},
+        {"universal", "GOLD SELL NOW FROM 4165\nTP 4160\nTP 4155\nSL 4172", "SELL", "XAUUSD", 4165, 4165, 4172, {4160, 4155}},
+        {"universal", "📊 𝖷𝖠𝖴𝖴𝖲𝖣 SELL NOW@4124/4127\n📊𝖳𝖯1💯@ 4120\n📊𝖳𝖯2💯 @ 4116\n📊TP3💯 @ 4112\n𝖲𝖫 4134❌", "SELL", "XAUUSD", 4124, 4127, 4134, {4120, 4116, 4112}},
+        {"universal", "𝐗𝐀𝐔𝐔𝐒𝐃 𝐁𝐔𝐘 𝟒𝟏𝟎𝟎\n𝐒𝐋 𝟒𝟎𝟗𝟎\n𝐓𝐏 𝟒𝟏𝟏𝟎", "BUY", "XAUUSD", 4100, 4100, 4090, {4110}},
+        {"universal", "#XAU/Gold Sell at 4170/4173\nTP¹ 4160\nTP² 4150\nTP³ 4140\nTP⁴ #Open\nSTOP LOSS : 4182", "SELL", "XAUUSD", 4170, 4173, 4182, {4160, 4150, 4140}},
+        {"universal", "XAUUSD SELL 4170/4173\nTP1 4160\nTP2 4150\nTP3 (open)\nSL 4182", "SELL", "XAUUSD", 4170, 4173, 4182, {4160, 4150}},
         // must stay review: unsure about a required field
         {"universal", "GOLD BUY 2350\nTP 2360", nullptr, nullptr, 0, 0, 0, {}},                       // no SL
+        {"universal", "GOLD BUY NOW\nSL 2340\nTP 2360", nullptr, nullptr, 0, 0, 0, {}},              // NOW without an entry price
+        {"turkish_indonesian", "XAUUSD JUAL SEKARANG\nSL 2360\nTP 2340", nullptr, nullptr, 0, 0, 0, {}},
+        {"universal", "GOLD BUY 2350\nSL: soon\nTP 2360", nullptr, nullptr, 0, 0, 0, {}},            // SL still to come
+        {"universal", "XAUUSD SELL 3481\nSL 3491\nTP 3476\nLong term target 3400", nullptr, nullptr, 0, 0, 0, {}},  // a line with a price still counts: conflict
+        {"universal", "GOLD SELL 3481 SL 3491 TP 3476 or long gold 3470 SL 3460 TP 3490", nullptr, nullptr, 0, 0, 0, {}},  // a real conflict
         {"universal", "BUY 2350\nSL 2340\nTP 2360", nullptr, nullptr, 0, 0, 0, {}},                   // no symbol
         {"universal", "XAUUSD BUY 2350 SL 50 pips TP 100 pips", nullptr, nullptr, 0, 0, 0, {}},       // SL in pips, not a price
+        {"universal", "XAUUSD BUY 4000-3995\nSL 30 pips\nTP 4010", nullptr, nullptr, 0, 0, 0, {}},  // SL in pips with a real TP
+        {"universal", "XAUUSD BUY 4000\nSL 30\nTP 4010", nullptr, nullptr, 0, 0, 0, {}},            // a stop that far from the entry is a distance
+        {"universal", "XAUUSD SELL 4000\nSL 4010\nTP 40", nullptr, nullptr, 0, 0, 0, {}},           // so is a target
         {"universal", "XAUUSD BUY 2350 2346 2342\nSL 2335\nTP 2360", nullptr, nullptr, 0, 0, 0, {}},  // three entries
         {"universal", "XAUUSD BUY 2350\nSL 2360\nTP 2370", nullptr, nullptr, 0, 0, 0, {}},            // SL on the wrong side
         {"universal", "NAS100 BUY 18,250\nSL 18,150\nTP 18,350", nullptr, nullptr, 0, 0, 0, {}},       // thousands: only its own format guesses

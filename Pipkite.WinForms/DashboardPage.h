@@ -181,7 +181,7 @@ public:
         AddStep(steps, 1, "Sign in to Telegram with your own account.", "Open Telegram sources", 1);
         AddStep(steps, 2, "Tick the channels or groups you want to copy.", "Choose channels", 1);
         AddStep(steps, 3, "Start MetaTrader 5, log in to your broker and approve the pairing.", "Open MetaTrader", 2);
-        AddStep(steps, 4, "Pick the format of each channel (Detect format), check its first signals, then press Start copying.", "Open Signal rules", 3);
+        AddStep(steps, 4, "Check what Pipkite reads in each channel, then press Start copying.", "Open Signal rules", 3);
         AddStep(steps, 5, "Set the max spread and slippage for each symbol you trade.", "Open Execution policy", 4);
         steps->Visible = false;
         steps_ = steps;
@@ -344,6 +344,7 @@ private:
     SplitContainer^ split_;
     String^ lastFeed_;
     String^ lastErrors_;
+    bool hasSources_;  // a channel is ticked: an empty feed then means no new signal since Pipkite started
     array<Object^>^ feedItems_;
     GroupBox^ setup_;
     Panel^ setupWrap_;
@@ -389,8 +390,10 @@ private:
         array<Object^>^ missing = J::Arr(st, "parsersMissing");
         array<Object^>^ pending = J::Arr(st, "formatsPending");
         const bool hasSources = J::Int(st, "sources") > 0;
+        hasSources_ = hasSources;
+        array<Object^>^ noLimits = J::Arr(st, "symbolsMissingLimits");  // a channel's own symbol without limits isn't traded
         array<bool>^ done = {J::Bool(st, "license"), J::Bool(st, "telegram"), hasSources, J::Bool(st, "metatrader"),
-                             hasSources && missing->Length == 0 && pending->Length == 0, J::Int(st, "symbolLimits") > 0};
+                             hasSources && missing->Length == 0 && pending->Length == 0, J::Int(st, "symbolLimits") > 0 && noLimits->Length == 0};
         bool all = true;
         int doneCount = 0, next = -1;
         for (int i = 0; i < done->Length; ++i) {
@@ -400,13 +403,16 @@ private:
             stepBadges_[i]->Set(done[i] ? "Done" : "To do", done[i] ? Theme::Success : Theme::Warning);
             if (stepButtons_[i]->Visible == done[i]) stepButtons_[i]->Visible = !done[i];
         }
-        String^ parsers = "5.  Pick the format of each channel (Detect format), check its first signals, then press Start copying.";
+        String^ parsers = "5.  Check what Pipkite reads in each channel, then press Start copying.";
         for (int i = 0; i < missing->Length; ++i) parsers += (i == 0 ? " No format yet: " : ", ") + Convert::ToString(missing[i]);
         for (int i = 0; i < pending->Length; ++i) {
             String^ sep = i > 0 ? ", " : missing->Length > 0 ? ". Not copying yet: " : " Not copying yet: ";
             parsers += sep + Convert::ToString(pending[i]);
         }
         SetText(stepTexts_[4], parsers);
+        String^ limits = "6.  Set the max spread and slippage for each symbol you trade.";
+        for (int i = 0; i < noLimits->Length; ++i) limits += (i == 0 ? " No limits yet for: " : ", ") + Convert::ToString(noLimits[i]);
+        SetText(stepTexts_[5], limits);
         SetText(setupProgress_, doneCount.ToString() + " of " + done->Length.ToString() + " done");
         if (next >= 0) {
             SetText(setupNext_, "Next: " + stepTexts_[next]->Text->Substring(4));  // without the "N.  " prefix
@@ -488,7 +494,7 @@ private:
     }
 
     void UpdateFeed(array<Object^>^ items) {
-        String^ key = J::Stringify(items);
+        String^ key = (hasSources_ ? "1" : "0") + J::Stringify(items);  // the empty text depends on hasSources_
         if (key == lastFeed_) return;  // repaint only when data changed
         lastFeed_ = key;
         // Only signals that were accepted or are still running; rejected, ignored and held ones stay in History.
@@ -500,6 +506,7 @@ private:
         feedItems_ = shown->ToArray();  // row index = position here (double-click opens it)
         feed_->EmptyText = items->Length > shown->Count
                                ? "No accepted signals right now. Rejected, ignored and held signals are in History."
+                               : hasSources_ ? "No new signals since Pipkite started. New ones from your channels appear here; earlier ones are in History."
                                : "No signals yet. Add a Telegram source and keep Pipkite running; new messages from your chats appear here. "
                                  "Use Signal rules to test a sample without sending anything.";
         String^ selected = feed_->SelectedRows->Count > 0 ? dynamic_cast<String^>(feed_->SelectedRows[0]->Tag) : nullptr;

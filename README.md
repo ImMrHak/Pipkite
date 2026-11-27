@@ -86,8 +86,8 @@ password stays inside MetaTrader.
    [GitHub Releases](https://github.com/ImMrHak/Pipkite/releases/latest). No admin rights needed.
 2. **Follow the setup wizard.** It opens on first launch: license key, Telegram sign-in, the channels to copy,
    then MetaTrader 5 (click **Start MetaTrader**, log in, approve the pairing).
-3. **Pick each channel's format** on **Signal rules** with **Detect format**. A new format only trades after you
-   check its first signals in History and click **Start copying**.
+3. **Check each channel** on **Signal rules**: select it to see what Pipkite reads in its latest messages. If that's
+   right, click **Start copying**. Nothing is copied before you do.
 4. **Set your rules** on **Execution policy**: lot size or risk %, and limits for every symbol you trade. Common
    symbols like gold come with suggested limits you can check and save.
 
@@ -103,7 +103,7 @@ Each page shows a short tour the first time you open it. The full walk-through w
 | SmartScreen warning on install | Click **More info**, then **Run anyway**. Check the file against the SHA-256 on the download page. |
 | Telegram: not set up | Enter your API ID and hash, then sign in. |
 | MT5 offline | Click **Start MetaTrader**. If MT5 is already open, close it first. |
-| A signal shows **Unsupported** | That channel has no format yet: **Detect format** on Signal rules. |
+| A signal shows **Unsupported** | That channel has no format yet. Select it on Signal rules: if Pipkite reads it right, click **Start copying**. |
 | A signal shows **Rejected** or **Review** | Open it in History to see why. Nothing was sent. |
 | "Symbol limits are not configured" | Pick the symbol under **Symbol limits** on Execution policy and give it a max spread. |
 | "New format for this channel, not copied yet" | Check the reading, then **Start copying** on Signal rules. |

@@ -67,6 +67,8 @@
     <ClCompile Include="StorageProtocolTests.cpp" />
     <ClCompile Include="TerminalLauncherTests.cpp" />
     <ClCompile Include="..\Pipkite.Engine\TerminalLauncher.cpp" />
+    <ClCompile Include="DiagLogTests.cpp" />
+    <ClCompile Include="..\Pipkite.Engine\DiagLog.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>

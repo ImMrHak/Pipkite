@@ -133,6 +133,7 @@ struct Sim {
     bool netting = false, rejectAll = false, paused = false;
     double balance = 10000, commissionPerLot = 7.0;
     std::map<std::string, Sym> syms;
+    std::set<std::string> subscribed;  // like the EA: only symbols the engine asked for are streamed
     std::vector<Position> positions;
     std::vector<Pending> pendings;
     std::uint64_t nextTicket = 5000001;
@@ -197,6 +198,7 @@ void sendSymbols() {
     Out o("SYMBOL_SNAPSHOT");
     int i = 0;
     for (auto& [k, s] : sim.syms) {
+        if (!sim.subscribed.count(k)) continue;
         const std::string p = "symbols." + std::to_string(i++) + ".";
         o.put(p + "name", s.name).puti(p + "digits", s.digits).put(p + "point", s.tick, 6).put(p + "tickSize", s.tick, 6).put(p + "tickValue", s.tickValue, 4);
         o.put(p + "contractSize", s.contract, 0).put(p + "volumeMin", 0.01, 2).put(p + "volumeMax", 50.0, 2).put(p + "volumeStep", 0.01, 2);
@@ -210,9 +212,19 @@ void sendQuotes() {
     Out o("QUOTE");
     int i = 0;
     for (auto& [k, s] : sim.syms) {
+        if (!sim.subscribed.count(k)) continue;
         const std::string p = "quotes." + std::to_string(i++) + ".";
         o.put(p + "symbol", s.name).put(p + "bid", s.bid, s.digits).put(p + "ask", sim.ask(s), s.digits).puti(p + "brokerTimeMs", nowMs());
     }
+    o.send();
+}
+
+// every symbol the broker offers, names only, as the EA sends it for pick-lists
+void sendCatalog() {
+    Out o("SYMBOL_CATALOG");
+    o.put("reset", "true").put("final", "true");
+    int i = 0;
+    for (auto& [k, s] : sim.syms) o.put("names." + std::to_string(i++), s.name);
     o.send();
 }
 
@@ -349,9 +361,15 @@ void handle(const std::string& text) {
     Kv kv = parseKv(text);
     const std::string type = str(kv, "type");
     if (type == "SNAPSHOT_REQUEST") {
+        const int n = (int)num(kv, "payload.symbols.count", 0);
+        for (int i = 0; i < n; ++i) {
+            const std::string name = str(kv, "payload.symbols." + std::to_string(i));
+            if (sim.syms.count(name)) sim.subscribed.insert(name);
+        }
         sendAccount();
         sendSymbols();
         sendQuotes();
+        sendCatalog();
     } else if (type == "RECONCILE_REQUEST") {
         reconcile(kv);
     } else if (type == "EXECUTE") {

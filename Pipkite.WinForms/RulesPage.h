@@ -1,10 +1,11 @@
 #pragma once
-// Signal rules = how each Telegram channel's messages are read. Per channel the user detects the format
-// (every installed parser tried on recent messages, built-in universal one included), teaches Pipkite by
-// marking the fields in a message, or requests a custom parser from the Pipkite team. Delivered parsers and
+// Signal rules = how each Telegram channel's messages are read. Selecting a channel shows what Pipkite reads in its
+// latest messages and lets the user start copying it (ChannelCheck). Under Advanced tools the user detects the
+// format by hand, requests a custom parser from the Pipkite team or checks for parser updates. Delivered parsers and
 // formats install while the app runs, with no restart.
 
-#include "FormatDialog.h"
+#include "ChannelCheck.h"
+#include "ChannelDialog.h"
 #include "Pages.h"
 
 using namespace System::Text;
@@ -69,39 +70,52 @@ public:
         ch->AutoSize = true;
         grid_ = gcnew BufferedGrid();
         grid_->Width = 900;
-        grid_->Height = 240;
-        grid_->AddCol("channel", "Channel", 300);
-        grid_->AddCol("parser", "Parser", 220);
-        DataGridViewTextBoxColumn^ st = grid_->AddCol("status", "Status", 360);
-        st->AutoSizeMode = DataGridViewAutoSizeColumnMode::Fill;
-        grid_->EmptyText = "No channels yet. Add them on the Telegram sources page, then detect the format of each.";
+        grid_->Height = 150;  // a few channels; what the selected one reads shows right below, without scrolling
+        grid_->AddCol("channel", "Channel", 160);
+        grid_->AddCol("parser", "Format", 140);
+        grid_->AddCol("trades", "Copies with", 270);
+        grid_->AddCol("status", "Status", 120);
+        for each (DataGridViewColumn^ c in grid_->Columns) {  // they share the width, so the status still fits in a narrow window
+            c->FillWeight = static_cast<float>(c->Width);
+            c->AutoSizeMode = DataGridViewAutoSizeColumnMode::Fill;
+        }
+        grid_->EmptyText = "No channels yet. Tick the ones you want to copy on the Telegram sources page.";
         grid_->AccessibleName = "Channels and their parsers";
         grid_->SelectionChanged += gcnew EventHandler(this, &RulesPage::OnRowSelected);
         ch->Controls->Add(grid_);
-        detect_ = L::Btn("Detect format...", "accent",
-                         "Try every installed format on the selected channel's recent messages, see what each reads, and pick one. You can also teach "
-                         "Pipkite by marking the parts of a signal.");
-        detect_->Click += gcnew EventHandler(this, &RulesPage::OnDetect);
-        confirm_ = L::Btn("Start copying", "accent",
-                          "The selected channel has a new format, so its signals are only shown. If they read right in History, press this to copy them from now on.");
-        confirm_->Click += gcnew EventHandler(this, &RulesPage::OnConfirm);
-        request_ = L::Btn("Request a custom parser...", nullptr,
-                          "Ask the Pipkite team to build or adjust the parser for the selected channel. Recent messages (redacted) are included.");
-        request_->Click += gcnew EventHandler(this, &RulesPage::OnRequest);
-        Button^ refresh = L::Btn("Refresh", nullptr, "Reload the channel list and parser status.");
+        settings_ = L::Btn("Channel settings...", nullptr,
+                           "This channel's broker symbol, how it enters (wait for the price, right away, or pending orders) and its own sizing or "
+                           "take-profit if it shouldn't follow Execution policy.");
+        settings_->Click += gcnew EventHandler(this, &RulesPage::OnSettings);
+        Button^ refresh = L::Btn("Refresh", nullptr, "Reload the channel list.");
         refresh->Click += gcnew EventHandler(this, &RulesPage::OnRefresh);
-        Button^ updates = L::Btn("Check for parser updates", nullptr,
-                                 "Ask the backend for new or updated parsers. They install and take effect automatically, without restarting the app.");
-        updates->Click += gcnew EventHandler(this, &RulesPage::OnCheckUpdates);
-        ch->Controls->Add(L::Row(detect_, confirm_, request_, refresh, updates));
+        ch->Controls->Add(L::Row(settings_, refresh));
+        check_ = gcnew ChannelCheck(900);  // what Pipkite reads in the selected channel, with Start copying
+        check_->Changed += gcnew EventHandler(this, &RulesPage::OnCheckChanged);
+        ch->Controls->Add(check_);
         status_ = L::Wrap("", "muted", 900);
         ch->Controls->Add(status_);
         stack->Controls->Add(L::Group("Your channels", ch));
 
-        // installed parsers (read-only, informational)
+        // formats and parsers by hand, for people who know them: hidden until asked for
+        advanced_ = L::Check("Show advanced tools");
+        L::Tip(advanced_, "Detect format by hand, request a custom parser, check for parser updates and see the installed parsers.");
+        advanced_->CheckedChanged += gcnew EventHandler(this, &RulesPage::OnAdvanced);
+        stack->Controls->Add(advanced_);
         FlowLayoutPanel^ inst = gcnew FlowLayoutPanel();
         inst->FlowDirection = FlowDirection::TopDown;
         inst->AutoSize = true;
+        detect_ = L::Btn("Detect format...", nullptr,
+                         "Try every installed format on the selected channel's recent messages, see what each reads, and pick one. You can also teach "
+                         "Pipkite by marking the parts of a signal.");
+        detect_->Click += gcnew EventHandler(this, &RulesPage::OnDetect);
+        request_ = L::Btn("Request a custom parser...", nullptr,
+                          "Ask the Pipkite team to build or adjust the parser for the selected channel. Recent messages (redacted) are included.");
+        request_->Click += gcnew EventHandler(this, &RulesPage::OnRequest);
+        Button^ updates = L::Btn("Check for parser updates", nullptr,
+                                 "Ask the backend for new or updated parsers. They install and take effect automatically, without restarting the app.");
+        updates->Click += gcnew EventHandler(this, &RulesPage::OnCheckUpdates);
+        inst->Controls->Add(L::Row(detect_, request_, updates));
         installed_ = gcnew BufferedGrid();
         installed_->Width = 900;
         installed_->Height = 150;
@@ -113,10 +127,12 @@ public:
         installed_->EmptyText = "No parsers installed yet.";
         installed_->AccessibleName = "Installed parsers";
         inst->Controls->Add(installed_);
-        stack->Controls->Add(L::Group("Installed parsers", inst));
+        advancedBox_ = L::Group("Advanced tools", inst);
+        advancedBox_->Visible = false;
+        stack->Controls->Add(advancedBox_);
 
         Controls->Add(stack);
-        Header("Signal rules", "How each channel's messages are read. Detect or teach a format here; delivered parsers update automatically.", this);
+        Header("Signal rules", "Select a channel to see what Pipkite reads in its latest messages, then start copying it.", this);
     }
 
     // Select a channel's row (used by the Telegram sources page "Edit signal rule" button).
@@ -132,14 +148,20 @@ public:
 
 private:
     BufferedGrid ^ grid_, ^installed_;
-    Button ^ request_, ^detect_, ^confirm_;
+    Button ^ request_, ^detect_, ^settings_;
+    ChannelCheck^ check_;
+    CheckBox^ advanced_;
+    GroupBox^ advancedBox_;
     Label^ status_;
+    bool filling_;
     array<Object^>^ sources_;
     array<Object^>^ parsers_;
     String^ focusChatId_;
 
     void Reload() { Client->Call("parser.list", nullptr, gcnew ResponseHandler(this, &RulesPage::OnParsers)); }
     void OnRefresh(Object^, EventArgs^) { Reload(); }
+    void OnCheckChanged(Object^, EventArgs^) { Reload(); }
+    void OnAdvanced(Object^, EventArgs^) { advancedBox_->Visible = advanced_->Checked; }
 
     void OnParsers(bool ok, Object^ result, String^ error) {
         if (!ok) return ShowError(error);
@@ -166,25 +188,39 @@ private:
     void OnSources(bool ok, Object^ result, String^ error) {
         if (!ok) return ShowError(error);
         sources_ = J::Arr(result);
+        filling_ = true;  // the selected channel is shown once the list is rebuilt
         grid_->Rows->Clear();
         for each (Object^ o in sources_) {
             JObj^ b = J::Obj(o);
-            String^ pid = J::Str(b, "template");
+            // the parser the channel really uses (its own, or the one delivered for every channel)
+            String^ format = J::Str(b, "activeFormat");
+            String^ pid = format->Contains("@") ? format->Substring(0, format->IndexOf("@")) : format;
             JObj^ active = ActiveParser(pid);
-            String^ statusText;
-            if (active == nullptr)
-                statusText = "No parser yet — detect the format or request one";
-            else
-                statusText = OriginText(active) + " · v" + J::Str(active, "version");
             const bool pending = J::Bool(b, "formatPending");
-            if (pending) statusText = "Not copying yet: check its signals in History, then press Start copying · " + statusText;
-            int idx = grid_->Rows->Add(gcnew array<Object^>{J::Str(b, "title"), pid, statusText});
+            const bool paused = !J::Bool(b, "enabled", true);
+            // what to do about it is shown below the list for the selected channel
+            String^ statusText = paused ? "Paused" : active == nullptr ? "Not set up" : pending ? "Not copying yet" : "Copying";
+            int idx = grid_->Rows->Add(gcnew array<Object^>{J::Str(b, "title"), pid == "" ? "-" : pid, CopiesWith(b), statusText});
             grid_->Rows[idx]->Tag = b;
-            if (pending) grid_->Rows[idx]->DefaultCellStyle->ForeColor = Theme::Warning;
-            if (focusChatId_ != nullptr && J::Str(b, "chatId") == focusChatId_) grid_->Rows[idx]->Selected = true;
+            if (paused) grid_->Rows[idx]->DefaultCellStyle->ForeColor = Theme::TextMuted;
+            else if (pending) grid_->Rows[idx]->DefaultCellStyle->ForeColor = Theme::Warning;
         }
+        if (focusChatId_ != nullptr) SelectByChatId(focusChatId_);  // the channel selected before the reload stays selected
         grid_->Invalidate();
+        filling_ = false;
         OnRowSelected(nullptr, nullptr);
+        MaybeOpenForTest();
+    }
+
+    // test-only (PIPKITE_TEST_HOOKS=1 and PIPKITE_TEST_OPEN=channel): opens the first channel's settings, for screenshots
+    static bool testOpened_;
+    void MaybeOpenForTest() {
+        if (testOpened_ || grid_->Rows->Count == 0 || Environment::GetEnvironmentVariable("PIPKITE_TEST_HOOKS") != "1" ||
+            Environment::GetEnvironmentVariable("PIPKITE_TEST_OPEN") != "channel")
+            return;
+        testOpened_ = true;
+        grid_->Rows[0]->Selected = true;
+        BeginInvoke(gcnew EventHandler(this, &RulesPage::OnSettings), gcnew array<Object^>{this, EventArgs::Empty});
     }
 
     JObj^ SelectedSource() {
@@ -195,9 +231,30 @@ private:
         for each (DataGridViewRow^ r in grid_->Rows) {
             JObj^ b = dynamic_cast<JObj^>(r->Tag);
             if (b != nullptr && J::Str(b, "chatId") == chatId) {
-                r->Selected = true;
+                grid_->CurrentCell = r->Cells[0];  // selects the row and moves the keyboard there
                 return;
             }
+        }
+    }
+
+    // the channel's own settings at a glance; everything else follows Execution policy and Symbol limits
+    static String^ CopiesWith(JObj^ b) {
+        String^ sym = J::Str(b, "tradeSymbol");
+        String^ mode = J::Str(b, "entryMode", "wait_for_range");
+        String^ text = (sym == "" ? "message's symbol" : sym + " only") + " · " +
+                       (mode == "immediate_within_tolerance" ? "enters right away" : mode == "explicit_pending_only" ? "pending orders" : "waits for the price");
+        if (J::Bool(b, "overrideSizing")) text += " · own sizing";
+        if (J::Bool(b, "overrideTargets")) text += " · own take-profit";
+        return text;
+    }
+
+    void OnSettings(Object^, EventArgs^) {
+        JObj^ b = SelectedSource();
+        if (b == nullptr) return ShowError("Select a channel first.");
+        ChannelDialog^ d = gcnew ChannelDialog(Client, b);
+        if (d->ShowDialog(FindForm()) == Windows::Forms::DialogResult::OK) {
+            status_->Text = J::Str(b, "title") + ": settings saved.";
+            Reload();
         }
     }
 
@@ -208,9 +265,17 @@ private:
     }
 
     void OnRowSelected(Object^, EventArgs^) {
-        request_->Enabled = SelectedSource() != nullptr;
+        JObj^ b = SelectedSource();
+        request_->Enabled = b != nullptr;
         detect_->Enabled = request_->Enabled;
-        confirm_->Enabled = request_->Enabled && J::Bool(SelectedSource(), "formatPending");
+        settings_->Enabled = request_->Enabled;
+        if (filling_) return;
+        if (b == nullptr) {
+            check_->Visible = false;
+            return;
+        }
+        focusChatId_ = J::Str(b, "chatId");
+        check_->ShowChannel(Client, b);
     }
 
     void OnDetect(Object^, EventArgs^) {
@@ -218,29 +283,10 @@ private:
         if (b == nullptr) return ShowError("Select a channel first.");
         FormatDialog^ d = gcnew FormatDialog(Client, J::Str(b, "chatId"), J::Str(b, "title"), nullptr);
         if (d->ShowDialog(FindForm()) == Windows::Forms::DialogResult::OK) {
-            status_->Text = J::Str(b, "title") + " now uses the format you picked. Its signals are shown in History but not copied until you press Start copying.";
+            status_->Text = J::Str(b, "title") + " now uses the format you picked. Its signals are not copied until you press Start copying.";
+            check_->Recheck();
             Reload();
         }
-    }
-
-    void OnConfirm(Object^, EventArgs^) {
-        JObj^ b = SelectedSource();
-        if (b == nullptr || !J::Bool(b, "formatPending")) return;
-        JObj^ p = J::New();
-        p["chatId"] = J::Str(b, "chatId");
-        p["format"] = J::Str(b, "activeFormat");  // the version the user looked at
-        confirm_->Enabled = false;
-        Client->Call("source.confirmFormat", p, gcnew ResponseHandler(this, &RulesPage::OnConfirmed));
-    }
-
-    void OnConfirmed(bool ok, Object^, String^ error) {
-        if (!ok) {
-            status_->Text = "Not started: " + error;
-            Reload();
-            return;
-        }
-        status_->Text = "Copying is on for this channel. New signals it reads are traded with your rules.";
-        Reload();
     }
 
     void OnRequest(Object^, EventArgs^) {

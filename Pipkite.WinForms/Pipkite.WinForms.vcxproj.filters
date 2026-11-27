@@ -29,6 +29,12 @@
     <ClInclude Include="DashboardPage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ChannelCheck.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ChannelDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="FormatDialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>

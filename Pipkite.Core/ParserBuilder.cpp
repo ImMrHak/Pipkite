@@ -254,6 +254,7 @@ std::vector<FormatCandidate> detectFormat(const std::vector<NamedParser>& parser
             (outcome == "signal" ? c.signals : outcome == "review" ? c.reviews : c.ignored)++;
             json row = readOf(s);
             row["outcome"] = outcome;
+            row["kind"] = toString(s.kind);  // a trade-management post waits for review but is not a signal
             row["status"] = toString(s.status);
             row["reason"] = s.diagnostics.empty() ? "" : s.diagnostics.back();
             c.samples.push_back(std::move(row));

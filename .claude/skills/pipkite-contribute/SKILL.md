@@ -59,7 +59,8 @@ The most common contribution. Example: `cases()` in `Pipkite.Tests/FormatCorpusT
 
 1. Add the message with what it **must** read:
    `{"universal", "<text>", "BUY", "XAUUSD", entryLow, entryHigh, sl, {tp1, tp2}, "LIMIT"}`
-   Entry `0, 0` = market; last field only for pending orders (`"LIMIT"`/`"STOP"`).
+   A signal always has an entry price (BUY NOW alone is a `nullptr` case); last field only for pending orders
+   (`"LIMIT"`/`"STOP"`).
    Results, chatter and management ("TP1 hit +40 pips", "move SL to BE", "close half") go in with
    `side = nullptr`: no format may read them as a signal. Add one of these too when your fix widens a format.
 2. `x64\Release\Pipkite.Tests.exe shipped_formats`: watch it fail.

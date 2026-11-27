@@ -75,10 +75,9 @@ public:
         TableLayoutPanel^ up = L::Form2();
         channel_ = L::Combo(140, gcnew array<String^>{"stable", "beta"});
         L::AddField(up, "Channel", channel_);
-        autoUpd_ = L::Check("Install compatible signed parser/bridge fixes automatically (never changes mode, risk, sources or account)");
+        autoUpd_ = L::Check("Install signed parser and bridge fixes automatically");
+        L::Tip(autoUpd_, "Fixes are checked against Pipkite's signature first. They never change your copying mode, risk, channels or account.");
         L::AddField(up, "", autoUpd_);
-        manifestUrl_ = L::Box(460);
-        L::AddField(up, "Release manifest URL", manifestUrl_);
         Button^ saveUp = L::Btn("Save", nullptr, "Save the update channel and automatic-fix choice.");
         saveUp->Click += gcnew EventHandler(this, &SettingsPage::OnSaveUpdates);
         Button^ check = L::Btn("Check now", nullptr, "Look for new parser and bridge fixes now.");
@@ -97,12 +96,6 @@ public:
         L::AddField(ai, "", aiStore_);
         licenseKey_ = L::Box(360);
         L::AddField(ai, "License key", licenseKey_);
-        licensePortal_ = L::Box(360);
-        L::AddField(ai, "Free license portal URL", licensePortal_);
-        Button^ savePortal = L::Btn("Save URL", nullptr, "The website where users generate a free license key. Shown as a link in the welcome dialog.");
-        savePortal->Click += gcnew EventHandler(this, &SettingsPage::OnSavePortal);
-        ai->Controls->Add(gcnew Label());
-        ai->Controls->Add(savePortal);
         Button^ validate = L::Btn("Validate & save", "accent", "Check the key against the Pipkite backend. Only a key the backend accepts is saved.");
         validate->Click += gcnew EventHandler(this, &SettingsPage::OnValidateLicense);
         Button^ clearKey = L::Btn("Remove key", nullptr, "Clear the saved license key. The app keeps working; backend features (AI review, custom parsers, updates) stop until a valid key is entered.");
@@ -117,19 +110,22 @@ public:
         // signal formats: sharing between users of the same channel, and AI help for formats no one has yet
         TableLayoutPanel^ fm = L::Form2();
         lookup_ = L::Check("Show formats other Pipkite users made for the same channel");
-        L::Tip(lookup_, "When you open Detect format, Pipkite sends the channel's ID to find formats others made for it. You still check each one on your own messages.");
+        L::Tip(lookup_, "When Pipkite checks a channel (you tick it, select it in Signal rules or open Detect format), it sends the channel's ID to find "
+                         "formats others made for it. You still check each one on your own messages.");
         L::AddField(fm, "", lookup_);
         share_ = L::Check("Offer formats I teach to other users of the same channel");
         L::Tip(share_, "Sends the format, the channel's title and examples with links, @names, phone numbers and emails removed. Others still check it before using it.");
         L::AddField(fm, "", share_);
         aiProvider_ = L::Combo(320, gcnew array<String^>{"Pipkite's AI (free, uses your license key)", "My own AI key"});
         aiProvider_->DropDownStyle = ComboBoxStyle::DropDownList;
+        aiProvider_->SelectedIndexChanged += gcnew EventHandler(this, &SettingsPage::OnAiChoice);
         L::AddField(fm, "AI help for formats", aiProvider_,
                     "Who answers when you press Ask AI in Detect format. The AI only suggests words to add to a format; you test the result on the channel's "
                     "messages before using it, and trading never waits on an AI.");
         aiPreset_ = L::Combo(320, gcnew array<String^>{"OpenAI", "DeepSeek", "Other (OpenAI-compatible)"});
         aiPreset_->DropDownStyle = ComboBoxStyle::DropDownList;
         aiPreset_->SelectedIndexChanged += gcnew EventHandler(this, &SettingsPage::OnAiPreset);
+        aiPreset_->SelectedIndexChanged += gcnew EventHandler(this, &SettingsPage::OnAiChoice);
         L::AddField(fm, "Your AI provider", aiPreset_);
         aiUrl_ = L::Box(360);
         L::AddField(fm, "AI address", aiUrl_, "The provider's API address, e.g. https://api.openai.com/v1 or https://api.deepseek.com. http:// works only for a model server on this PC.");
@@ -141,7 +137,8 @@ public:
         L::AddField(fm, "Your AI key", aiKey_, "Stored with Windows data protection on this PC. Sent only to the AI address above.");
         Button^ saveFm = L::Btn("Save", "accent", "Save these format and AI settings (and the key, if you typed one).");
         saveFm->Click += gcnew EventHandler(this, &SettingsPage::OnSaveFormats);
-        Button^ clearAiKey = L::Btn("Remove my AI key", nullptr, "Delete your AI key from this PC.");
+        clearAiKey_ = L::Btn("Remove my AI key", nullptr, "Delete your AI key from this PC.");
+        Button^ clearAiKey = clearAiKey_;
         clearAiKey->Click += gcnew EventHandler(this, &SettingsPage::OnClearAiKey);
         fm->Controls->Add(gcnew Label());
         fm->Controls->Add(L::Row(saveFm, clearAiKey));
@@ -153,19 +150,29 @@ public:
         FlowLayoutPanel^ dg = gcnew FlowLayoutPanel();
         dg->FlowDirection = FlowDirection::TopDown;
         dg->AutoSize = true;
+        verbose_ = L::Check("Keep a detailed log for troubleshooting");
+        L::Tip(verbose_, "Writes what Pipkite receives and does to a file on this PC: the messages from your channels, what it read in them, its decisions, the orders "
+                         "and MetaTrader's replies. Never passwords, login codes or keys. Files go after the message retention days, 100 MB at most.");
+        verbose_->CheckedChanged += gcnew EventHandler(this, &SettingsPage::OnVerbose);
+        dg->Controls->Add(verbose_);
+        dg->Controls->Add(L::Wrap("The log includes the text of the messages Pipkite receives. It stays on this PC: send it to Pipkite support only when you want "
+                                  "help with a problem.",
+                                  "muted", 640));
         Button^ health = L::Btn("Run health check", nullptr, "Check disk space, journaling, terminal permission and connection status.");
         health->Click += gcnew EventHandler(this, &SettingsPage::OnHealth);
         Button^ folder = L::Btn("Open data folder", nullptr, "Open the folder holding your database, journals and settings in File Explorer.");
         folder->Click += gcnew EventHandler(this, &SettingsPage::OnOpenFolder);
+        Button^ logs = L::Btn("Open log folder", nullptr, "Open the folder with the detailed log, one file per day, in File Explorer.");
+        logs->Click += gcnew EventHandler(this, &SettingsPage::OnOpenLogs);
         Button^ restart = L::Btn("Restart engine (orderly)", nullptr, "Stop and restart the background engine after finishing in-flight work. Copying pauses briefly.");
         restart->Click += gcnew EventHandler(this, &SettingsPage::OnRestartEngine);
         Button^ exit = L::Btn("Exit Pipkite", "danger", "Stop the engine and close the app. New signals are not copied until you start it again.");
         exit->Click += gcnew EventHandler(this, &SettingsPage::OnExit);
-        dg->Controls->Add(L::Row(health, folder, restart, exit));
+        dg->Controls->Add(L::Row(health, folder, logs, restart, exit));
         healthText_ = L::Wrap("", nullptr, 900);
         healthText_->Font = Theme::Mono;
         dg->Controls->Add(healthText_);
-        dg->Controls->Add(L::Text("Pipkite 1.0.5", "muted"));
+        dg->Controls->Add(L::Text("Pipkite 1.0.6", "muted"));
         stack->Controls->Add(L::Group("Diagnostics and connection", dg));
         Controls->Add(stack);
         Header("Settings", "Appearance, startup, local data, updates, signal formats and AI help.", this);
@@ -187,15 +194,27 @@ public:
 
 private:
     ComboBox ^ theme_, ^channel_;
-    CheckBox ^ tray_, ^startup_, ^notify_, ^autoUpd_, ^aiStore_, ^keepAwake_, ^setupList_, ^lookup_, ^share_;
+    CheckBox ^ tray_, ^startup_, ^notify_, ^autoUpd_, ^aiStore_, ^keepAwake_, ^setupList_, ^lookup_, ^share_, ^verbose_;
     ComboBox ^ aiProvider_, ^aiPreset_;
+    Button^ clearAiKey_;
+
+    // the provider, address, model and key fields only apply to "My own AI key"; the address only to "Other"
+    void ShowAiFields() {
+        const bool own = aiProvider_->SelectedIndex == 1;
+        L::ShowField(aiPreset_, own);
+        L::ShowField(aiUrl_, own && aiPreset_->SelectedIndex == 2);
+        L::ShowField(aiModel_, own);
+        L::ShowField(aiKey_, own);
+        clearAiKey_->Visible = own;
+    }
+    void OnAiChoice(Object^, EventArgs^) { ShowAiFields(); }
     TextBox ^ aiUrl_, ^aiModel_, ^aiKey_;
     Label^ aiStatus_;
     NumericUpDown ^ rawDays_, ^metaDays_;
-    TextBox ^ manifestUrl_, ^licenseKey_, ^licensePortal_;
+    TextBox^ licenseKey_;  // the update address and license link are maintainer settings: kept, not shown
     Label ^ dataDir_, ^updStatus_, ^healthText_, ^licenseStatus_;
     bool loading_;
-    String^ dataDirPath_;
+    String ^ dataDirPath_, ^logDirPath_;
 
     void OnSettings(bool ok, Object^ result, String^ error) {
         if (!ok) return;
@@ -210,10 +229,8 @@ private:
         metaDays_->Value = Decimal(Math::Max(1.0, Double::Parse(J::Str(s, "retention.metadataDays", "180"))));
         channel_->SelectedItem = J::Str(s, "updates.channel", "stable");
         autoUpd_->Checked = J::Str(s, "updates.autoCompatible", "true") == "true";
-        manifestUrl_->Text = J::Str(s, "updates.manifestUrl");
         aiStore_->Checked = J::Str(s, "ai.storeLocally", "true") == "true";
         licenseKey_->Text = J::Str(s, "license.key");
-        licensePortal_->Text = J::Str(s, "license.portalUrl");
         licenseStatus_->Text = licenseKey_->Text != "" ? "A license key is saved. Use Validate & save to re-check it." : "No license key. Backend features are off until you enter a valid key.";
         lookup_->Checked = J::Str(s, "formats.lookup", "true") != "false";
         share_->Checked = J::Str(s, "formats.share", "false") == "true";
@@ -222,10 +239,13 @@ private:
         aiModel_->Text = J::Str(s, "ai.ownModel");
         aiPreset_->SelectedIndex = aiUrl_->Text->Contains("deepseek") ? 1 : aiUrl_->Text == "" || aiUrl_->Text->Contains("api.openai.com") ? 0 : 2;
         if (aiUrl_->Text == "") OnAiPreset(nullptr, nullptr);
+        ShowAiFields();
         aiKey_->Text = "";
         aiStatus_->Text = J::Bool(s, "ai.ownKeySet") ? "Your AI key is saved on this PC." : "No AI key of your own saved.";
         dataDirPath_ = J::Str(s, "dataDir");
         dataDir_->Text = "Database folder: " + dataDirPath_;
+        verbose_->Checked = J::Str(s, "diagnostics.verbose", "false") == "true";
+        logDirPath_ = J::Str(s, "logDir");
         loading_ = false;
     }
 
@@ -368,13 +388,6 @@ private:
         licenseStatus_->Text = detail;
     }
 
-    void OnSavePortal(Object^, EventArgs^) {
-        JObj^ v = J::New();
-        v["license.portalUrl"] = licensePortal_->Text->Trim();
-        Save(v);
-        licenseStatus_->Text = "License portal URL saved. It appears as the free-key link in the welcome dialog.";
-    }
-
     void OnClearLicense(Object^, EventArgs^) {
         licenseKey_->Text = "";
         JObj^ v = J::New();
@@ -455,7 +468,6 @@ private:
         JObj^ v = J::New();
         v["updates.channel"] = channel_->Text;
         v["updates.autoCompatible"] = autoUpd_->Checked ? "true" : "false";
-        v["updates.manifestUrl"] = manifestUrl_->Text->Trim();
         Save(v);
     }
     void OnCheckUpdates(Object^, EventArgs^) { Client->Call("updates.check", nullptr, SimpleHandler()); }
@@ -484,6 +496,21 @@ private:
 
     void OnOpenFolder(Object^, EventArgs^) {
         if (!String::IsNullOrEmpty(dataDirPath_)) Diagnostics::Process::Start("explorer.exe", "\"" + dataDirPath_ + "\"");
+    }
+
+    // saved at once: the log starts or stops right away
+    void OnVerbose(Object^, EventArgs^) {
+        if (loading_) return;
+        JObj^ v = J::New();
+        v["diagnostics.verbose"] = verbose_->Checked ? "true" : "false";
+        Save(v);
+    }
+
+    void OnOpenLogs(Object^, EventArgs^) {
+        if (String::IsNullOrEmpty(logDirPath_)) return;
+        if (!IO::Directory::Exists(logDirPath_))
+            return ShowInfo("Detailed log", "There is no log yet. Tick Keep a detailed log for troubleshooting; Pipkite starts writing it right away.");
+        Diagnostics::Process::Start("explorer.exe", "\"" + logDirPath_ + "\"");
     }
 
     void OnRestartEngine(Object^, EventArgs^) {

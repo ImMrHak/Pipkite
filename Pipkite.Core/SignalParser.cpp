@@ -32,13 +32,18 @@ struct NumHit {
 struct SymbolHit {
     std::string alias, canonical;
     std::uint32_t nb, ne;
+    int line;
 };
 
 struct DirHit {
     Side side;
     std::uint32_t nb, ne;
     int line;
+    bool wordFollows;  // an ordinary word comes next, as in running text: "long term success"
 };
+
+// words that keep a Buy/Sell word a direction even on a line with no price or symbol ("SELL SETUP")
+const std::set<std::string> kSetupWords{"SETUP", "SIGNAL", "TRADE", "ORDER", "POSITION", "ZONE", "AREA", "ALERT", "ENTRY", "IDEA"};
 
 struct EntryHit {
     std::vector<NumHit> nums;
@@ -119,16 +124,21 @@ private:
                matchAny(L, i, t_.buy) || matchAny(L, i, t_.sell) || matchAny(L, i, t_.management);
     }
 
+    // the next word after punctuation is not a symbol, label, order type or market word
+    bool ordinaryWordAt(const std::vector<int>& L, std::size_t j) const {
+        while (j < L.size() && tk(L, j).type == TokenType::Punct) ++j;
+        if (j >= L.size() || tk(L, j).type != TokenType::Word) return false;
+        const std::string& w = tk(L, j).text;
+        if (kSetupWords.count(w) || symbolFor(w)) return false;
+        return !(isLabelAt(L, j) || matchAny(L, j, t_.limit) || matchAny(L, j, t_.stop) || matchAny(L, j, t_.now));
+    }
+
     bool isSeparator(const Token& t) const { return t.type == TokenType::Punct && kSeparators.count(t.text); }
 
     std::optional<std::string> symbolFor(const std::string& text) const {
         auto it = t_.aliases.find(text);
         if (it != t_.aliases.end()) return it->second;
-        if (t_.source.recognizeCurrencyPairs && text.size() == 6) {
-            bool letters = std::all_of(text.begin(), text.end(), [](char c) { return c >= 'A' && c <= 'Z'; });
-            if (letters && kIsoCurrencies.count(text.substr(0, 3)) && kIsoCurrencies.count(text.substr(3, 3)) && text.substr(0, 3) != text.substr(3, 3))
-                return text;
-        }
+        if (t_.source.recognizeCurrencyPairs && isCurrencyPair(text)) return text;
         return std::nullopt;
     }
 
@@ -149,7 +159,7 @@ private:
             for (std::size_t k = i; k < e; ++k)
                 if (!isSlash(k)) joined += tk(L, k).text;
             if (auto canon = symbolFor(joined)) {
-                symbols.push_back({joined, *canon, first.begin, tk(L, e - 1).end});
+                symbols.push_back({joined, *canon, first.begin, tk(L, e - 1).end, first.line});
                 return e - i;
             }
         }
@@ -179,6 +189,7 @@ private:
     }
 
     bool followedByPipWord(const std::vector<int>& L, std::size_t j) const {
+        if (j + 2 < L.size() && tk(L, j + 1).type == TokenType::Punct && tk(L, j + 1).text == "+") ++j;  // "400+ PIPS"
         return j + 1 < L.size() && tk(L, j + 1).type == TokenType::Word && kPipWords.count(tk(L, j + 1).text);
     }
 
@@ -187,6 +198,8 @@ private:
         while (i < L.size()) {
             const Token& t = tk(L, i);
             if (t.type == TokenType::Punct && t.text == "?") { question = true; ++i; continue; }
+            // "@buy_signals" names a Telegram account; its words are not a direction or a symbol
+            if (t.type == TokenType::Punct && t.text == "@" && i + 1 < L.size() && tk(L, i + 1).glued && tk(L, i + 1).type == TokenType::Word) { i += 2; continue; }
             if (std::size_t n = matchAny(L, i, t_.management)) { ++managementHits; i += n; continue; }
             if (std::size_t n = matchAny(L, i, t_.buy)) { i = scanDirection(L, i, n, Side::Buy); continue; }
             if (std::size_t n = matchAny(L, i, t_.sell)) { i = scanDirection(L, i, n, Side::Sell); continue; }
@@ -238,7 +251,7 @@ private:
     }
 
     std::size_t scanDirection(const std::vector<int>& L, std::size_t i, std::size_t n, Side side) {
-        directions.push_back({side, tk(L, i).begin, tk(L, i + n - 1).end, tk(L, i).line});
+        directions.push_back({side, tk(L, i).begin, tk(L, i + n - 1).end, tk(L, i).line, ordinaryWordAt(L, i + n)});
         std::size_t j = i + n;
         // Order kind must follow the direction keyword directly. Never inferred. It loses only to a longer
         // SL label: "BUY STOP 2350" is a stop order, "BUY STOP LOSS 2340" is not.
@@ -284,7 +297,7 @@ private:
             }
             if (std::size_t m = matchAny(L, j, t_.entry)) { j += m; continue; }  // "BUY ENTRY 4300"
             if (std::size_t m = matchSymbol(L, j)) { j += m; continue; }
-            if (t.type == TokenType::Word && (t.text == "TO" || t.text == "AT")) { ++j; continue; }
+            if (t.type == TokenType::Word && (t.text == "TO" || t.text == "AT" || t.text == "FROM")) { ++j; continue; }  // "SELL NOW FROM 3965"
             break;
         }
         if (!eh.nums.empty()) entries.push_back(std::move(eh));
@@ -295,10 +308,14 @@ private:
         const std::size_t labelEnd = j;
         j = skipSeparators(L, j);
         if (j < L.size() && (tk(L, j).type == TokenType::Number || tk(L, j).type == TokenType::BadNumber)) {
+            if (followedByPipWord(L, j)) {  // "SL 30 pips" is a distance, not a price: the stop is still unknown
+                diagnostics.push_back("SL given in pips is informational only and was not used as a price");
+                ++slLabelsWithoutValue;
+                return j + 2;
+            }
             if (j == labelEnd) checkGlue(tk(L, j), "SL label");
             if (auto num = numberAt(L, j)) slValues.push_back(*num);
             ++j;
-            if (j < L.size() && tk(L, j).type == TokenType::Word && kPipWords.count(tk(L, j).text)) ++j;
         } else {
             ++slLabelsWithoutValue;
         }
@@ -314,8 +331,8 @@ private:
             if (k < L.size() && (tk(L, k).type == TokenType::Number || tk(L, k).type == TokenType::BadNumber)) {
                 index = static_cast<int>(tk(L, j).number);
                 j = j + 1;
-            } else if (k >= L.size() || tk(L, k).type == TokenType::Word) {
-                // "TP1 HIT" / "TP1" alone: numbered label without a price.
+            } else {
+                // "TP1 HIT", "TP⁴ #Open", "TP3 (open)", "TP1" alone: a numbered label without a price, never a price of 1-20
                 ++tpLabelsWithoutPrice;
                 return j + 1;
             }
@@ -354,7 +371,7 @@ private:
                 ++j;
                 continue;
             }
-            if (isSeparator(t) || (t.type == TokenType::Word && (t.text == "TO" || t.text == "AT" || t.text == "AND"))) { ++j; continue; }
+            if (isSeparator(t) || (t.type == TokenType::Word && (t.text == "TO" || t.text == "AT" || t.text == "AND" || t.text == "FROM"))) { ++j; continue; }
             if (std::size_t m = matchAny(L, j, t_.now)) {
                 if (!marketIntent) { nowNb = t.begin; nowNe = tk(L, j + m - 1).end; }
                 marketIntent = true;
@@ -379,6 +396,12 @@ void finishTiming(Signal& s, std::chrono::steady_clock::time_point start) {
 
 }  // namespace
 
+bool isCurrencyPair(std::string_view text) {
+    if (text.size() != 6 || !std::all_of(text.begin(), text.end(), [](char c) { return c >= 'A' && c <= 'Z'; })) return false;
+    const std::string base(text.substr(0, 3)), quote(text.substr(3, 3));
+    return base != quote && kIsoCurrencies.count(base) && kIsoCurrencies.count(quote);
+}
+
 std::string checkGeometry(const Signal& s) {
     if (!s.side) return {};
     const bool buy = *s.side == Side::Buy;
@@ -388,6 +411,8 @@ std::string checkGeometry(const Signal& s) {
         if (bad(tp.price)) return "Take profit must be a positive finite price";
     if (s.entry) {
         if (bad(s.entry->low) || bad(s.entry->high)) return "Entry must be a positive finite price";
+        if (s.entry->high > s.entry->low * 2)  // "3485/87" written short for 3485-3487
+            return "Entry " + fmt(s.entry->low) + " - " + fmt(s.entry->high) + " is too wide to be one price range";
         if (s.stopLoss) {
             if (buy && !(*s.stopLoss < s.entry->low)) return "BUY stop loss " + fmt(*s.stopLoss) + " must be below entry " + fmt(s.entry->low);
             if (!buy && !(*s.stopLoss > s.entry->high)) return "SELL stop loss " + fmt(*s.stopLoss) + " must be above entry " + fmt(s.entry->high);
@@ -396,6 +421,11 @@ std::string checkGeometry(const Signal& s) {
             if (buy && !(tp.price > s.entry->high)) return "BUY take profit " + fmt(tp.price) + " must be above entry " + fmt(s.entry->high);
             if (!buy && !(tp.price < s.entry->low)) return "SELL take profit " + fmt(tp.price) + " must be below entry " + fmt(s.entry->low);
         }
+        // below half or above double the entry is a misreading ("SL 30" meant in pips for gold at 4000), not a price
+        auto far = [&](double v) { return v < s.entry->low / 2 || v > s.entry->high * 2; };
+        if (s.stopLoss && far(*s.stopLoss)) return "Stop loss " + fmt(*s.stopLoss) + " is too far from entry " + fmt(s.entry->low) + " to be a price";
+        for (auto& tp : s.targets)
+            if (far(tp.price)) return "Take profit " + fmt(tp.price) + " is too far from entry " + fmt(s.entry->low) + " to be a price";
     } else if (s.stopLoss) {
         for (auto& tp : s.targets) {
             if (buy && !(tp.price > *s.stopLoss)) return "BUY take profit " + fmt(tp.price) + " must be above stop loss " + fmt(*s.stopLoss);
@@ -496,9 +526,31 @@ Signal parseWithTemplate(std::string_view raw, const CompiledTemplate& t, const 
         }
     }
 
+    // A Buy/Sell word in running text, on a line with no price and no symbol, is not a direction:
+    // "Money management is key to long term success" in a footer must not turn a SELL into a conflict.
+    // Only looked at when such a word exists, so ordinary signals pay nothing for it.
+    std::vector<DirHit> kept;
+    const std::vector<DirHit>* dirs = &ex.directions;
+    if (std::any_of(ex.directions.begin(), ex.directions.end(), [](const DirHit& d) { return d.wordFollows; })) {
+        auto onLineWithPriceOrSymbol = [&](int line) {
+            for (auto& k : tr.tokens)
+                if (k.line == line && (k.type == TokenType::Number || k.type == TokenType::BadNumber)) return true;
+            return std::any_of(ex.symbols.begin(), ex.symbols.end(), [&](const SymbolHit& sh) { return sh.line == line; });
+        };
+        for (auto& d : ex.directions) {
+            if (d.wordFollows && !onLineWithPriceOrSymbol(d.line)) {
+                s.diagnostics.push_back("Ignored '" + norm.text.substr(d.nb, d.ne - d.nb) + "' in running text; not read as a direction");
+                continue;
+            }
+            kept.push_back(d);
+        }
+        dirs = &kept;
+    }
+    const std::vector<DirHit>& directions = *dirs;
+
     // Classification
     std::set<Side> sides;
-    for (auto& d : ex.directions) sides.insert(d.side);
+    for (auto& d : directions) sides.insert(d.side);
     if (advSide) sides.insert(*advSide);
     const bool hasNumbers = !ex.slValues.empty() || !ex.tps.empty() || !ex.entries.empty() || advSl || !advTps.empty() || advEntry;
 
@@ -514,10 +566,13 @@ Signal parseWithTemplate(std::string_view raw, const CompiledTemplate& t, const 
     }
     if (ex.question && ex.slValues.empty() && ex.tps.empty())
         return finish(ParseStatus::Unsupported, MessageKind::Commentary, "Question without trade levels; not an entry");
+    // "XAUUSD SELL / TP 3 HIT 90+ PIPS": a result post names the trade but gives no price at all
+    if (!hasNumbers && !ex.marketIntent && (ex.tpLabelsWithoutPrice > 0 || ex.commentaryHits > 0))
+        return finish(ParseStatus::Unsupported, MessageKind::Commentary, "Result/commentary message (e.g. 'TP hit'); provider claims are not broker fills");
 
     s.kind = MessageKind::TradeSetup;
     s.side = *sides.begin();
-    if (!ex.directions.empty()) addEvidence(s, norm, "side", ex.directions.front().nb, ex.directions.front().ne);
+    if (!directions.empty()) addEvidence(s, norm, "side", directions.front().nb, directions.front().ne);
     if (ex.kind) {
         s.orderKind = *ex.kind;
         s.explicitKind = true;
@@ -662,19 +717,24 @@ Signal parseWithTemplate(std::string_view raw, const CompiledTemplate& t, const 
 
     std::vector<std::string> missing;
     if (s.symbol.empty()) missing.push_back("symbol");
-    if (!s.entry && !s.marketIntent) missing.push_back("entry price or explicit NOW");
+    if (!s.entry) missing.push_back("entry price");  // NOW / market says when, not at what price: BUY NOW alone is not a setup
     if (t.source.requireStopLoss && !s.stopLoss) missing.push_back("stop loss");
     if (t.source.requireTakeProfit && s.targets.empty()) missing.push_back("take profit");
+    // an SL label without a number ("SL: soon") means the provider hasn't decided yet: never treated as omitted
+    const bool slNeverWritten = !s.stopLoss && ex.slLabelsWithoutValue == 0;
+    const std::string geo = checkGeometry(s);
+    const bool consistent = !(s.explicitKind && s.marketIntent) && geo.empty();
     if (!missing.empty()) {
+        s.stopLossOmitted = missing.size() == 1 && missing[0] == "stop loss" && slNeverWritten && consistent;
         std::string m = "Missing required fields: ";
         for (std::size_t k = 0; k < missing.size(); ++k) m += (k ? ", " : "") + missing[k];
         return finish(ParseStatus::Incomplete, MessageKind::TradeSetup, m);
     }
     if (s.explicitKind && s.marketIntent) return finish(ParseStatus::Ambiguous, MessageKind::TradeSetup, "Both a pending order type and NOW/market intent were given");
 
-    std::string geo = checkGeometry(s);
     if (!geo.empty()) return finish(ParseStatus::Invalid, MessageKind::TradeSetup, geo);
 
+    s.stopLossOmitted = slNeverWritten;  // a format that doesn't require an SL
     return finish(ParseStatus::Valid, MessageKind::TradeSetup);
 }
 

@@ -1026,6 +1026,14 @@ public:
         t->Controls->Add(l);
         t->Controls->Add(c);
         c->AccessibleName = label;
+        Remember(c, l);
+    }
+    // Shows or hides a field added with AddField together with its label, so the form only lists the fields
+    // that apply to the current choice (e.g. lots for fixed sizing, risk % for risk sizing).
+    static void ShowField(Control^ c, bool show) {
+        c->Visible = show;
+        Control^ label;
+        if (labels_ != nullptr && labels_->TryGetValue(c, label)) label->Visible = show;
     }
 
     // A small "?" marker: hovering shows `help`. Use this instead of long captions under controls.
@@ -1056,24 +1064,94 @@ public:
         t->Controls->Add(c);
         c->AccessibleName = label;
         Tip(c, help);
+        Remember(c, row);
     }
 
 private:
     static ToolTip^ tips_;
+    static System::Collections::Generic::Dictionary<Control^, Control^>^ labels_;  // field -> its label cell (ShowField)
+    static void Remember(Control^ field, Control^ label) {
+        if (labels_ == nullptr) labels_ = gcnew System::Collections::Generic::Dictionary<Control^, Control^>();
+        labels_[field] = label;
+        // forget a field when its page goes away, so the map never keeps closed dialogs alive
+        field->Disposed += gcnew EventHandler(&L::OnFieldDisposed);
+    }
+    static void OnFieldDisposed(Object^ sender, EventArgs^) { labels_->Remove(safe_cast<Control^>(sender)); }
 
     static void SyncWidths(FlowLayoutPanel^ f) {
         const int max = Theme::Scale(f, 1100);
         // Always reserve the vertical scrollbar so showing it never forces a horizontal one.
         const int w = Math::Min(max, f->Width - f->Padding.Horizontal - SystemInformation::VerticalScrollBarWidth - 2);
         if (w < 200) return;
+        bool changed = false;
         for each (Control^ c in f->Controls) {
+            Label^ text = dynamic_cast<Label^>(c);
             if (dynamic_cast<SectionBox^>(c) != nullptr) {
                 Drawing::Size ms(w - c->Margin.Horizontal, 0);
                 if (c->MinimumSize != ms) c->MinimumSize = ms;
+                changed = FitInside(c, c, w - c->Margin.Horizontal - c->Padding.Right) || changed;
             } else if (dynamic_cast<LineChart^>(c) != nullptr) {
                 if (c->Width != w - c->Margin.Horizontal) c->Width = w - c->Margin.Horizontal;
+            } else if (text != nullptr && text->MaximumSize.Width > 0) {  // a line of text right on the page
+                const Drawing::Size want(Math::Min(DesignWidth(c, text->MaximumSize.Width), w - c->Margin.Horizontal), 0);
+                if (text->MaximumSize != want) {
+                    text->MaximumSize = want;
+                    changed = true;
+                }
             }
         }
+        // parts shrank after the page measured itself: measure again, or a stale horizontal scrollbar stays
+        if (changed) f->PerformLayout();
+        // sections finish shrinking after this pass: measure once more when it is over
+        if (f->IsHandleCreated && f->HorizontalScroll->Visible) f->BeginInvoke(gcnew MethodInvoker(f, &Control::PerformLayout));
+    }
+    // Tables, wrapped text, big text boxes and button rows inside a section shrink to a narrow window and grow back to
+    // the width they were made with, so the page never needs a horizontal scrollbar.
+    static System::Collections::Generic::Dictionary<Control^, int>^ designWidths_;
+    static int DesignWidth(Control^ c, int now) {
+        if (designWidths_ == nullptr) designWidths_ = gcnew System::Collections::Generic::Dictionary<Control^, int>();
+        int w;
+        if (designWidths_->TryGetValue(c, w)) return w;
+        designWidths_[c] = now;
+        c->Disposed += gcnew EventHandler(&L::OnSizedDisposed);
+        return now;
+    }
+    static void OnSizedDisposed(Object^ sender, EventArgs^) { designWidths_->Remove(safe_cast<Control^>(sender)); }
+    static bool FitInside(Control^ card, Control^ parent, int right) {
+        bool changed = false;
+        for each (Control^ c in parent->Controls) {
+            int left = 0;  // where the control starts inside the section
+            for (Control^ p = c; p != nullptr && p != card; p = p->Parent) left += p->Left;
+            const int room = right - left;
+            if (room > 150) {
+                Label^ label = dynamic_cast<Label^>(c);
+                TextBoxBase^ box = dynamic_cast<TextBoxBase^>(c);
+                FlowLayoutPanel^ row = dynamic_cast<FlowLayoutPanel^>(c);
+                if (c->Dock == DockStyle::None && (dynamic_cast<DataGridView^>(c) != nullptr || (box != nullptr && box->Multiline))) {
+                    const int want = Math::Min(DesignWidth(c, c->Width), room);
+                    if (c->Width != want) {
+                        c->Width = want;
+                        changed = true;
+                    }
+                } else if (label != nullptr && label->MaximumSize.Width > 0) {
+                    const Drawing::Size want(Math::Min(DesignWidth(c, label->MaximumSize.Width), room), 0);
+                    if (label->MaximumSize != want) {
+                        label->MaximumSize = want;
+                        changed = true;
+                    }
+                }
+                // a long row of buttons wraps instead of running off the window (rows are docked to the top, that's fine)
+                if (row != nullptr && row->AutoSize && row->WrapContents && row->FlowDirection == FlowDirection::LeftToRight) {
+                    const Drawing::Size want(room, 0);
+                    if (row->MaximumSize != want) {
+                        row->MaximumSize = want;
+                        changed = true;
+                    }
+                }
+            }
+            changed = FitInside(card, c, right) || changed;
+        }
+        return changed;
     }
     static void OnStackResize(Object^ sender, EventArgs^) { SyncWidths(safe_cast<FlowLayoutPanel^>(sender)); }
     static void OnStackControlAdded(Object^ sender, ControlEventArgs^) { SyncWidths(safe_cast<FlowLayoutPanel^>(sender)); }

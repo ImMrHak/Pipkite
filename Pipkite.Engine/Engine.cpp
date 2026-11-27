@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include "DiagLog.h"
 #include "TerminalLauncher.h"
 
 #include <windows.h>
@@ -56,6 +57,25 @@ std::uint64_t diskFreeMb(const std::wstring& dir) {
     return avail.QuadPart / (1024 * 1024);
 }
 
+// the log keeps message texts, so its files go after the same number of days as the messages
+diag::Limits logLimits(db::Store& store) {
+    diag::Limits l;
+    try {
+        l.keepDays = std::stoi(store.getSetting("retention.rawTextDays").value_or("30"));
+    } catch (...) {
+    }
+    return l;
+}
+
+std::string clockTime(std::int64_t ms) {
+    std::time_t t = static_cast<std::time_t>(ms / 1000);
+    std::tm lt{};
+    localtime_s(&lt, &t);
+    char buf[16];
+    std::strftime(buf, sizeof buf, "%H:%M:%S", &lt);
+    return buf;
+}
+
 }  // namespace
 
 // LatencyStats
@@ -89,6 +109,8 @@ Engine::~Engine() {
     if (decisionThread_.joinable()) decisionThread_.join();
     if (aiThread_.joinable()) aiThread_.join();
     if (autoLaunchThread_.joinable()) autoLaunchThread_.join();
+    diag::write("engine", "stopped");
+    diag::stop();
 }
 
 Status Engine::start() {
@@ -97,11 +119,14 @@ Status Engine::start() {
     auto st = db::Store::open(platform::narrow(dataDir_ + L"\\pipkite.db"), clock_);
     if (!st) return st.error();
     store_ = std::move(st.value());
+    applyLogSetting();
+    diag::write("engine", std::string(kProductName) + " " + kProductVersion + " starting (process " + std::to_string(GetCurrentProcessId()) + ")");
     pairingSecret_ = platform::loadOrCreateSecret(L"pairing");
     uiSecret_ = platform::loadOrCreateSecret(L"ui");
     if (!pairingSecret_ || !uiSecret_) return failStatus("secrets", "Cannot create DPAPI-protected local secrets");
     plugins_ = std::make_unique<PluginManager>(installDir_, dataDir_);
     sessionStartMs_ = clock_.nowMs();
+    lastLogStatusMs_ = sessionStartMs_;  // the first status line comes with the start context, not before Telegram exists
     store_->setWatermark("telegram.liveSessionStart", sessionStartMs_);
 
     loadConfiguration();
@@ -204,13 +229,27 @@ Status Engine::start() {
     }
     updater_ = std::make_unique<Updater>(*store_, *plugins_, clock_, hooks);
     updater_->startBackgroundCheck();  // nonblocking; never delays Telegram or execution readiness
+    post([this] { logContext("engine started"); });
     return okStatus();
 }
 
 void Engine::waitForStop() { stopPromise_.get_future().wait(); }
 
 void Engine::requestStop() {
-    if (!stopRequested_.exchange(true)) stopPromise_.set_value();
+    if (!stopRequested_.exchange(true)) {
+        diag::write("engine", "stopping");
+        stopPromise_.set_value();
+    }
+}
+
+bool Engine::applyLogSetting() {
+    if (store_->getSetting("diagnostics.verbose").value_or("false") != "true") {
+        diag::stop();
+        return false;
+    }
+    const bool was = diag::on();
+    diag::start(dataDir_ + L"\\logs", logLimits(*store_));  // when already on: picks up a new retention setting
+    return !was;
 }
 
 bool Engine::post(std::function<void()> task) { return tasks_.tryPush(std::move(task)); }
@@ -246,6 +285,11 @@ void Engine::decisionLoop() {
             const int rawDays = std::stoi(store_->getSetting("retention.rawTextDays").value_or("30"));
             const int metaDays = std::stoi(store_->getSetting("retention.metadataDays").value_or("180"));
             store_->purgeRetention(rawDays, metaDays);
+            diag::prune(dataDir_ + L"\\logs", logLimits(*store_));  // also when the log is off now
+        }
+        if (diag::on() && now - lastLogStatusMs_ >= 10 * 60 * 1000LL) {  // shows the engine was up, and its state, when nothing happens
+            lastLogStatusMs_ = now;
+            logStatus();
         }
     }
 }
@@ -284,7 +328,13 @@ Status Engine::savePolicy(ExecutionPolicy p, bool bumpVersion, bool keepConfirma
     if (!st) return st;
     store_->replaceSources(p.toJson()["sources"]);
     policy_ = std::move(p);
+    if (diag::on()) diag::write("config", "rules saved, version " + std::to_string(policy_.configVersion) + ": " + diag::dump(policy_.toJson(), 32 * 1024));
     updateTelegramAllowlist();
+    // a symbol added while MetaTrader is connected: ask for its prices now, not at the next reconnect
+    if (bridge_) {
+        const auto wanted = wantedSymbols();
+        if (!std::includes(requestedSymbols_.begin(), requestedSymbols_.end(), wanted.begin(), wanted.end())) requestSymbols();
+    }
     // Changing a rule revalidates waiting candidates immediately under the new configuration version.
     reevaluateWaiting();
     return okStatus();
@@ -319,7 +369,9 @@ void Engine::initParsers() {
     for (auto& manifest : plugins_->discoverParserManifests()) {
         auto verified = plugins_->verify(manifest);
         if (!verified) {
-            addError("Parser module rejected: " + verified.error().message + " (" + platform::narrow(manifest) + ")");
+            // a download from before the rename can never load: it stays unused without an error at every start
+            if (verified.error().code == "format_retired") diag::write("parser", "skipped " + platform::narrow(manifest) + ": " + verified.error().message);
+            else addError("Parser module rejected: " + verified.error().message + " (" + platform::narrow(manifest) + ")");
             continue;
         }
         auto helper = plugins_->validateInHelper(manifest);
@@ -417,9 +469,11 @@ json Engine::launchTerminal(const std::string& dataPath, const std::string& exeP
     r.dataPath = platform::widen(dataPath);
     r.exePath = platform::widen(exePath);
     r.chartSymbol = chartSymbol.empty() ? "EURUSD" : chartSymbol;
+    diag::write("mt5", "starting MetaTrader: data folder " + dataPath + ", program " + exePath + ", chart " + r.chartSymbol);
     try {
         json res = mt5::launch(r);
         setTerminalStatus(res.value("message", ""));
+        diag::write("mt5", "start result: " + diag::dump(res));
         return res;
     } catch (const std::exception& e) {
         setTerminalStatus(std::string("Could not start MetaTrader: ") + e.what());
@@ -451,31 +505,48 @@ void Engine::installBridgeImplementation() {
 // message pipeline
 
 void Engine::onIncoming(IncomingMessage m) {
+    auto overloaded = [&] {
+        overload_ = true;
+        store_->insertRawMessage(m);
+        diag::write("message", signalKey(m.chatId, m.messageId) + " stored without reading it (too many messages waiting): " + diag::quoted(m.text));
+    };
     if (pendingMessages_.load() >= 1024) {
         // Bounded admission: never silently discard. Record the message durably and inhibit copying.
-        overload_ = true;
         m.historical = true;
-        store_->insertRawMessage(m);
+        overloaded();
         return;
     }
     ++pendingMessages_;
-    if (!post([this, m = std::move(m)] {
+    if (!post([this, m] {
             --pendingMessages_;
             processMessage(m);
         })) {
         --pendingMessages_;
-        overload_ = true;
-        store_->insertRawMessage(m);
+        overloaded();
     }
 }
 
 void Engine::processMessage(const IncomingMessage& m) {
     const SourceBinding* b = policy_.findSource(m.chatId);
-    if (!b || !b->enabled) return;  // only allowlisted sources are processed
-    if (!dedup_.firstSeen(m.chatId, m.messageId, m.editVersion)) return;
+    const std::string key = signalKey(m.chatId, m.messageId);
+    if (diag::on())
+        diag::write("message", key + (m.editVersion ? " edited" : "") + " from " + diag::quoted(b ? b->title : "") + ", sent " + clockTime(m.publishedAtMs) + ", here after " +
+                                   std::to_string(m.receivedAtMs - m.publishedAtMs) + " ms" + (m.historical ? ", from before this start" : "") +
+                                   (m.hasMedia ? ", with " + m.mediaKind : "") + ": " + diag::quoted(m.text));
+    if (!b || !b->enabled) {  // only allowlisted sources are processed
+        diag::write("message", key + " ignored: the channel isn't ticked");
+        return;
+    }
+    if (!dedup_.firstSeen(m.chatId, m.messageId, m.editVersion)) {
+        diag::write("message", key + " ignored: already received");
+        return;
+    }
     auto ins = store_->admitRawMessage(m);  // read-only duplicate check; the insert is flushed in the background
     if (!ins) addError("Journal failure while storing a message: " + ins.error().message);
-    else if (!ins.value()) return;  // replayed revision already recorded
+    else if (!ins.value()) {  // replayed revision already recorded
+        diag::write("message", key + " ignored: this version is already in History");
+        return;
+    }
 
     json timeline = json::array();
     timeline.push_back({{"stage", "received"}, {"atMs", m.receivedAtMs}, {"monoUs", m.receivedMonoUs}, {"detail", "TDLib update"}});
@@ -500,12 +571,17 @@ void Engine::processMessage(const IncomingMessage& m) {
     }
     parseUs_.add(s.parseMicros);
     mark("parsed", std::string(toString(s.status)) + (lease ? " by " + lease->parserId + "@" + lease->version : ""));
-    const std::string key = signalKey(m.chatId, m.messageId);
+    if (diag::on()) {
+        json read = toJson(s);
+        for (const char* k : {"chatId", "messageId", "evidence", "publishedAtMs", "receivedAtMs"}) read.erase(k);  // already on the message line
+        diag::write("parse", key + " " + (lease ? lease->parserId + "@" + lease->version : "no format") + ": " + diag::dump(read));
+    }
 
     auto finishWithState = [&](SignalState state, const std::string& reason) {
         Decision d;
         d.kind = state == SignalState::Review ? DecisionKind::Review : DecisionKind::Rejected;
         d.reason = reason;
+        diag::write("decision", key + " " + toString(state) + ": " + reason);
         store_->upsertSignal(s, state, toJson(d), timeline);
         feed_[key] = {{"key", key},
                       {"at", m.receivedAtMs},
@@ -624,7 +700,8 @@ void Engine::watchReadRate(const SourceBinding& b, const Signal& s) {
     if (s.kind != MessageKind::TradeSetup || !s.side) return;  // only messages with a Buy/Sell word
     if (s.status != ParseStatus::Valid && s.status != ParseStatus::Incomplete && s.status != ParseStatus::Ambiguous) return;
     auto& h = readHistory_[b.chatId];
-    h.push_back(s.status == ParseStatus::Valid);
+    const bool nowWithoutPrice = s.marketIntent && !s.entry && !s.symbol.empty() && !s.targets.empty();  // read fully, just not a setup
+    h.push_back(s.status == ParseStatus::Valid || (s.stopLossOmitted && policy_.tradeWithoutStopLoss) || nowWithoutPrice);
     if (h.size() > 10) h.pop_front();
     if (h.size() < 5) return;
     const bool readBefore = std::any_of(h.begin(), h.end() - 4, [](bool ok) { return ok; });
@@ -633,7 +710,7 @@ void Engine::watchReadRate(const SourceBinding& b, const Signal& s) {
     if (readBefore && missedLately >= 3 && now - layoutWarnedAtMs_[b.chatId] > 24LL * 3600 * 1000) {
         layoutWarnedAtMs_[b.chatId] = now;
         notify("warning", b.title + ": Pipkite couldn't fully read " + std::to_string(missedLately) +
-                              " of its last 4 signals. The channel may have changed how it writes them: open Signal rules and press Detect format.");
+                              " of its last 4 signals. The channel may have changed how it writes them: select it in Signal rules to see what Pipkite reads.");
     }
 }
 
@@ -648,6 +725,7 @@ const Quote* Engine::quoteFor(const std::string& symbol, const SourceBinding* b)
 }
 
 void Engine::setSignalState(const std::string& key, SignalState state, const json& decision, const std::string& reason) {
+    if (diag::on()) diag::write("decision", key + " " + toString(state) + ": " + (reason.empty() ? decision.value("reason", "") : reason));
     auto it = feed_.find(key);
     if (it != feed_.end()) {
         it->second["state"] = toString(state);
@@ -697,6 +775,13 @@ void Engine::applyDecision(Signal s, const SourceBinding& b, Decision d, json ti
     auto persist = [&](SignalState st) {
         item["state"] = toString(st);
         store_->upsertSignal(s, st, toJson(d), timeline);
+        if (diag::on()) {
+            json checks = toJson(d);  // the checks that passed and the plan
+            checks.erase("kind");
+            checks.erase("reason");
+            const bool any = !d.checks.empty() || d.plan;
+            diag::write("decision", key + " " + toString(st) + ": " + d.reason + (any ? marketNote(aiSymbol(s, b, d)) + " " + diag::dump(checks, 8000) : ""));
+        }
     };
 
     switch (d.kind) {
@@ -783,6 +868,7 @@ void Engine::reevaluateWaiting() {
             continue;
         }
         if (now > c.untilMs) {
+            diag::write("decision", key + " stopped waiting, last check: " + c.lastReason);
             setSignalState(key, SignalState::Expired, {{"kind", "Rejected"}, {"reason", "Waiting range expired"}}, "Waiting range expired");
             it = waiting_.erase(it);
             continue;
@@ -903,6 +989,7 @@ void Engine::dispatchPlan(const ExecutionPlan& plan, const Signal& s, json timel
         setSignalState(key, SignalState::Rejected, {{"kind", "Rejected"}, {"reason", "Journal failure"}}, "Journal failure; nothing was submitted");
         return;
     }
+    if (diag::on()) diag::write("order", key + " plan " + plan.planId.substr(0, 8) + ": " + std::to_string(run.commands.size()) + " order(s) saved before sending");
     timeline.push_back({{"stage", "journaled"}, {"atMs", clock_.nowMs()}, {"monoUs", clock_.monotonicUs()}, {"detail", std::to_string(run.commands.size()) + " command(s) durably prepared"}});
     if (run.receivedMonoUs) decisionMs_.add(static_cast<double>(clock_.monotonicUs() - run.receivedMonoUs) / 1000.0);
     run.timeline = timeline;
@@ -923,6 +1010,7 @@ void Engine::sendChild(const std::string& planId) {
     const std::string why = canDispatchReason();
     if (!why.empty() || clock_.nowMs() > cmd.deadlineMs) {
         const std::string reason = why.empty() ? "Deadline passed before dispatch" : why;
+        diag::write("order", cmd.commandId.substr(0, 8) + " not sent: " + reason);
         store_->transition(cmd.commandId, CommandState::Rejected, json{{"reason", reason}, {"submitted", false}}.dump());
         feed_[run.signalKey]["commandState"] = "Rejected";
         feed_[run.signalKey]["reason"] = reason;
@@ -946,6 +1034,9 @@ void Engine::sendChild(const std::string& planId) {
     e.configVersion = run.plan.configVersion;
     e.payload = json::parse(cmd.payloadJson);
     const bool sent = bridge_ && bridge_->send(e.serialize(), 1000);
+    if (diag::on())
+        diag::write("order", "-> EXECUTE " + cmd.commandId.substr(0, 8) + " order " + std::to_string(cmd.childIndex + 1) + " of " + std::to_string(run.commands.size()) +
+                                 (sent ? "" : " (could not be written to MetaTrader)") + ": " + diag::dump(e.payload));
     inflight_[cmd.commandId] = Inflight{planId, run.signalKey, CommandState::Dispatching, cmd.deadlineMs + 10000, clock_.monotonicUs(), run.receivedMonoUs};
     ++run.next;
     feed_[run.signalKey]["commandState"] = "Dispatching";
@@ -963,6 +1054,7 @@ void Engine::stopRemainingChildren(const std::string& planId, const std::string&
     auto it = plans_.find(planId);
     if (it == plans_.end()) return;
     PlanRun& run = it->second;
+    if (run.next < run.commands.size()) diag::write("order", "plan " + planId.substr(0, 8) + ": " + std::to_string(run.commands.size() - run.next) + " order(s) not sent: " + reason);
     while (run.next < run.commands.size()) {
         store_->transition(run.commands[run.next].commandId, CommandState::Canceled, json{{"reason", reason}, {"submitted", false}}.dump());
         ++run.next;
@@ -977,8 +1069,10 @@ void Engine::requestAi(const Signal& s, AiMode mode, std::int64_t deadlineMs, co
     if (licenseKey_.empty()) {
         // The backend requires a license key; without one, never call it. Show that in the feed.
         feed_[key]["ai"] = "No license";
+        diag::write("ai", key + " not reviewed: no license key");
         return;
     }
+    if (diag::on()) diag::write("ai", key + " review asked (" + toString(mode) + (bridge_ && !brokerSymbol.empty() ? ", with " + brokerSymbol + " candles from MetaTrader)" : ", signal only)"));
     AiJob job{key, s, policy_.ai.endpoint, licenseKey_, deadlineMs, mode, nullptr};
     // With MetaTrader connected, first ask the EA for recent candles so the review can read the market. Execution
     // never waits for this (a gate only briefly); an EA that can't answer (older version) means a signal-only review.
@@ -1108,6 +1202,11 @@ void Engine::onAiResult(const std::string& key, AiAssessment a) {
                {"latencyMs", a.latencyMs},
                {"unavailableReason", a.unavailableReason},
                {"disclaimer", "AI assessments are estimates, not guaranteed predictions of profitable trades"}};
+    if (diag::on()) {
+        json shown = aj;
+        shown.erase("disclaimer");
+        diag::write("ai", key + " review: " + diag::dump(shown));
+    }
     setFeedAi(key, aj);
     for (auto it = aiReviewed_.begin(); it != aiReviewed_.end(); ++it) {
         if (it->second.key != key) continue;
@@ -1238,19 +1337,28 @@ void Engine::onBridgeAuthenticated(std::shared_ptr<ipc::PipeConnection> c, const
         bridgeStatusText_ = "Connected account " + std::to_string(key.login) + " @ " + key.server + " differs from the bound account; copying paused";
         addError(bridgeStatusText_);
     }
+    diag::write("mt5", "EA connected (" + bridgeStatusText_ + "): " + diag::dump(diag::redacted(hello)));
     ipc::Envelope w;
     w.type = ipc::msg::WELCOME;
     w.payload = {{"paired", bridgePaired_}, {"engineVersion", kProductVersion}};
     c->send(w.serialize());
-    sendToBridge(ipc::msg::SNAPSHOT_REQUEST, {{"symbols", [&] {
-                                                   json a = json::array();
-                                                   std::set<std::string> syms;
-                                                   for (auto& [k, v] : policy_.symbolMap) syms.insert(v);
-                                                   for (auto& [k, v] : policy_.symbolLimits) syms.insert(k);
-                                                   for (auto& s : syms) a.push_back(s);
-                                                   return a;
-                                               }()}});
+    requestSymbols();
     if (bridgePaired_) requestReconciliation();
+}
+
+std::set<std::string> Engine::wantedSymbols() const {
+    std::set<std::string> syms;
+    for (auto& [k, v] : policy_.symbolMap) syms.insert(v);
+    for (auto& [k, v] : policy_.symbolLimits) syms.insert(k);
+    for (auto& s : policy_.sources)
+        if (!s.tradeSymbol.empty()) syms.insert(s.tradeSymbol);
+    return syms;
+}
+
+void Engine::requestSymbols() {
+    // the EA streams a symbol's specification and prices only once asked (it also re-sends the account and catalog)
+    requestedSymbols_ = wantedSymbols();
+    sendToBridge(ipc::msg::SNAPSHOT_REQUEST, {{"symbols", json(requestedSymbols_)}});
 }
 
 void Engine::onBridgeDisconnected(const std::shared_ptr<ipc::PipeConnection>& c) {
@@ -1274,7 +1382,8 @@ void Engine::sendToBridge(const std::string& type, const json& payload, const st
     e.seq = ++bridgeSeq_;
     e.configVersion = policy_.configVersion;
     e.payload = payload;
-    bridge_->send(e.serialize(), 1000);
+    const bool sent = bridge_->send(e.serialize(), 1000);
+    if (diag::on()) diag::write("mt5", "-> " + type + (sent ? " " : " (could not be written) ") + diag::dump(payload, 2000));
 }
 
 void Engine::requestReconciliation() {
@@ -1290,6 +1399,16 @@ void Engine::requestReconciliation() {
 
 void Engine::onBridgeEnvelope(const ipc::Envelope& e) {
     const json& p = e.payload;
+    // everything the EA sends except heartbeats and prices (several a second; each decision line shows the price it used)
+    if (diag::on() && e.type != ipc::msg::HEARTBEAT && e.type != ipc::msg::QUOTE) {
+        const std::int64_t now = clock_.nowMs();
+        if (e.type == "SYMBOL_CATALOG") diag::write("mt5", "<- SYMBOL_CATALOG " + std::to_string(p.value("names", json::array()).size()) + " broker symbol names");
+        else if (e.type == ipc::msg::RATES) diag::write("mt5", "<- RATES for " + p.value("requestId", "").substr(0, 8) + " " + diag::dump(p, 300));
+        else if (e.type != ipc::msg::ACCOUNT_SNAPSHOT || now - lastLoggedAccountMs_ >= 60000) {
+            if (e.type == ipc::msg::ACCOUNT_SNAPSHOT) lastLoggedAccountMs_ = now;
+            diag::write("mt5", "<- " + e.type + " " + diag::dump(p));
+        }
+    }
     if (e.type == ipc::msg::HEARTBEAT) {
         lastHeartbeatMs_ = clock_.nowMs();
         if (!bridgeHealthy_) {
@@ -1368,6 +1487,7 @@ void Engine::applyCommandState(const std::string& commandId, CommandState target
     auto cur = store_->commandState(commandId);
     if (!cur) return;
     if (*cur == target && target != CommandState::PartiallyFilled) return;
+    if (diag::on()) diag::write("order", commandId.substr(0, 8) + " " + toString(*cur) + " -> " + toString(target) + " " + diag::dump(detail, 2000));
     // Walk intermediate states so the journal records a legal sequence (e.g. Dispatching -> ReceivedByEA -> Submitted -> Filled).
     const CommandState chain[] = {CommandState::ReceivedByEA, CommandState::Submitted, CommandState::Accepted};
     for (int guard = 0; guard < 4 && !canTransition(*cur, target); ++guard) {
@@ -1565,12 +1685,45 @@ void Engine::addError(const std::string& message) {
     errors_.push_front({{"at", clock_.nowMs()}, {"message", message}});
     while (errors_.size() > 50) errors_.pop_back();
     if (opt_.console) std::printf("[error] %s\n", message.c_str());
+    diag::write("error", message);
     broadcast("notification", {{"level", "error"}, {"message", message}});
 }
 
 void Engine::notify(const std::string& level, const std::string& message) {
     if (opt_.console) std::printf("[%s] %s\n", level.c_str(), message.c_str());
+    diag::write(level, message);
     broadcast("notification", {{"level", level}, {"message", message}});
+}
+
+// detailed log
+
+std::string Engine::marketNote(const std::string& brokerSymbol) const {
+    if (brokerSymbol.empty()) return "";
+    auto q = quotes_.find(brokerSymbol);
+    if (q == quotes_.end()) return " | no price for " + brokerSymbol + " yet" + (symbols_.count(brokerSymbol) ? "" : " (not in MetaTrader's symbol list)");
+    char buf[160];
+    std::snprintf(buf, sizeof buf, " | %s bid %.10g ask %.10g, price %lld ms old", brokerSymbol.c_str(), q->second.bid, q->second.ask,
+                  static_cast<long long>(clock_.nowMs() - q->second.receivedAtMs));
+    return buf;
+}
+
+void Engine::logStatus() {
+    if (!diag::on()) return;
+    const std::int64_t now = clock_.nowMs();
+    lastLogStatusMs_ = now;
+    json ages = json::object();
+    for (auto& [sym, q] : quotes_) ages[sym] = now - q.receivedAtMs;
+    diag::write("status", diag::dump({{"paused", paused_},
+                                      {"pausedByUser", userPaused_},
+                                      {"tradesCheckedWithMetaTrader", reconciled_},
+                                      {"blockedBecause", canDispatchReason()},
+                                      {"telegram", telegram_ ? toString(telegram_->authState()) : "starting"},
+                                      {"metatrader", {{"connected", bridge_ != nullptr}, {"paired", bridgePaired_}, {"healthy", bridgeHealthy_}, {"heartbeatMsAgo", bridge_ ? now - lastHeartbeatMs_ : -1}}},
+                                      {"priceAgeMs", ages},
+                                      {"waiting", waiting_.size()},
+                                      {"aiGates", gates_.size()},
+                                      {"ordersInFlight", inflight_.size()},
+                                      {"messagesQueued", pendingMessages_.load()}}));
 }
 
 }  // namespace sr::engine

@@ -1,114 +1,13 @@
 #pragma once
-// Telegram sources: user-session authentication, searchable chats (groups and channels clearly
-// distinguished), the source allowlist, per-source parser/policy bindings, bulk apply and overrides.
+// Telegram sources: user-session authentication and searchable chats (groups and channels clearly distinguished).
+// Ticking a chat adds it and shows what Pipkite reads in it, with Start copying; unticking pauses it and keeps its
+// settings. Per-channel settings are in Signal rules.
 // Source bindings are keyed by chat ID; renaming a chat never changes its binding.
 
+#include "ChannelCheck.h"
 #include "Pages.h"
 
 namespace PipkiteUI {
-
-public ref class OverridesDialog : public Form {
-public:
-    JObj^ Binding;
-    OverridesDialog(JObj^ binding) {
-        Binding = binding;
-        Text = "Source overrides - " + J::Str(binding, "title");
-        AutoScaleMode = Windows::Forms::AutoScaleMode::Dpi;
-        FormBorderStyle = Windows::Forms::FormBorderStyle::FixedDialog;
-        StartPosition = FormStartPosition::CenterParent;
-        MaximizeBox = false;
-        MinimizeBox = false;
-        AutoSize = true;
-        AutoSizeMode = Windows::Forms::AutoSizeMode::GrowAndShrink;
-        Font = Theme::Body;
-        Padding = Windows::Forms::Padding(16);
-        JObj^ sizing = J::Obj(binding, "sizing");
-        JObj^ targets = J::Obj(binding, "targets");
-        TableLayoutPanel^ t = L::Form2();
-        overrideSizing_ = L::Check("Override global sizing for this source");
-        overrideSizing_->Checked = J::Bool(binding, "overrideSizing");
-        t->Controls->Add(overrideSizing_);
-        t->SetColumnSpan(overrideSizing_, 2);
-        sizingMode_ = L::Combo(200, gcnew array<String^>{"fixed_total_lots", "risk_percent"});
-        sizingMode_->SelectedItem = J::Str(sizing, "mode", "fixed_total_lots");
-        L::AddField(t, "Sizing mode", sizingMode_);
-        lots_ = L::Num(0.01, 100, J::Num(sizing, "lots", 0.01), 2, 0.01);
-        L::AddField(t, "Total lots", lots_);
-        risk_ = L::Num(0.01, 10, J::Num(sizing, "riskPercent", 0.5), 2, 0.05);
-        L::AddField(t, "Risk % of equity at SL", risk_);
-        overrideTargets_ = L::Check("Override global take-profit policy for this source");
-        overrideTargets_->Checked = J::Bool(binding, "overrideTargets");
-        t->Controls->Add(overrideTargets_);
-        t->SetColumnSpan(overrideTargets_, 2);
-        targetMode_ = L::Combo(200, gcnew array<String^>{"single", "split"});
-        targetMode_->SelectedItem = J::Str(targets, "mode", "single");
-        L::AddField(t, "Target mode", targetMode_);
-        index_ = L::Num(1, 20, J::Num(targets, "selectedIndex", 1), 0, 1);
-        L::AddField(t, "Selected TP index", index_);
-        allocations_ = L::Box(200);
-        String^ al = "";
-        for each (Object^ a in J::Arr(targets, "allocations")) al += (al == "" ? "" : ",") + J::Fmt(Convert::ToDouble(a));
-        allocations_->Text = al;
-        L::AddField(t, "Split allocations % (sum 100)", allocations_);
-        fallback_ = L::Check("If min lot prevents splitting, use the single selected target");
-        fallback_->Checked = J::Bool(targets, "singleTargetFallback");
-        t->Controls->Add(fallback_);
-        t->SetColumnSpan(fallback_, 2);
-        Button^ ok = L::Btn("Apply", "accent");
-        ok->Click += gcnew EventHandler(this, &OverridesDialog::OnOk);
-        Button^ cancel = L::Btn("Cancel");
-        cancel->DialogResult = Windows::Forms::DialogResult::Cancel;
-        FlowLayoutPanel^ s = gcnew FlowLayoutPanel();
-        s->FlowDirection = FlowDirection::TopDown;
-        s->AutoSize = true;
-        s->Controls->Add(t);
-        s->Controls->Add(L::Wrap("Split orders are submitted sequentially; unsubmitted children stop after a failure. Netting accounts support single-position mode only.", "muted", 420));
-        s->Controls->Add(L::Row(ok, cancel));
-        Controls->Add(s);
-        CancelButton = cancel;
-        Theme::Apply(this);
-        BackColor = Theme::Bg;
-        HandleCreated += gcnew EventHandler(&Prompt::OnDialogHandle);
-    }
-
-private:
-    CheckBox ^ overrideSizing_, ^overrideTargets_, ^fallback_;
-    ComboBox ^ sizingMode_, ^targetMode_;
-    NumericUpDown ^ lots_, ^risk_, ^index_;
-    TextBox^ allocations_;
-
-    void OnOk(Object^, EventArgs^) {
-        List<Object^>^ allocs = J::List();
-        double sum = 0;
-        for each (String^ part in allocations_->Text->Split(gcnew array<wchar_t>{',', ';', ' '}, StringSplitOptions::RemoveEmptyEntries)) {
-            double v;
-            if (!J::TryNum(part, v) || v <= 0) {
-                Prompt::Error(this, "Allocations must be positive numbers separated by commas");
-                return;
-            }
-            allocs->Add(v);
-            sum += v;
-        }
-        if (targetMode_->Text == "split" && (allocs->Count < 2 || Math::Abs(sum - 100) > 1e-6)) {
-            Prompt::Error(this, "Split mode needs at least two allocations that sum to exactly 100%");
-            return;
-        }
-        JObj^ sizing = J::New();
-        sizing["mode"] = sizingMode_->Text;
-        sizing["lots"] = Decimal::ToDouble(lots_->Value);
-        sizing["riskPercent"] = Decimal::ToDouble(risk_->Value);
-        JObj^ targets = J::New();
-        targets["mode"] = targetMode_->Text;
-        targets["selectedIndex"] = Decimal::ToInt32(index_->Value);
-        targets["allocations"] = allocs;
-        targets["singleTargetFallback"] = fallback_->Checked;
-        Binding["overrideSizing"] = overrideSizing_->Checked;
-        Binding["sizing"] = sizing;
-        Binding["overrideTargets"] = overrideTargets_->Checked;
-        Binding["targets"] = targets;
-        DialogResult = Windows::Forms::DialogResult::OK;
-    }
-};
 
 public delegate void EditRuleRequest(String^ chatId);
 
@@ -127,29 +26,31 @@ public:
         apiHash_ = L::Box(300);
         apiHash_->UseSystemPasswordChar = true;
         L::AddField(auth, "API hash", apiHash_, "Your Telegram api_hash from my.telegram.org. Stored encrypted (DPAPI) and never logged.");
-        Button^ saveCred = L::Btn("Save credentials", "accent", "Store your Telegram api_id and api_hash (from my.telegram.org). They are DPAPI-encrypted and never logged.");
-        saveCred->Click += gcnew EventHandler(this, &SourcesPage::OnSaveCredentials);
-        auth->Controls->Add(gcnew Label());
-        auth->Controls->Add(saveCred);
+        saveCred_ = L::Btn("Save credentials", "accent", "Store your Telegram api_id and api_hash (from my.telegram.org). They are DPAPI-encrypted and never logged.");
+        saveCred_->Click += gcnew EventHandler(this, &SourcesPage::OnSaveCredentials);
+        L::AddField(auth, "", saveCred_);
         phone_ = L::Box(200);
         Button^ sendPhone = L::Btn("Send code", nullptr, "Ask Telegram to send a login code to this phone number.");
         sendPhone->Click += gcnew EventHandler(this, &SourcesPage::OnPhone);
-        L::AddField(auth, "Phone number", L::Row(phone_, sendPhone));
+        phoneRow_ = L::Row(phone_, sendPhone);
+        L::AddField(auth, "Phone number", phoneRow_);
         code_ = L::Box(120);
         Button^ sendCode = L::Btn("Submit code", nullptr, "Send the login code you received in Telegram.");
         sendCode->Click += gcnew EventHandler(this, &SourcesPage::OnCode);
-        L::AddField(auth, "Login code", L::Row(code_, sendCode));
+        codeRow_ = L::Row(code_, sendCode);
+        L::AddField(auth, "Login code", codeRow_);
         password_ = L::Box(200);
         password_->UseSystemPasswordChar = true;
         Button^ sendPwd = L::Btn("Submit password", nullptr, "Send your Telegram two-step verification password, if you have one.");
         sendPwd->Click += gcnew EventHandler(this, &SourcesPage::OnPassword);
-        L::AddField(auth, "Two-step verification", L::Row(password_, sendPwd));
-        Button^ logout = L::Btn("Log out", nullptr, "Sign out of Telegram in Pipkite. Your chats and sources are kept.");
-        logout->Click += gcnew EventHandler(this, &SourcesPage::OnLogout);
+        passwordRow_ = L::Row(password_, sendPwd);
+        L::AddField(auth, "Two-step verification", passwordRow_);
+        logout_ = L::Btn("Log out", nullptr, "Sign out of Telegram in Pipkite. Your chats and sources are kept.");
+        logout_->Click += gcnew EventHandler(this, &SourcesPage::OnLogout);
         Button^ del = L::Btn("Delete local Telegram data", "danger", "Remove the local Telegram session and cache. You will sign in again next time. Trade history is not touched.");
         del->Click += gcnew EventHandler(this, &SourcesPage::OnDeleteSession);
         auth->Controls->Add(gcnew Label());
-        auth->Controls->Add(L::Row(logout, del));
+        auth->Controls->Add(L::Row(logout_, del));
         authHint_ = L::Wrap("", "muted", 760);
         auth->Controls->Add(gcnew Label());
         auth->Controls->Add(authHint_);
@@ -181,6 +82,9 @@ public:
         chatsPanel->Controls->Add(chats_);
         saveState_ = L::Wrap("", "muted", 900);
         chatsPanel->Controls->Add(saveState_);
+        check_ = gcnew ChannelCheck(900);  // what Pipkite reads in the chat just ticked
+        check_->Changed += gcnew EventHandler(this, &SourcesPage::OnCheckChanged);
+        chatsPanel->Controls->Add(check_);
         stack->Controls->Add(L::Group("Chats to copy", chatsPanel));
         Controls->Add(stack);
         Header("Telegram sources", "Sign in and tick the chats you want to copy.", this);
@@ -223,6 +127,15 @@ public:
         else if (st == "WaitPassword") hint = "Your account has two-step verification: enter your cloud password.";
         else hint = J::Str(tg, "error");
         if (authHint_->Text != hint) authHint_->Text = hint;
+        // only the sign-in step Telegram is waiting for is shown
+        const bool ready = st == "Ready";
+        L::ShowField(apiId_, !ready);
+        L::ShowField(apiHash_, !ready);
+        L::ShowField(saveCred_, !ready);
+        L::ShowField(phoneRow_, !ready && st != "WaitCode" && st != "WaitPassword" && st != "LibraryMissing");
+        L::ShowField(codeRow_, st == "WaitCode");
+        L::ShowField(passwordRow_, st == "WaitPassword");
+        logout_->Visible = ready;
         if (st == "Ready" && !chatsLoaded_) {
             chatsLoaded_ = true;
             Client->Call("telegram.chats", nullptr, gcnew ResponseHandler(this, &SourcesPage::OnChats));
@@ -232,9 +145,13 @@ public:
 private:
     Badge^ authState_;
     TextBox ^ apiId_, ^apiHash_, ^phone_, ^code_, ^password_, ^search_;
+    FlowLayoutPanel ^ phoneRow_, ^codeRow_, ^passwordRow_;
+    Button ^ saveCred_, ^logout_;
     Label^ authHint_;
     Label^ saveState_;
     BufferedGrid^ chats_;
+    ChannelCheck^ check_;
+    String^ checkChat_;  // the ticked chat shown in check_
     array<Object^>^ allChats_;
     System::Collections::Generic::List<JObj^>^ sources_;
     String^ pendingNote_;
@@ -273,11 +190,21 @@ private:
     }
 
     void OnSources(bool ok, Object^ result, String^ error) {
-        if (!ok) return;
+        if (!ok) {
+            saveState_->ForeColor = Theme::Danger;
+            saveState_->Text = "Could not load your channels: " + error;
+            return;
+        }
         sources_ = gcnew System::Collections::Generic::List<JObj^>();
         for each (Object ^ o in J::Arr(result)) sources_->Add(J::Obj(o));
         FillChats();  // reflect which chats are already sources
+        JObj^ shown = nullptr;
+        for each (JObj ^ b in sources_)
+            if (J::Str(b, "chatId") == checkChat_ && J::Bool(b, "enabled", true)) shown = b;
+        if (shown != nullptr) check_->ShowChannel(Client, shown);
+        else check_->Visible = false;
     }
+    void OnCheckChanged(Object^, EventArgs^) { Client->Call("sources.list", nullptr, gcnew ResponseHandler(this, &SourcesPage::OnSources)); }
 
     void OnChats(bool ok, Object^ result, String^ error) {
         if (!ok) return;
@@ -289,6 +216,10 @@ private:
         if (allChats_ == nullptr) return;
         String^ q = search_->Text->Trim()->ToLowerInvariant();
         loadingChats_ = true;  // suppress the auto-add handler while we rebuild rows
+        // a tick reloads the same rows: they keep their scroll position and the row the user was on
+        const int count = chats_->Rows->Count, top = chats_->FirstDisplayedScrollingRowIndex;
+        const int row = chats_->CurrentCell != nullptr ? chats_->CurrentCell->RowIndex : -1;
+        const int col = chats_->CurrentCell != nullptr ? chats_->CurrentCell->ColumnIndex : 0;
         chats_->SuspendLayout();
         chats_->Rows->Clear();
         for each (Object ^ o in allChats_) {
@@ -302,6 +233,10 @@ private:
             chats_->Rows[idx]->Tag = c;
         }
         chats_->EmptyText = allChats_->Length == 0 ? "No chats yet. Sign in to Telegram above, then refresh." : "No chats match the search.";
+        if (chats_->Rows->Count == count && row >= 0 && row < count) {
+            chats_->CurrentCell = chats_->Rows[row]->Cells[col];
+            if (top >= 0) chats_->FirstDisplayedScrollingRowIndex = top;
+        }
         chats_->ResumeLayout();
         chats_->Invalidate();
         loadingChats_ = false;
@@ -310,23 +245,11 @@ private:
     void OnSearch(Object^, EventArgs^) { FillChats(); }
     void OnRefreshChats(Object^, EventArgs^) { Client->Call("telegram.chats", nullptr, gcnew ResponseHandler(this, &SourcesPage::OnChats)); }
 
+    // copied = a saved channel that isn't paused
     bool HasSource(String^ chatId) {
         if (sources_ == nullptr) return false;
-        for each (JObj ^ b in sources_) if (J::Str(b, "chatId") == chatId) return true;
+        for each (JObj ^ b in sources_) if (J::Str(b, "chatId") == chatId) return J::Bool(b, "enabled", true);
         return false;
-    }
-
-    JObj^ NewBinding(String^ chatId, String^ title, String^ type) {
-        JObj^ b = J::New();
-        b["chatId"] = chatId;
-        b["title"] = title;
-        b["chatType"] = type;
-        b["enabled"] = true;
-        b["template"] = "";  // no parser yet; delivered per channel from the backend
-        b["entryMode"] = "wait_for_range";
-        b["aiMode"] = "off";
-        b["immediateTolerancePrice"] = 0.5;
-        return b;
     }
 
     // Commit the checkbox edit as soon as it's toggled so CellValueChanged fires immediately.
@@ -334,38 +257,45 @@ private:
         if (chats_->IsCurrentCellDirty && chats_->CurrentCell != nullptr && chats_->CurrentCell->OwningColumn->Name == "pick")
             chats_->CommitEdit(DataGridViewDataErrorContexts::Commit);
     }
-    // Ticking a chat adds it as a source immediately; unticking removes it. No separate Add button.
+    // Ticking a chat adds it (a new one copies after Start copying, one ticked before copies again as it did);
+    // unticking pauses it and keeps its settings (format, OK to copy, symbol, entry, sizing).
+    // Only that one chat is sent to the engine, so nothing else can be overwritten.
     void OnChatPickChanged(Object^, DataGridViewCellEventArgs^ e) {
         if (loadingChats_ || e->RowIndex < 0 || chats_->Columns[e->ColumnIndex]->Name != "pick") return;
         JObj^ c = dynamic_cast<JObj^>(chats_->Rows[e->RowIndex]->Tag);
         if (c == nullptr) return;
-        if (sources_ == nullptr) sources_ = gcnew System::Collections::Generic::List<JObj^>();
-        String^ chatId = J::Str(c, "chatId");
-        bool on = Convert::ToBoolean(chats_->Rows[e->RowIndex]->Cells["pick"]->Value);
-        if (on) {
-            if (!HasSource(chatId)) sources_->Add(NewBinding(chatId, J::Str(c, "title"), J::Str(c, "type")));
-        } else {
-            for (int k = sources_->Count - 1; k >= 0; --k)
-                if (J::Str(sources_[k], "chatId") == chatId) sources_->RemoveAt(k);
+        const bool on = Convert::ToBoolean(chats_->Rows[e->RowIndex]->Cells["pick"]->Value);
+        if (sources_ == nullptr) {  // the channel list isn't loaded yet: don't guess, undo the tick
+            loadingChats_ = true;
+            chats_->Rows[e->RowIndex]->Cells["pick"]->Value = !on;
+            loadingChats_ = false;
+            saveState_->ForeColor = Theme::Warning;
+            saveState_->Text = "Still loading your channels - tick it again in a moment.";
+            return;
         }
-        SaveSources(on ? "Now copying " + J::Str(c, "title") : "Stopped copying " + J::Str(c, "title"));
+        JObj^ p = J::New();
+        p["chatId"] = J::Str(c, "chatId");
+        if (on) {
+            p["title"] = J::Str(c, "title");
+            p["chatType"] = J::Str(c, "type");
+        } else {
+            p["enabled"] = false;
+        }
+        if (on) checkChat_ = J::Str(c, "chatId");
+        pendingNote_ = on ? "Added " + J::Str(c, "title") + ". Below: what Pipkite reads in it."
+                          : "Paused " + J::Str(c, "title") + " (its settings are kept; tick it to copy again)";
+        Client->Call(on ? "sources.add" : "source.update", p, gcnew ResponseHandler(this, &SourcesPage::OnSaved));
     }
 
-    void SaveSources(String^ note) {
-        pendingNote_ = note;
-        array<Object^>^ list = gcnew array<Object^>(sources_->Count);
-        for (int i = 0; i < sources_->Count; ++i) list[i] = sources_[i];
-        Client->Call("sources.save", Params("sources", list), gcnew ResponseHandler(this, &SourcesPage::OnSaved));
-    }
-
-    void OnSaved(bool ok, Object^ result, String^ error) {
+    void OnSaved(bool ok, Object^, String^ error) {
         if (!ok) {
             saveState_->ForeColor = Theme::Danger;
             saveState_->Text = "Could not save: " + error;
-            return;
+        } else {
+            saveState_->ForeColor = Theme::Success;
+            saveState_->Text = pendingNote_;
         }
-        saveState_->ForeColor = Theme::Success;
-        saveState_->Text = pendingNote_ + "  (" + sources_->Count + " source" + (sources_->Count == 1 ? "" : "s") + ")";
+        Client->Call("sources.list", nullptr, gcnew ResponseHandler(this, &SourcesPage::OnSources));  // ticks show what was saved
     }
 };
 

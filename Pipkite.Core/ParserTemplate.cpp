@@ -219,14 +219,19 @@ ParserTemplate starterStrictTemplate() {
 ParserTemplate universalTemplate() {
     ParserTemplate t;
     t.id = "universal";
-    t.version = "1.0.0";  // bump when this changes: the registry refuses new content under an old version
+    // bump when this or the way the parser reads changes: a new version makes each channel wait for the user's OK
+    // 1.1.0: running-text Buy/Sell words ignored, BUY NOW without a price is not a setup; SL in pips, a stop or target far
+    // from the entry and "TP4 #open" are never read as prices; styled letters, "SELL FROM 3965", result posts, @mentions,
+    // "Hold BUY" is trade management
+    t.version = "1.1.0";
     t.name = "Universal (built in)";
     t.description = "Reads common signal layouts in any channel: GOLD/XAUUSD, BUY/LONG, entry ranges, SL, numbered TPs, emojis.";
     t.allowGluedTokens = true;  // "SELL4295" is common; the shared negative corpus still has to pass
     for (const char* w : {"ENTRY POINT", "ENTRY AREA", "BUY ZONE", "SELL ZONE"}) t.entryLabels.push_back(w);
     for (const char* w : {"TGT", "TAKE-PROFIT", "TARGETS", "PROFIT TARGET"}) t.tpLabels.push_back(w);
     for (const char* w : {"STOP-LOSS", "SL PRICE", "STOP"}) t.slLabels.push_back(w);  // "BUY STOP 2350" stays a stop order
-    for (const char* w : {"CLOSED", "CLOSE TRADE", "TRADE CLOSED", "EXIT NOW", "BOOK PROFIT", "TAKE PARTIAL"}) t.managementPhrases.push_back(w);
+    // only without an entry price: "Hold BUY" manages an open trade, "BUY 4000 ... hold for TP2" is still a signal
+    for (const char* w : {"CLOSED", "CLOSE TRADE", "TRADE CLOSED", "EXIT NOW", "BOOK PROFIT", "TAKE PARTIAL", "HOLD"}) t.managementPhrases.push_back(w);
     for (auto [alias, canon] : std::initializer_list<std::pair<const char*, const char*>>{
              {"XAU", "XAUUSD"}, {"XAG", "XAGUSD"}, {"OIL", "USOIL"}, {"CRUDE", "USOIL"}, {"XTIUSD", "USOIL"}, {"XBRUSD", "UKOIL"},
              {"US100", "NAS100"}, {"USTEC", "NAS100"}, {"NAS", "NAS100"}, {"NDX", "NAS100"}, {"DJ30", "US30"}, {"DJI", "US30"},
@@ -296,6 +301,7 @@ std::vector<ParserTemplate> builtinTemplates() {
     {
         ParserTemplate t = starterStrictTemplate();
         t.id = "strict_labels";
+        t.version = "1.1.0";  // same parser changes as universal 1.1.0
         t.name = "Strict labels only";
         t.description = "The careful choice: needs Entry/SL/TP written as labels, no market words, no glued numbers. Reads less, guesses nothing.";
         out.push_back(t);

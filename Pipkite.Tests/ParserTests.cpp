@@ -377,7 +377,7 @@ TEST(universal_reads_common_layouts) {
     CHECK_EQ(a.targets.size(), std::size_t(2));
     CHECK_EQ(*a.stopLoss, 2340.0);
 
-    auto b = parseUniversal("GOLD LONG NOW\nStop loss 2340\nTake profit 2360");
+    auto b = parseUniversal("GOLD LONG NOW 2350\nStop loss 2340\nTake profit 2360");
     CHECK_EQ(std::string(toString(b.status)), std::string("Valid"));
     CHECK(b.marketIntent);
 
@@ -390,6 +390,8 @@ TEST(universal_reads_common_layouts) {
 TEST(universal_never_trades_when_unsure_or_on_results) {
     CHECK_EQ(outcomeOf(parseUniversal("GOLD BUY 2350\nTP 2360")), std::string("review"));  // no SL
     CHECK_EQ(outcomeOf(parseUniversal("BUY 2350\nSL 2340\nTP 2360")), std::string("review"));  // no symbol
+    CHECK_EQ(outcomeOf(parseUniversal("GOLD BUY NOW\nSL 2340\nTP 2360")), std::string("review"));  // NOW is not an entry price
+    CHECK_EQ(outcomeOf(parseUniversal("XAUUSD SELL MARKET\nSL 2360\nTP 2340")), std::string("review"));
     CHECK(outcomeOf(parseUniversal("XAUUSD BUY trade closed +50 pips ✅")) != "signal");
     CHECK_EQ(outcomeOf(parseUniversal("TP1 reached ✅✅")), std::string("ignore"));
     CHECK_EQ(outcomeOf(parseUniversal("Gold TP2 HIT 🔥 +80 pips")), std::string("ignore"));
@@ -400,15 +402,43 @@ TEST(universal_never_trades_when_unsure_or_on_results) {
     CHECK(suite.allPassed());
 }
 
+// traps seen in real channels (prices changed)
+TEST(universal_reads_real_channel_traps_safely) {
+    auto a = parseUniversal("#XAU/Gold Sell at 4170/4173\nTP¹ 4160\nTP² 4150\nTP⁴ #Open\nSTOP LOSS : 4182");
+    CHECK_EQ(outcomeOf(a), std::string("signal"));
+    CHECK_EQ(a.targets.size(), std::size_t(2));  // TP4 has no price: never a take profit of 4
+    // a stop given in pips is not "no stop": the opt-in to trade without one must not apply
+    auto b = parseUniversal("XAUUSD BUY 4000-3995\nSL 30 pips\nTP 4010");
+    CHECK(outcomeOf(b) != "signal");
+    CHECK(!b.stopLossOmitted);
+    // "3485/87" is short for 3485-3487: never guessed, and the reason says why
+    auto c = parseUniversal("XAUUSD SELL 3485/87\nTP 3480\nSL 3493");
+    CHECK(outcomeOf(c) != "signal");
+    CHECK(c.diagnostics.back().find("too wide") != std::string::npos);
+    // result posts and @mentions are chatter, not signals waiting for review
+    CHECK_EQ(outcomeOf(parseUniversal("XAUUSD SELL💥\nTARGET ⁴ COMPLETE 120+ PIPS DONE\n3586 check✔️")), std::string("ignore"));
+    CHECK_EQ(outcomeOf(parseUniversal("XAUUSD SELL 🕯\nTP 2 HIT😎\nPrice Touched (3554)\n100+ PIPS RUNNING PROFIT")), std::string("ignore"));
+    CHECK_EQ(outcomeOf(parseUniversal("3470 DONE\nGOLD SELL 400+PIPS 🔥")), std::string("ignore"));
+    CHECK_EQ(outcomeOf(parseUniversal("Contact me @buy_signals_07 for VIP")), std::string("ignore"));
+    CHECK_EQ(outcomeOf(parseUniversal("XAUUSD BUY NOW")), std::string("review"));  // a NOW without a price still waits for review
+    // "Hold BUY" manages a trade already open; a signal that also says hold is still read
+    CHECK(parseUniversal("Hold BUY 📈").kind == MessageKind::Management);
+    CHECK(parseUniversal("Hold gold buy").kind == MessageKind::Management);
+    auto d = parseUniversal("XAUUSD BUY 4000-3995\nSL 3990\nTP 4010\nHold for TP2");
+    CHECK_EQ(outcomeOf(d), std::string("signal"));
+    CHECK_EQ(d.targets.size(), std::size_t(1));
+}
+
 TEST(detect_format_ranks_the_parser_that_reads_the_channel) {
     std::vector<NamedParser> parsers{{"Strict", std::make_shared<TemplateSignalParser>(CompiledTemplate::compile(starterStrictTemplate()).value())},
                                      {"Universal", std::make_shared<TemplateSignalParser>(CompiledTemplate::compile(universalTemplate()).value())}};
-    std::vector<std::string> samples{"US100 SELL4295\nSL 4305\nTP 4285", "GOLD BUY NOW\nSL 2340\nTP 2360", "Good morning!"};
+    std::vector<std::string> samples{"US100 SELL4295\nSL 4305\nTP 4285", "GOLD BUY NOW 2350\nSL 2340\nTP 2360", "Good morning!"};
     auto r = detectFormat(parsers, samples);
     CHECK_EQ(r.size(), std::size_t(2));
     CHECK_EQ(r[0].parserId, std::string("universal"));
     CHECK_EQ(r[0].signals, 2);
     CHECK_EQ(r[0].ignored, 1);
     CHECK_EQ(r[0].samples[0].value("symbol", ""), std::string("NAS100"));
+    CHECK_EQ(r[0].samples[2].value("kind", ""), std::string("Commentary"));  // the channel check skips what isn't a signal
     CHECK_EQ(r[1].signals, 0);
 }

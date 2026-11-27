@@ -4,6 +4,7 @@
 
 #include <filesystem>
 
+#include "DiagLog.h"
 #include "Pipkite.Protocol/Crypto.h"
 #include "Pipkite.Protocol/Platform.h"
 
@@ -71,6 +72,7 @@ void TelegramClient::start(std::function<void(IncomingMessage)> onMessage) {
     }
     if (!hasCredentials()) {
         state_ = TelegramAuthState::NotConfigured;
+        diag::write("telegram", "not set up yet (no api_id / api_hash)");
         return;
     }
     if (running_) return;
@@ -177,6 +179,7 @@ std::string TelegramClient::userDisplayName() const {
 }
 
 void TelegramClient::setError(const std::string& e) {
+    if (!e.empty()) diag::write("telegram", e);
     std::lock_guard lock(mu_);
     lastError_ = e;
 }
@@ -197,6 +200,7 @@ void TelegramClient::loop() {
 
 void TelegramClient::onAuthState(const json& st) {
     const std::string t = st.value("@type", "");
+    diag::write("telegram", "sign-in state " + t);  // the state's name only: phone numbers and codes are never in it
     if (t == "authorizationStateWaitTdlibParameters") {
         state_ = TelegramAuthState::WaitParameters;
         auto secret = platform::loadSecret(L"telegram_api");
@@ -220,7 +224,7 @@ void TelegramClient::onAuthState(const json& st) {
               {"system_language_code", "en"},
               {"device_model", "Windows PC"},
               {"system_version", "Windows"},
-              {"application_version", "Pipkite 1.0.5"}});
+              {"application_version", "Pipkite 1.0.6"}});
     } else if (t == "authorizationStateWaitPhoneNumber") {
         state_ = TelegramAuthState::WaitPhone;
     } else if (t == "authorizationStateWaitCode") {
@@ -305,6 +309,8 @@ void TelegramClient::handle(const json& u) {
         std::lock_guard lock(mu_);
         auto it = chats_.find(u.value("chat_id", static_cast<std::int64_t>(0)));
         if (it != chats_.end()) it->second.title = u.value("title", "");  // ID binding unaffected by renames
+    } else if (type == "updateConnectionState") {
+        diag::write("telegram", "connection " + u["state"].value("@type", ""));  // a drop here explains missed signals
     } else if (type == "updateNewMessage") {
         onMessage(u["message"], 0);
     } else if (type == "updateMessageContent") {

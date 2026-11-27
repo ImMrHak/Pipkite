@@ -84,6 +84,11 @@ char32_t mapCodePoint(char32_t cp) {
     if (cp >= 0xFF10 && cp <= 0xFF19) return U'0' + (cp - 0xFF10);  // fullwidth digits
     if (cp >= 0xFF21 && cp <= 0xFF3A) return U'A' + (cp - 0xFF21);  // fullwidth A-Z
     if (cp >= 0xFF41 && cp <= 0xFF5A) return U'A' + (cp - 0xFF41);  // fullwidth a-z
+    if (cp >= 0x1D400 && cp <= 0x1D6A3) {  // styled letters (𝐁𝐨𝐥𝐝, 𝘐𝘵𝘢𝘭𝘪𝘤, 𝖲𝖺𝗇𝗌, 𝙼𝚘𝚗𝚘...): 13 styles of A-Z then a-z
+        const char32_t k = (cp - 0x1D400) % 52;
+        return U'A' + (k < 26 ? k : k - 26);
+    }
+    if (cp >= 0x1D7CE && cp <= 0x1D7FF) return U'0' + (cp - 0x1D7CE) % 10;  // styled digits 𝟎-𝟗
     if (cp == 0xFF1A) return ':';
     if (cp == 0x2022 || cp == 0x25CF || cp == 0x25AA || cp == 0x2023) return ' ';  // bullets
     // Emoji and pictographic blocks become separators.

@@ -1,5 +1,75 @@
 # Changelog
 
+## 1.0.6
+
+- **After updating, press Start copying once per channel.** The built-in formats now read a few messages differently
+  (see below), so a channel that uses one shows **Not copying yet** on Signal rules. Select it there to see its
+  latest signals as Pipkite reads them. If they're right, press **Start copying**. Its settings are kept.
+- **Setting up a channel is one click.** Tick a channel, or select it on Signal rules: Pipkite reads its latest
+  messages with every format and shows, in plain words, how many signals it read and the latest ones as it reads
+  them. If they're right, press **Start copying**. **Not right?** opens the format window to pick another format or
+  teach one. Detect format, custom parser requests, parser updates and the installed parsers are under **Show
+  advanced tools**. With **Show formats other Pipkite users made for the same channel** on (Settings), checking a
+  channel sends its ID to find them, as Detect format did.
+- **A trade needs a real setup:** an entry price, a stop loss and a take profit. BUY NOW or SELL NOW without an entry
+  price goes to Review and is never traded, whatever the channel's settings. Only the stop loss can be left out, and
+  only with the option below.
+- **Max stop distance per symbol.** In Symbol limits, set how far the stop loss may be from the entry (for gold,
+  20.00 is suggested). If a message's stop is further, Pipkite uses the closer one. A published stop is never
+  widened, and if the broker won't accept the stop, the trade is skipped.
+- **Signals without a stop loss (off by default).** A new option in Symbol limits trades them with the symbol's max
+  stop distance, only when everything else is clear and the message doesn't say the stop is still to come
+  ("SL: soon"). History shows where the stop came from.
+- **Numbers that aren't prices are never traded as prices.** A stop loss written in pips ("SL 30 pips"), a stop or
+  target less than half or more than double the entry price ("SL 30" for gold at 4000), and a take profit without
+  a price ("TP⁴ #Open", "TP3 (open)") are no longer read as prices. Before, such a signal could be traded with a stop
+  of 30 or a take profit of 4. Now a stop or target like that sends the signal to Review, and an open TP is simply
+  left out.
+- **More real signals are read.** "BUY NOW FROM 4040/4037" (the entry after FROM), signals written in styled
+  letters (𝐗𝐀𝐔𝐔𝐒𝐃, 𝖲𝖫 𝟒𝟎𝟑𝟒), and signals ending with a tip like "after 40 pips set breakeven". Result posts that
+  name the trade ("XAUUSD SELL · TP 3 HIT 90 pips"), "Hold BUY" posts and @usernames like @buy_signals are no longer
+  read as signals waiting for review.
+- **Sell signals with a "long term" footer are read again.** A Buy or Sell word in running text, on a line with
+  no price and no symbol (like "Money management is key to long term success"), no longer counts as a direction.
+  Such Sell signals went to Review as "Both directions found".
+- **Channel settings.** On Signal rules, each channel can have its own broker symbol, way to enter (wait for the
+  price, right away, or pending orders) and its own sizing or take-profit. These settings existed but could not be
+  changed. Signal rules shows them for every channel.
+- **Broker symbol names just work.** Symbols like XAUUSD.m, GOLD#, US30.cash or DJ30 in Symbol limits now receive the
+  matching signals, also from channels that post several symbols. Before, gold signals written "GOLD" only went to a
+  symbol named exactly XAUUSD, and indices and oil could not be set up at all.
+- **A channel pinned to one symbol never trades another.** A message for a different instrument is skipped with a
+  clear reason. The pin can now be removed again (each message's own symbol).
+- **Unticking a chat pauses it** and keeps its format, OK to copy, symbol and sizing. Before, it was deleted, and a
+  quick tick right after opening the page could remove every other channel.
+- **New symbols get prices at once.** A symbol added to Symbol limits while MetaTrader is connected is streamed right
+  away; before, it waited for the next reconnect and its signals were rejected.
+- **Trading hours can run overnight**, e.g. 22:00 to 06:00. A mistyped time now shows an error instead of being
+  replaced.
+- **Close Pipkite positions / Cancel Pipkite pending orders** buttons on the MetaTrader page. They only touch what
+  Pipkite placed, after you type the account number.
+- **No more sideways scrolling** on a small window: tables, text and button rows fit the window, also after you
+  shrink it.
+- **Settings show only what applies.** Execution policy shows lots or risk % depending on the sizing mode, the
+  split percentages only for split targets, and each tolerance or window only when its option is ticked. Telegram
+  sign-in shows one step at a time. Your own AI key fields appear only when you choose your own AI. The update
+  address and license link boxes, meant for the Pipkite team, are no longer shown.
+- **Clearer status after a restart.** The live feed says no new signals came in since Pipkite started, instead of
+  asking you to add a Telegram source, and the MetaTrader page no longer says "MetaTrader is starting" once it is
+  connected.
+- **The AI review says how likely a signal is to work.** Its score is the estimated chance that price reaches TP1
+  before the stop loss, measured from where Pipkite enters: **Good** from 60%, **Bad** at 40% or less. A far TP1 pays
+  more but is reached first less often, so it can be Bad. The reasons show the distances, the trend and the spread.
+  Without MetaTrader prices a signal is Uncertain at best, and buy stop and sell stop orders are no longer marked Bad
+  while price is still on the far side of the stop.
+- **Detailed log for troubleshooting (off by default).** Tick it in Settings > Diagnostics and Pipkite writes what it
+  receives and does to one file per day: each message, what it read, why it traded or not (with the price it saw),
+  the orders, MetaTrader's replies, Telegram's connection and what you did in the window. Passwords, login codes and
+  keys are never written. **Open log folder** shows the files to send to support. They stay on your PC, are deleted
+  after the message retention days, never pass 100 MB, and go with **Erase local history**.
+- **No more "Parser module rejected" at every start** for an old parser download made before the rename to Pipkite.
+  It never loaded and stays unused.
+
 ## 1.0.5
 
 - **Symbol limits are easier to set.** They are now at the top of Execution policy: pick a symbol from your

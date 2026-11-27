@@ -39,6 +39,12 @@
     <ClCompile Include="..\Pipkite.Engine\TerminalLauncher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DiagLogTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Pipkite.Engine\DiagLog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="StorageProtocolTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

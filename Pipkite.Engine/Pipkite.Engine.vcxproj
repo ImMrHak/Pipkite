@@ -58,6 +58,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DiagLog.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="EngineUi.cpp" />
     <ClCompile Include="Http.cpp" />
@@ -68,6 +69,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DiagLog.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="Http.h" />
     <ClInclude Include="PluginManager.h" />

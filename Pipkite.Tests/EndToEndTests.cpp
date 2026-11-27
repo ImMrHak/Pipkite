@@ -10,7 +10,9 @@
 #include <cctype>
 #include <condition_variable>
 #include <filesystem>
+#include <fstream>
 #include <future>
+#include <iterator>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -248,6 +250,12 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", data.c_str());
     SetEnvironmentVariableW(L"PIPKITE_INSTANCE", (L"e2e" + std::to_wstring(GetCurrentProcessId())).c_str());
     SetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", L"1");  // lets the test feed messages without Telegram
+    // a module downloaded before the rename to Pipkite: never loaded, and no error at every start
+    fs::create_directories(data / L"plugins" / L"old_gold" / L"1.0.0");
+    {
+        std::ofstream(data / L"plugins" / L"old_gold" / L"1.0.0" / L"manifest.json")
+            << R"({"format":"signalrelay-module-v1","id":"old_gold","version":"1.0.0","moduleType":"parser","entry":"module.dll"})";
+    }
 
     Proc engine;
     CHECK(engine.start(L"\"" + (bin / L"Pipkite.Engine.exe").wstring() + L"\""));
@@ -264,6 +272,10 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     json s0 = ui.call("getSnapshot");
     CHECK_EQ(s0.value("mode", ""), std::string("automatic"));
     CHECK(s0.value("paused", false));
+    CHECK(s0["errors"].dump().find("old_gold") == std::string::npos);
+    // the detailed log, on for the rest of the flow; what the user types for Telegram never reaches it
+    ui.call("settings.save", {{"values", {{"diagnostics.verbose", "true"}}}});
+    ui.call("telegram.password", {{"password", "e2e-secret-pass"}});
 
     // Configure one source and symbol limits.
     const std::string chat = "-1000000000001";
@@ -349,6 +361,27 @@ TEST(e2e_engine_bridge_fake_terminal_full_flow) {
     CHECK_EQ(detail["commands"].size(), std::size_t(1));
     CHECK(detail["commands"][0]["events"].size() >= 4);  // Prepared, Dispatching, ReceivedByEA, Submitted, Filled
     CHECK_EQ(detail.value("state", ""), std::string("Dispatched"));
+
+    // the detailed log has the whole story of that signal: the message, what was read, the decision, the order sent
+    // and MetaTrader's answer, plus the user's actions with what they typed hidden
+    Sleep(300);
+    std::string logText;
+    for (auto& e : fs::directory_iterator(data / L"logs")) {
+        std::ifstream in(e.path(), std::ios::binary);
+        logText.append(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    const std::string commandId = detail["commands"][0].value("commandId", "").substr(0, 8);
+    for (const std::string& part : {json(std::string(text)).dump(), std::string("parse    "), std::string("decision ") + chat + ":" + msgId + " Planned",
+                                    "-> EXECUTE " + commandId, "<- COMMAND_STATUS {\"commandId\":\"" + commandId, std::string("telegram.password {\"password\":\"<hidden>\"}"),
+                                    std::string("rules saved")}) {
+        if (logText.find(part) == std::string::npos) std::printf("        log is missing: %s\n", part.c_str());
+        CHECK(logText.find(part) != std::string::npos);
+    }
+    bool filledLine = false;  // the order's journal steps, ending in Filled
+    for (std::size_t at = logText.find(commandId + " "); at != std::string::npos && !filledLine; at = logText.find(commandId + " ", at + 1))
+        filledLine = logText.substr(at, logText.find('\n', at) - at).find("-> Filled") != std::string::npos;
+    CHECK(filledLine);
+    CHECK(logText.find("e2e-secret-pass") == std::string::npos);
 
     // Latency sample: 20 more executable signals, then report the engine's own measured percentiles.
     for (int i = 0; i < 20; ++i) {
@@ -496,11 +529,14 @@ TEST(demo_seed_running_instance) {
     // screenshots: the Get started list would cover the dashboard (the test terminal can't sign in to Telegram)
     ui.call("settings.save", {{"values", {{"ui.setupHidden", "true"}}}});
     const std::string chat = "-1000000000001";
-    ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Gold Signals VIP"}, {"chatType", "channel"}, {"template", "gold_parser_native"},
+    // the first channel has no OK yet, so Signal rules opens on what Pipkite reads in it, with Start copying
+    ui.call("sources.save", {{"sources", json::array({{{"chatId", "-1000000000003"}, {"title", "XAU Scalpers"}, {"chatType", "channel"}, {"template", ""}, {"aiMode", "off"}},
+                                                       {{"chatId", chat}, {"title", "Gold Signals VIP"}, {"chatType", "channel"}, {"template", "gold_parser_native"},
                                                         {"entryMode", "wait_for_range"}, {"aiMode", "advisory"}},
                                                        {{"chatId", "-1000000000002"}, {"title", "Forex Daily"}, {"chatType", "supergroup"}, {"template", "gold_parser_native"},
                                                         {"entryMode", "immediate_within_tolerance"}, {"aiMode", "off"}}})}});
-    for (auto& s : ui.call("sources.list")) ui.call("source.confirmFormat", {{"chatId", s.value("chatId", "")}});  // demo: both copy at once
+    for (auto& s : ui.call("sources.list"))  // demo: the other two copy at once
+        if (s.value("chatId", "") != "-1000000000003") ui.call("source.confirmFormat", {{"chatId", s.value("chatId", "")}});
     json policy = ui.call("policy.get");
     policy["symbolLimits"] = {{"XAUUSD", {{"maxSpreadPrice", 0.5}, {"maxEntryDeviationPrice", 0.5}, {"maxLots", 1.0}}},
                               {"EURUSD", {{"maxSpreadPrice", 0.0002}, {"maxEntryDeviationPrice", 0.0005}, {"maxLots", 1.0}}}};
@@ -563,6 +599,11 @@ TEST(e2e_detect_teach_and_adopt_a_channel_format) {
     if (!current.empty()) CHECK_EQ(det["candidates"][1].value("id", ""), std::string("universal"));
     CHECK_EQ(uni.value("signals", 0), 1);
     CHECK(uni["samples"][1].value("outcome", "") != "signal");
+    // Start copying from the channel check: the format shown is applied, then the OK is given for the exact version shown
+    ui.call("sources.bulkApply", {{"chatIds", json::array({chat})}, {"template", "universal"}});
+    ui.call("source.confirmFormat", {{"chatId", chat}, {"format", "universal@" + uni.value("version", "")}});
+    CHECK(!ui.call("sources.list")[0].value("formatPending", true));
+    CHECK_EQ(ui.call("sources.list")[0].value("activeFormat", ""), "universal@" + uni.value("version", ""));
 
     // teach: mark the Dutch words, test, adopt
     auto mark = [&](const char* field, const std::string& word) {
@@ -582,6 +623,12 @@ TEST(e2e_detect_teach_and_adopt_a_channel_format) {
     CHECK_EQ(tp.value("parser", ""), "channel_" + chat + "@1.0.0");
     // teaching again makes a new version, the old one stays for rollback
     CHECK_EQ(ui.call("parser.adopt", {{"chatId", chat}, {"template", learned["template"]}, {"sample", dutch}}).value("version", ""), std::string("1.0.1"));
+    // the channel's own format is always in the reply, also when another one reads more (here the Indonesian format)
+    json own = ui.call("source.detectFormat", {{"chatId", chat}, {"limit", 1}, {"samples", json::array({"XAUUSD JUAL SEKARANG 2350\nSL 2360\nTP 2340"})}});
+    CHECK_EQ(own.value("current", ""), "channel_" + chat);
+    CHECK_EQ(own["candidates"][0].value("signals", 0), 1);
+    CHECK_EQ(own["candidates"].size(), static_cast<std::size_t>(2));
+    CHECK_EQ(own["candidates"][1].value("id", ""), "channel_" + chat);
     // an example that still doesn't read as a signal is refused
     bool refused = false;
     try {
@@ -833,4 +880,86 @@ TEST(e2e_app_update_is_offered_and_an_unsigned_installer_is_refused) {
     github.stop();
     std::error_code ec;
     fs::remove_all(data, ec);
+}
+
+TEST(e2e_channel_settings_are_kept_and_new_symbols_get_prices) {
+    const fs::path bin = platform::exeDir();
+    if (!fs::exists(bin / L"Pipkite.Engine.exe") || !fs::exists(bin / L"Pipkite.FakeTerminal.exe")) {
+        std::printf("        (skipped: engine or fake terminal not present in %s)\n", platform::narrow(bin.wstring()).c_str());
+        return;
+    }
+    const fs::path data = fs::temp_directory_path() / (L"PipkiteChan-" + std::to_wstring(GetCurrentProcessId()));
+    fs::remove_all(data);
+    fs::create_directories(data);
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", data.c_str());
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", (L"chan" + std::to_wstring(GetCurrentProcessId())).c_str());
+    Proc engine;
+    CHECK(engine.start(L"\"" + (bin / L"Pipkite.Engine.exe").wstring() + L"\""));
+    UiClient ui;
+    bool connected = false;
+    for (int i = 0; i < 40 && !connected; ++i) {
+        connected = ui.connect();
+        if (!connected) Sleep(250);
+    }
+    CHECK(connected);
+    auto source = [&](const std::string& chat) {
+        for (auto& s : ui.call("sources.list"))
+            if (s.value("chatId", "") == chat) return s;
+        return json();
+    };
+
+    // ticking a chat adds it without a format; settings change one field at a time
+    const std::string chat = "-1000000000088";
+    ui.call("sources.add", {{"chatId", chat}, {"title", "Gold room"}, {"chatType", "channel"}});
+    CHECK_EQ(source(chat).value("template", "?"), std::string(""));
+    ui.call("source.update", {{"chatId", chat}, {"entryMode", "explicit_pending_only"}});
+    ui.call("source.update", {{"chatId", chat}, {"overrideSizing", true}, {"sizing", {{"mode", "risk_percent"}, {"riskPercent", 1.5}}}});
+    json s = source(chat);
+    CHECK_EQ(s.value("entryMode", ""), std::string("explicit_pending_only"));  // the second change kept the first
+    CHECK(s.value("overrideSizing", false));
+    // unticking only pauses the channel; ticking it again brings everything back
+    ui.call("source.update", {{"chatId", chat}, {"enabled", false}});
+    CHECK(!source(chat).value("enabled", true));
+    CHECK_EQ(ui.call("getSnapshot")["telegram"].value("sources", -1), 0);  // a paused channel isn't counted
+    ui.call("sources.add", {{"chatId", chat}, {"title", "Gold room"}, {"chatType", "channel"}});
+    s = source(chat);
+    CHECK(s.value("enabled", false));
+    CHECK_EQ(s.value("entryMode", ""), std::string("explicit_pending_only"));
+    CHECK_EQ(s["sizing"].value("riskPercent", 0.0), 1.5);
+    bool refused = false;
+    try {
+        ui.call("source.update", {{"chatId", chat}, {"entryMode", "sometimes"}});
+    } catch (const srtest::Failure&) {
+        refused = true;
+    }
+    CHECK(refused);
+
+    // MetaTrader connects first; a symbol added to Symbol limits afterwards still gets its prices
+    Proc term;
+    CHECK(term.start(L"\"" + (bin / L"Pipkite.FakeTerminal.exe").wstring() + L"\" --login 90000001"));
+    CHECK(ui.waitFor([](const json& snap) { return !snap["bridge"]["pairingPending"].is_null(); }, 15000));
+    ui.call("mt5.approvePairing", {{"confirmLogin", "90000001"}});
+    CHECK(ui.waitFor([](const json& snap) { return snap.value("reconciled", false) && snap["bridge"].value("paired", false); }, 15000));
+    auto hasPrice = [&](const std::string& name) {
+        const json status = ui.call("mt5.status");  // keep the reply alive while looping over a part of it
+        for (auto& sym : status["symbols"])
+            if (sym.value("name", "") == name && sym.contains("quote")) return true;
+        return false;
+    };
+    json catalog = ui.call("mt5.status")["catalog"];
+    CHECK(std::find(catalog.begin(), catalog.end(), json("GBPUSD")) != catalog.end());  // the whole broker list, for pickers
+    CHECK(!hasPrice("GBPUSD"));
+    json policy = ui.call("policy.get");
+    policy["symbolLimits"]["GBPUSD"] = {{"maxSpreadPrice", 0.0003}, {"maxEntryDeviationPrice", 0.0005}, {"maxLots", 1.0}};
+    ui.call("policy.save", {{"policy", policy}});
+    bool priced = false;
+    for (int i = 0; i < 40 && !priced; ++i) {
+        priced = hasPrice("GBPUSD");
+        if (!priced) Sleep(250);
+    }
+    CHECK(priced);
+
+    // close / cancel copier trades: the count shown to the user arrives as text
+    json sent = ui.call("mt5.manage", {{"action", "cancel_pending"}, {"confirmLogin", "90000001"}, {"expectedCount", "0"}});
+    CHECK(sent.value("sent", false));
 }

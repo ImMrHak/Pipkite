@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <regex>
 
+#include "DiagLog.h"
 #include "Engine.h"
 #include "Http.h"
 #include "TerminalLauncher.h"
@@ -119,6 +120,7 @@ void Engine::onUiConnection(std::shared_ptr<ipc::PipeConnection> c) {
                 std::lock_guard lock(uiMu_);
                 uiClients_.push_back(c);
             }
+            diag::write("ui", "window connected");
             post([this] { lastSnapshot_.clear(); });  // force a full snapshot to the new client
             return;
         }
@@ -130,10 +132,18 @@ void Engine::onUiConnection(std::shared_ptr<ipc::PipeConnection> c) {
             ipc::Envelope r;
             r.type = ipc::msg::RESPONSE;
             r.id = id;
+            const auto started = std::chrono::steady_clock::now();
             try {
                 r.payload = {{"ok", true}, {"result", handleUiRequest(method, params)}};
             } catch (const std::exception& e) {
                 r.payload = {{"ok", false}, {"error", e.what()}};
+            }
+            // what the user did and what came of it; results aren't logged (big, and already in History or the page).
+            // getSnapshot and the Dashboard's profit chart are asked for every few seconds: left out
+            if (diag::on() && method != "getSnapshot" && method != "profit.curve") {
+                const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
+                diag::write("ui", method + " " + diag::dump(diag::redacted(params), 2000) +
+                                      (r.payload.value("ok", false) ? std::string(" -> ok") : " -> error: " + r.payload.value("error", "")) + " (" + std::to_string(ms) + " ms)");
             }
             std::string body = r.serialize();
             if (body.size() > ipc::kMaxFrame - 1024) {
@@ -148,6 +158,7 @@ void Engine::onUiConnection(std::shared_ptr<ipc::PipeConnection> c) {
         if (slow.count(method)) std::thread(respond).detach();
         else respond();
     });
+    if (stage == 2) diag::write("ui", "window disconnected");
     std::lock_guard lock(uiMu_);
     uiClients_.erase(std::remove(uiClients_.begin(), uiClients_.end(), c), uiClients_.end());
 }
@@ -189,7 +200,48 @@ bool testHooksEnabled() {
     wchar_t v[4] = {};
     return GetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", v, 4) == 1 && v[0] == L'1';
 }
+
+std::string windowsVersion() {
+    const wchar_t* key = L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+    auto text = [&](const wchar_t* name) {
+        wchar_t buf[64] = {};
+        DWORD size = sizeof buf;
+        return RegGetValueW(HKEY_LOCAL_MACHINE, key, name, RRF_RT_REG_SZ, nullptr, buf, &size) == ERROR_SUCCESS ? platform::narrow(buf) : std::string();
+    };
+    DWORD ubr = 0, size = sizeof ubr;
+    RegGetValueW(HKEY_LOCAL_MACHINE, key, L"UBR", RRF_RT_REG_DWORD, nullptr, &ubr, &size);
+    return "Windows " + text(L"DisplayVersion") + " build " + text(L"CurrentBuildNumber") + "." + std::to_string(ubr);
+}
 }  // namespace
+
+void Engine::logContext(const std::string& why) {
+    if (!diag::on()) return;
+    diag::write("engine", why + ": " + kProductName + " " + kProductVersion + ", " + windowsVersion() + ", data " + platform::narrow(dataDir_) + ", program " + platform::narrow(installDir_));
+    json settings = json::object();
+    for (auto& k : kUiSettings)
+        if (auto v = store_->getSetting(k)) settings[k] = *v;
+    diag::write("config", "settings " + diag::dump(diag::redacted(settings), 8000));
+    diag::write("config", "rules version " + std::to_string(policy_.configVersion) + ": " + diag::dump(policy_.toJson(), 32 * 1024));
+    json formats = json::array();
+    for (auto& v : parsers_.list()) formats.push_back(v.parserId + "@" + v.version + " (" + v.origin + (v.active ? ", active)" : ")"));
+    diag::write("config", "formats " + diag::dump(formats, 8000));
+    json channels = json::array();
+    for (auto& s : policy_.sources) {
+        auto lease = parserFor(s);
+        channels.push_back({{"chatId", std::to_string(s.chatId)}, {"title", s.title}, {"ticked", s.enabled}, {"format", lease ? lease->parserId + "@" + lease->version : ""}, {"okToCopy", s.confirmedFormat}});
+    }
+    diag::write("config", "channels " + diag::dump(channels, 16000));
+    diag::write("telegram", std::string("state ") + toString(telegram_->authState()) + (telegram_->lastError().empty() ? "" : ", last error: " + telegram_->lastError()));
+    diag::write("mt5", "bridge " + diag::dump({{"connected", bridge_ != nullptr},
+                                                {"paired", bridgePaired_},
+                                                {"healthy", bridgeHealthy_},
+                                                {"status", bridgeStatusText_},
+                                                {"implVersion", bridgeHello_.value("implVersion", "")},
+                                                {"account", account_ ? toJson(*account_) : json(nullptr)},
+                                                {"terminal", terminalStatus()}}));
+    if (updater_) diag::write("update", "status " + diag::dump(updater_->status()));
+    logStatus();
+}
 
 json Engine::snapshot() {
     const std::int64_t now = clock_.nowMs();
@@ -230,11 +282,15 @@ json Engine::snapshot() {
     ULARGE_INTEGER avail{};
     GetDiskFreeSpaceExW(dataDir_.c_str(), &avail, nullptr, nullptr);
     // what a fresh install still needs before copying can work; the dashboard shows it as a checklist
-    json parsersMissing = json::array(), formatsPending = json::array();
+    json parsersMissing = json::array(), formatsPending = json::array(), symbolsMissingLimits = json::array();
     int enabledSources = 0;
     for (auto& src : policy_.sources) {
         if (!src.enabled) continue;
         ++enabledSources;
+        // a channel's own symbol is only traded once it has limits
+        if (!src.tradeSymbol.empty() && !policy_.symbolLimits.count(src.tradeSymbol) &&
+            std::find(symbolsMissingLimits.begin(), symbolsMissingLimits.end(), src.tradeSymbol) == symbolsMissingLimits.end())
+            symbolsMissingLimits.push_back(src.tradeSymbol);
         const std::string name = src.title.empty() ? std::to_string(src.chatId) : src.title;
         auto lease = parserFor(src);
         if (!lease) parsersMissing.push_back(name);
@@ -246,7 +302,8 @@ json Engine::snapshot() {
                   {"metatrader", bridgePaired_ && bridgeHealthy_},
                   {"parsersMissing", parsersMissing},
                   {"formatsPending", formatsPending},
-                  {"symbolLimits", policy_.symbolLimits.size()}};
+                  {"symbolLimits", policy_.symbolLimits.size()},
+                  {"symbolsMissingLimits", symbolsMissingLimits}};
     json stats = store_->stats();
     stats["waiting"] = waiting_.size();
     stats["inflight"] = inflight_.size();
@@ -268,7 +325,7 @@ json Engine::snapshot() {
               {"library", telegram_->libraryPath()},
               {"hasCredentials", telegram_->hasCredentials()},
               {"floodWaitUntil", telegram_->floodWaitUntilMs()},
-              {"sources", policy_.sources.size()}}},
+              {"sources", enabledSources}}},
             {"bridge",
              {{"connected", bridge_ != nullptr},
               {"paired", bridgePaired_},
@@ -482,7 +539,8 @@ json Engine::handleUiRequest(const std::string& method, const json& params) {
             json candidates = json::array();
             const std::size_t limit = std::clamp(params.value("limit", 3), 1, 8);  // 8 x 20 messages stays under the 64 KiB frame
             for (auto& c : detectFormat(list, samples)) {
-                if (candidates.size() == limit) break;
+                // the channel's own format is always listed, even when others read more: its readings are what Start copying approves
+                if (candidates.size() >= limit && !(current && c.parserId == current->parserId)) continue;
                 json cj = c.toJson();
                 if (auto it = sharedUsers.find(c.parserId); it != sharedUsers.end()) {
                     cj["shared"] = true;
@@ -840,6 +898,47 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         if (auto st = savePolicy(p, true); !st) fail(st.error().message);
         return {{"configVersion", policy_.configVersion}};
     }
+    if (method == "sources.add") {
+        // Ticking a chat. A new channel starts without a format; one that was unticked before comes back with
+        // everything it had (format, OK to copy, symbol, entry and sizing).
+        const std::int64_t chatId = jsonInt64(params.value("chatId", json("0")));
+        if (chatId == 0) fail("Pick a chat first.");
+        ExecutionPolicy p = policy_;
+        bool found = false;
+        for (auto& s : p.sources)
+            if (s.chatId == chatId) {
+                s.enabled = true;
+                if (!params.value("title", "").empty()) s.title = params.value("title", "");
+                found = true;
+            }
+        if (!found) {
+            SourceBinding b;
+            b.chatId = chatId;
+            b.title = params.value("title", "");
+            b.chatType = params.value("chatType", "channel");
+            b.parserId.clear();  // no format until the user picks one
+            p.sources.push_back(b);
+        }
+        if (auto st = savePolicy(p, true); !st) fail(st.error().message);
+        return {{"added", !found}};
+    }
+    if (method == "source.update") {
+        // Changes only the fields given for one channel, so a page never overwrites another page's edits with an old copy.
+        const std::int64_t chatId = jsonInt64(params.value("chatId", json("0")));
+        ExecutionPolicy p = policy_;
+        SourceBinding* target = nullptr;
+        for (auto& s : p.sources)
+            if (s.chatId == chatId) target = &s;
+        if (!target) fail("This channel is not a saved source yet.");
+        json j = target->toJson();
+        for (const char* k : {"enabled", "tradeSymbol", "entryMode", "overrideSizing", "sizing", "overrideTargets", "targets"})
+            if (params.contains(k)) j[k] = params[k];
+        auto b = SourceBinding::fromJson(j);
+        if (!b) fail(b.error().message);
+        *target = b.value();
+        if (auto st = savePolicy(p, true); !st) fail(st.error().message);
+        return {{"configVersion", policy_.configVersion}};
+    }
     if (method == "sources.bulkApply") {
         // Applies only the provided fields; per-source sizing/target overrides are never overwritten.
         std::set<std::int64_t> ids;
@@ -976,7 +1075,7 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         if (const std::string sid = params.value("sharedId", ""); !sid.empty()) {
             std::lock_guard lock(sharedMu_);
             auto it = sharedFormats_.find(sid);
-            if (it == sharedFormats_.end()) fail("That shared format is no longer loaded. Press Detect format again.");
+            if (it == sharedFormats_.end()) fail("That shared format is no longer loaded. Check the channel again.");
             tj = it->second.templateJson;
             sharedFixtures = it->second.fixtures;
         }
@@ -1058,7 +1157,7 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         for (auto& s : p.sources) {
             if (s.chatId != chatId) continue;
             auto lease = parserFor(s);
-            if (!lease) fail("This channel has no format yet. Press Detect format first.");
+            if (!lease) fail("This channel has no format yet. Pick one first.");
             const std::string current = lease->parserId + "@" + lease->version;
             if (params.contains("format") && params.value("format", "") != current) fail("A new version of this channel's format just arrived. Check its signals first.");
             s.confirmedFormat = current;
@@ -1171,7 +1270,7 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         if (action != "cancel_pending" && action != "close_positions") fail("Unknown action");
         if (!boundAccount_ || params.value("confirmLogin", "") != std::to_string(boundAccount_->login)) fail("Type the bound account number to confirm");
         if (!bridge_) fail("MT5 terminal is not connected");
-        sendToBridge(ipc::msg::MANAGE, {{"action", action}, {"magic", kCopierMagic}, {"expectedCount", params.value("expectedCount", 0)}});
+        sendToBridge(ipc::msg::MANAGE, {{"action", action}, {"magic", kCopierMagic}, {"expectedCount", jsonInt64(params.value("expectedCount", json(0)))}});
         notify("warning", action == "cancel_pending" ? "Canceling copier-owned pending orders" : "Closing copier-owned positions");
         return {{"sent", true}};
     }
@@ -1216,6 +1315,7 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         for (auto& k : kUiSettings)
             if (auto v = store_->getSetting(k)) out[k] = *v;
         out["dataDir"] = platform::narrow(dataDir_);
+        out["logDir"] = platform::narrow(dataDir_ + L"\\logs");
         out["ai.ownKeySet"] = platform::loadSecret(L"ai_own_key").has_value();
         out["installDir"] = platform::narrow(installDir_);
         return out;
@@ -1228,6 +1328,7 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
         }
         keepAwakeSetting_ = store_->getSetting("engine.keepAwake").value_or("true") == "true";
         licenseKey_ = store_->getSetting("license.key").value_or("");
+        if (applyLogSetting()) logContext("detailed log turned on");
         return {{"ok", true}, {"appliesNow", true}};
     }
 
@@ -1283,14 +1384,19 @@ json Engine::handleOnEngineThread(const std::string& method, const json& params)
     }
     if (method == "data.erase") {
         if (auto st = store_->eraseHistory(); !st) fail(st.error().message);
+        diag::removeFiles(dataDir_ + L"\\logs");  // the log holds the same messages
         feed_.clear();
         feedOrder_.clear();
         ledger_ = ProfitLedger{};
         return {{"ok", true}};
     }
     if (method == "data.purge") {
-        auto r = store_->purgeRetention(std::stoi(store_->getSetting("retention.rawTextDays").value_or("30")), std::stoi(store_->getSetting("retention.metadataDays").value_or("180")));
+        const int rawDays = std::stoi(store_->getSetting("retention.rawTextDays").value_or("30"));
+        auto r = store_->purgeRetention(rawDays, std::stoi(store_->getSetting("retention.metadataDays").value_or("180")));
         if (!r) fail(r.error().message);
+        diag::Limits logs;
+        logs.keepDays = rawDays;
+        diag::prune(dataDir_ + L"\\logs", logs);
         return r.value();
     }
 

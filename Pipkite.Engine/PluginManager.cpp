@@ -142,7 +142,9 @@ Result<VerifiedModule> PluginManager::verify(const std::wstring& manifestPath) c
     auto m = readManifest(manifestPath);
     if (!m) return m.error();
     ModuleManifest man = m.value();
-    if (man.raw.value("format", "") != "pipkite-module-v1") return Error{"manifest_invalid", "Unsupported module manifest format"};
+    const std::string format = man.raw.value("format", "");
+    if (format == "signalrelay-module-v1") return Error{"format_retired", "made for SignalRelay, before the rename to Pipkite; never loaded"};
+    if (format != "pipkite-module-v1") return Error{"manifest_invalid", "Unsupported module manifest format"};
     if (man.raw.value("architecture", "") != "x64") return Error{"arch_mismatch", "Module is not built for x64"};
     if (man.moduleType != "parser" && man.moduleType != "bridge_impl") return Error{"type_rejected", "Module type '" + man.moduleType + "' is not allowed"};
     const int abi = man.raw.value("abiVersion", 0);

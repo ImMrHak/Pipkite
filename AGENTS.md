@@ -74,9 +74,12 @@ x64\Release\Pipkite.Tests.exe planner      # only tests whose name contains "pla
    phone numbers or real channel messages with names. Not in code, tests, fixtures, logs, commits or screenshots.
 4. **Stage files by name.** Never `git add -A` / `git add .`: the working copy has private, untracked folders
    (`backend-admin/`, `frontend-admin/`, `tools/server/`, `.env`, ...) that must never be committed or pushed.
-5. **No trade without all of symbol, side, entry (or NOW), stop loss and take profit, read with no conflict.**
+5. **No trade without all of symbol, side, entry price, stop loss and take profit, read with no conflict.** NOW /
+   market says when to enter, not at what price: BUY NOW alone is not a setup.
    Never fill in a missing value, guess a default, or loosen a check to make a message "work". Unsure = not a
-   signal (review), never a trade.
+   signal (review), never a trade. The one exception is the user's own opt-in `tradeWithoutStopLoss` (off by
+   default): a message complete except for an SL it never writes (`Signal::stopLossOmitted`) gets its stop from
+   the symbol's `maxStopDistancePrice`. Every order still carries a stop loss; keep that exception this narrow.
 6. **Journal before send.** Every order is written to the journal before it reaches the bridge, so a crash never
    sends twice. Don't add any path around it, and don't weaken dedup or the state machine.
 7. **Pausing never closes trades.** Don't make pause, errors or shutdown close, modify or open positions.

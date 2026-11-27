@@ -77,7 +77,7 @@ target_link_libraries(Pipkite.SignTool PRIVATE Pipkite.Protocol)
 add_executable(Pipkite.FakeTerminal Pipkite.FakeTerminal/FakeTerminal.cpp)
 sr_target(Pipkite.FakeTerminal)
 
-file(GLOB TEST_SRC Pipkite.Tests/*.cpp Pipkite.Engine/TerminalLauncher.cpp)
+file(GLOB TEST_SRC Pipkite.Tests/*.cpp Pipkite.Engine/TerminalLauncher.cpp Pipkite.Engine/DiagLog.cpp)
 add_executable(Pipkite.Tests ${TEST_SRC})
 sr_target(Pipkite.Tests)
 target_link_libraries(Pipkite.Tests PRIVATE Pipkite.Storage Pipkite.Protocol Pipkite.Core)

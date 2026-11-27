@@ -97,6 +97,8 @@
     <ClInclude Include="SettingsPage.h" />
     <ClInclude Include="Tour.h" />
     <ClInclude Include="Dialogs.h" />
+    <ClInclude Include="ChannelCheck.h" />
+    <ClInclude Include="ChannelDialog.h" />
     <ClInclude Include="FormatDialog.h" />
     <ClInclude Include="Wizard.h" />
     <ClInclude Include="MainForm.h" />

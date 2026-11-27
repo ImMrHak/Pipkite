@@ -96,18 +96,42 @@ const char* toString(DecisionKind k) {
     return "Rejected";
 }
 
+// a trade is a real setup: an entry price, a stop loss (or the user's no-stop-loss setting) and a take profit
+constexpr const char* kNoEntryPrice = "The message has no entry price (BUY NOW / SELL NOW alone): only a setup with an entry price, a stop loss and a take profit is traded";
+
 std::optional<std::string> ExecutionPlanner::resolveBrokerSymbol(const Signal& s, const ExecutionPolicy& p, const SourceBinding& b, std::string& reason) {
-    if (!b.tradeSymbol.empty()) return b.tradeSymbol;  // this channel is pinned to one broker symbol (chosen from MT5)
     std::string canonical = s.symbol;
     if (auto it = b.aliasOverrides.find(s.symbolAlias); it != b.aliasOverrides.end()) canonical = it->second;
+    if (!b.tradeSymbol.empty()) {
+        // a channel pinned to one broker symbol trades one instrument: a message for another is never moved onto it
+        if (!canonical.empty() && !sameInstrument(b.tradeSymbol, canonical, s.symbolAlias)) {
+            reason = "The message is for " + canonical + ", but this channel trades only " + b.tradeSymbol +
+                     ". To trade each message's own symbol, clear the channel's symbol in Signal rules > Channel settings";
+            return std::nullopt;
+        }
+        return b.tradeSymbol;
+    }
     if (canonical.empty()) {
         reason = "Signal has no symbol";
         return std::nullopt;
     }
-    if (auto it = p.symbolMap.find(canonical); it != p.symbolMap.end()) return it->second;
-    if (auto it = p.symbolMap.find(s.symbolAlias); it != p.symbolMap.end()) return it->second;
+    // the symbols in Symbol limits are the ones traded, so they also say how this broker names each instrument
+    auto traded = [&](const std::string& name) { return p.symbolLimits.count(name) > 0; };
+    for (const std::string& key : {canonical, s.symbolAlias})
+        if (auto it = p.symbolMap.find(key); it != p.symbolMap.end() && traded(it->second)) return it->second;
+    if (traded(canonical)) return canonical;
+    std::vector<std::string> named;
+    for (auto& [name, lim] : p.symbolLimits)
+        if (sameInstrument(name, canonical, s.symbolAlias)) named.push_back(name);
+    if (named.size() == 1) return named.front();
+    if (named.size() > 1) {
+        std::string list;
+        for (auto& n : named) list += (list.empty() ? "" : ", ") + n;
+        reason = canonical + " matches several symbols in Symbol limits (" + list + "): keep one, or pin the channel to one in Signal rules > Channel settings";
+        return std::nullopt;
+    }
     if (requiresExplicitBrokerMapping(canonical)) {
-        reason = canonical + " must be mapped to an exact broker symbol in Execution policy > Symbol map";
+        reason = canonical + " needs your exact broker symbol: add it in Execution policy > Symbol limits (for example " + canonical + ".cash)";
         return std::nullopt;
     }
     return canonical;  // exact name only; the terminal must report this symbol verbatim
@@ -124,14 +148,16 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
     checks.push_back("source allowed");
 
     if (s.kind != MessageKind::TradeSetup) return reject(std::string("Not a trade setup (") + toString(s.kind) + ")");
-    if (s.status == ParseStatus::Ambiguous || s.status == ParseStatus::Incomplete) {
+    // opt-in: the message is complete except for an SL it never wrote; the stop comes from the symbol's max distance
+    const bool slFromDistance = !s.stopLoss && s.stopLossOmitted && p.tradeWithoutStopLoss;
+    if (s.status == ParseStatus::Ambiguous || (s.status == ParseStatus::Incomplete && !slFromDistance)) {
         Decision d;
         d.kind = DecisionKind::Review;
         d.reason = std::string("Parser status ") + toString(s.status) + ": " + (s.diagnostics.empty() ? "" : s.diagnostics.back());
         return d;
     }
-    if (s.status != ParseStatus::Valid) return reject(std::string("Parser status ") + toString(s.status));
-    checks.push_back("parser status Valid");
+    if (s.status != ParseStatus::Valid && !slFromDistance) return reject(std::string("Parser status ") + toString(s.status));
+    checks.push_back(slFromDistance ? "parser read everything but a stop loss" : "parser status Valid");
 
     if (!in.clockReliable) return reject("System clock is unreliable; age-sensitive execution is paused");
     const std::int64_t age = in.nowMs - s.publishedAtMs;
@@ -139,8 +165,8 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
     if (in.isCatchUp && age > static_cast<std::int64_t>(p.catchUpMaxAgeSeconds) * 1000) return reject("Recovered message is older than the catch-up age limit");
     checks.push_back("age " + std::to_string(age) + " ms");
 
-    if (p.requireStopLoss && !s.stopLoss) return reject("Stop loss is required");
-    checks.push_back("stop loss present");
+    if (p.requireStopLoss && !s.stopLoss && !slFromDistance) return reject("Stop loss is required");
+    checks.push_back(slFromDistance ? "no stop loss in the message: allowed by your setting" : "stop loss present");
 
     std::string symReason;
     auto brokerSymbol = resolveBrokerSymbol(s, p, b, symReason);
@@ -172,6 +198,8 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
     if (limIt == p.symbolLimits.end() || !(limIt->second.maxSpreadPrice > 0))
         return reject("Symbol limits (max spread, entry deviation) are not configured for " + *brokerSymbol, checks);
     const SymbolLimits& lim = limIt->second;
+    if (slFromDistance && !(lim.maxStopDistancePrice > 0))
+        return reject("No stop loss in the message and no max stop distance set for " + *brokerSymbol + " in Symbol limits", checks);
 
     // Execution deadline for this candidate.
     std::int64_t expiryMs = 0;
@@ -208,7 +236,7 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
 
     switch (b.entryMode) {
         case EntryMode::WaitForRange: {
-            if (!s.entry) return reject("NOW without an entry reference cannot be range-validated; use a source with immediate_within_tolerance and a reference price", checks);
+            if (!s.entry) return reject(kNoEntryPrice, checks);
             double lo = s.entry->low, hi = s.entry->high;
             if (lo == hi) {
                 lo -= lim.maxEntryDeviationPrice;
@@ -233,12 +261,14 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
             break;
         }
         case EntryMode::ImmediateWithinTolerance: {
-            if (age > static_cast<std::int64_t>(p.maxImmediateAgeSeconds) * 1000) return reject("Signal is older than the immediate-execution age limit", checks);
-            if (!s.marketIntent) return reject("immediate_within_tolerance executes only explicit NOW/market signals", checks);
-            if (!s.entry) return reject("NOW signal has no reference price to check tolerance against", checks);
-            const double lo = s.entry->low - b.immediateTolerancePrice, hi = s.entry->high + b.immediateTolerancePrice;
-            if (exec < lo - 1e-12 || exec > hi + 1e-12) return reject("Price " + num(exec) + " is outside the tolerance window [" + num(lo) + ", " + num(hi) + "]", checks);
-            checks.push_back("price within tolerance");
+            if (age > static_cast<std::int64_t>(p.maxImmediateAgeSeconds) * 1000) return reject("Signal is older than the max signal age for entering right away", checks);
+            if (!s.marketIntent) return reject("This channel enters right away, which takes only NOW / market signals; this one has no NOW", checks);
+            if (!s.entry) return reject(kNoEntryPrice, checks);
+            const double tol = lim.maxEntryDeviationPrice;  // the symbol's own distance, as in every entry mode
+            const double lo = s.entry->low - tol, hi = s.entry->high + tol;
+            if (exec < lo - 1e-12 || exec > hi + 1e-12)
+                return reject("Price " + num(exec) + " is further from the signal's price than the entry deviation allows [" + num(lo) + ", " + num(hi) + "]", checks);
+            checks.push_back("price within the entry deviation");
             break;
         }
         case EntryMode::ExplicitPendingOnly: {
@@ -267,7 +297,23 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
     }
 
     const double entryPrice = kind == OrderKind::Market ? exec : pendingPrice;
-    const double sl = normalizeToTick(*s.stopLoss, spec.tickSize);
+    double sl = 0;
+    {
+        const double cap = lim.maxStopDistancePrice;
+        // the furthest allowed stop, rounded to the tick toward the entry so it is never more than cap away
+        const double t = spec.tickSize > 0 ? spec.tickSize : 1e-9;
+        const double capped = buy ? std::ceil((entryPrice - cap) / t - 1e-9) * t : std::floor((entryPrice + cap) / t + 1e-9) * t;
+        if (slFromDistance) {
+            sl = capped;
+            checks.push_back("stop loss not in the message: placed " + num(cap) + " from entry at " + num(sl) + " by your setting");
+        } else {
+            sl = normalizeToTick(*s.stopLoss, spec.tickSize);
+            if (cap > 0 && (buy ? capped > sl : capped < sl)) {  // closer to the entry wins; never widened
+                checks.push_back("stop loss " + num(sl) + " tightened to " + num(capped) + " (max " + num(cap) + " from entry)");
+                sl = capped;
+            }
+        }
+    }
     if (buy ? !(sl < entryPrice) : !(sl > entryPrice)) return reject("Stop loss " + num(sl) + " is already on the wrong side of the execution price " + num(entryPrice), checks);
     const double minStop = spec.stopsLevelPoints * spec.point;
     if (std::fabs(entryPrice - sl) < minStop) return reject("Stop loss is closer than the broker stops level; SL is never widened automatically", checks);
@@ -339,8 +385,11 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
     if (kind != OrderKind::Market && acc.copierPendingOrders + n > p.account.maxPendingOrders) return reject("Pending order limit reached", checks);
     if (acc.copierOpenLots + total > p.account.maxTotalLots + 1e-9) return reject("Total copier lots would exceed " + num(p.account.maxTotalLots), checks);
     if (p.account.maxDailyLoss > 0 && -acc.copierDailyRealized >= p.account.maxDailyLoss) return reject("Daily realized loss limit reached", checks);
-    if (in.localMinuteOfDay >= 0 && (in.localMinuteOfDay < p.account.tradingStartMinute || in.localMinuteOfDay >= p.account.tradingEndMinute))
-        return reject("Outside configured trading hours", checks);
+    if (in.localMinuteOfDay >= 0) {
+        const int m = in.localMinuteOfDay, from = p.account.tradingStartMinute, to = p.account.tradingEndMinute;
+        const bool inside = from < to ? (m >= from && m < to) : (m >= from || m < to);  // from > to: overnight, e.g. 22:00-06:00
+        if (!inside) return reject("Outside configured trading hours", checks);
+    }
     if (acc.marginMode == MarginMode::Netting) {
         if (std::find(acc.netExposureSymbols.begin(), acc.netExposureSymbols.end(), *brokerSymbol) != acc.netExposureSymbols.end())
             return reject("Netting account already has exposure on " + *brokerSymbol + "; ownership cannot be assumed", checks);
@@ -364,7 +413,7 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
         plan.entry = PriceRange{plan.entry->low - lim.maxEntryDeviationPrice, plan.entry->high + lim.maxEntryDeviationPrice};
     }
     if (plan.entry && b.entryMode == EntryMode::ImmediateWithinTolerance) {
-        plan.entry = PriceRange{plan.entry->low - b.immediateTolerancePrice, plan.entry->high + b.immediateTolerancePrice};
+        plan.entry = PriceRange{plan.entry->low - lim.maxEntryDeviationPrice, plan.entry->high + lim.maxEntryDeviationPrice};
     }
     plan.pendingPrice = pendingPrice;
     plan.stopLoss = sl;

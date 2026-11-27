@@ -2,70 +2,10 @@
 // MetaTrader: terminal selection, one-click start with the EA attached (optionally automatic), pairing, account identity,
 // broker connection, symbol specifications and symbol mapping, and explicit copier-owned actions.
 
+#include "ChannelDialog.h"
 #include "Pages.h"
 
 namespace PipkiteUI {
-
-// Searchable symbol picker: type to filter the full broker symbol list, double-click or Select to choose.
-public ref class SymbolPickerDialog : public Form {
-public:
-    String^ Selected;
-    SymbolPickerDialog(System::Collections::Generic::List<String^>^ symbols, String^ current) {
-        all_ = symbols;
-        Selected = nullptr;
-        Text = "Choose symbol";
-        FormBorderStyle = Windows::Forms::FormBorderStyle::FixedDialog;
-        StartPosition = FormStartPosition::CenterParent;
-        MaximizeBox = false;
-        MinimizeBox = false;
-        ClientSize = Drawing::Size(340, 440);
-        Font = Theme::Body;
-        search_ = gcnew TextBox();
-        search_->SetBounds(16, 16, 308, 26);
-        search_->TextChanged += gcnew EventHandler(this, &SymbolPickerDialog::OnSearch);
-        list_ = gcnew ListBox();
-        list_->SetBounds(16, 50, 308, 330);
-        list_->DoubleClick += gcnew EventHandler(this, &SymbolPickerDialog::OnPick);
-        Button^ ok = L::Btn("Select", "accent");
-        ok->SetBounds(16, 392, 90, 32);
-        ok->Click += gcnew EventHandler(this, &SymbolPickerDialog::OnPick);
-        Button^ cancel = L::Btn("Cancel");
-        cancel->SetBounds(234, 392, 90, 32);
-        cancel->DialogResult = Windows::Forms::DialogResult::Cancel;
-        Controls->Add(search_);
-        Controls->Add(list_);
-        Controls->Add(ok);
-        Controls->Add(cancel);
-        AcceptButton = ok;
-        CancelButton = cancel;
-        Fill("");
-        if (current != nullptr && current != "") search_->Text = current;
-        Theme::Apply(this);
-        BackColor = Theme::Bg;
-        HandleCreated += gcnew EventHandler(&Prompt::OnDialogHandle);
-        search_->Select();
-    }
-
-private:
-    System::Collections::Generic::List<String^>^ all_;
-    TextBox^ search_;
-    ListBox^ list_;
-    void Fill(String^ q) {
-        String^ u = q->Trim()->ToUpperInvariant();
-        list_->BeginUpdate();
-        list_->Items->Clear();
-        for each (String ^ s in all_)
-            if (u == "" || s->ToUpperInvariant()->Contains(u)) list_->Items->Add(s);
-        list_->EndUpdate();
-        if (list_->Items->Count > 0) list_->SelectedIndex = 0;
-    }
-    void OnSearch(Object^, EventArgs^) { Fill(search_->Text); }
-    void OnPick(Object^, EventArgs^) {
-        if (list_->SelectedItem == nullptr) return;
-        Selected = list_->SelectedItem->ToString();
-        DialogResult = Windows::Forms::DialogResult::OK;
-    }
-};
 
 public ref class MetaTraderPage : public PageBase {
 public:
@@ -114,6 +54,16 @@ public:
         unbind->Click += gcnew EventHandler(this, &MetaTraderPage::OnUnbind);
         conn->Controls->Add(gcnew Label());
         conn->Controls->Add(L::Row(approve, unbind));
+        Button^ closeAll = L::Btn("Close Pipkite positions...", "danger",
+                                  "Close every open position Pipkite placed on the bound account, at market. Positions you opened yourself are not touched. "
+                                  "You confirm by typing the account number.");
+        closeAll->Click += gcnew EventHandler(this, &MetaTraderPage::OnClosePositions);
+        Button^ cancelAll = L::Btn("Cancel Pipkite pending orders...", nullptr,
+                                   "Cancel every pending order Pipkite placed on the bound account. Your own orders are not touched. You confirm by typing the "
+                                   "account number.");
+        cancelAll->Click += gcnew EventHandler(this, &MetaTraderPage::OnCancelPending);
+        conn->Controls->Add(gcnew Label());
+        conn->Controls->Add(L::Row(closeAll, cancelAll));
         impl_ = L::Text("", "muted");
         conn->Controls->Add(gcnew Label());
         conn->Controls->Add(impl_);
@@ -123,7 +73,9 @@ public:
         FlowLayoutPanel^ sym = gcnew FlowLayoutPanel();
         sym->FlowDirection = FlowDirection::TopDown;
         sym->AutoSize = true;
-        sym->Controls->Add(L::Text("For each Telegram channel you copy, click its Symbol cell and pick the broker symbol it should trade (searchable list from your MetaTrader terminal).", nullptr));
+        sym->Controls->Add(L::Wrap("Only for a channel that posts one instrument: click its Symbol cell and pick the broker symbol it trades. Other channels "
+                                   "trade each message's own symbol, found in Execution policy > Symbol limits.",
+                                   nullptr, 720));
         catalog_ = gcnew System::Collections::Generic::List<String^>();
         sources_ = gcnew System::Collections::Generic::List<JObj^>();
         chanSym_ = gcnew BufferedGrid();  // read-only cells; clicking the Symbol cell opens a searchable picker
@@ -135,7 +87,7 @@ public:
         chanSym_->AccessibleName = "Per-channel trade symbols";
         chanSym_->CellClick += gcnew DataGridViewCellEventHandler(this, &MetaTraderPage::OnChanSymClick);
         sym->Controls->Add(chanSym_);
-        Button^ saveSym = L::Btn("Save", "accent", "Save which broker symbol each channel trades.");
+        Button^ saveSym = L::Btn("Save", "accent", "Save the symbols you changed. Other channel settings are kept.");
         saveSym->Click += gcnew EventHandler(this, &MetaTraderPage::OnSaveChannelSymbols);
         Button^ refreshSym = L::Btn("Refresh", nullptr, "Reload channels and symbols.");
         refreshSym->Click += gcnew EventHandler(this, &MetaTraderPage::OnRefreshChannels);
@@ -170,7 +122,8 @@ public:
         pending_->Text = pendingKey_ == nullptr ? "None" : "#" + J::Str(pendingKey_, "login") + " @ " + J::Str(pendingKey_, "server") + " is waiting for approval";
         impl_->Text = "Bridge implementation: " + J::Str(br, "implVersion", "-") + "   Heartbeat: " + (J::Int(br, "heartbeatAgoMs") >= 0 ? J::Str(br, "heartbeatAgoMs") + " ms ago" : "-") +
                       "   " + J::Str(br, "status");
-        String^ ts = J::Str(J::Obj(s, "terminal"), "status");
+        // the last start's message ("MetaTrader is starting...") is over once the EA is connected and paired
+        String^ ts = connected && paired ? "" : J::Str(J::Obj(s, "terminal"), "status");
         if (terminalStatus_->Text != ts) terminalStatus_->Text = ts;
         if (verifyUntil_ != DateTime::MinValue && (connected || DateTime::Now > verifyUntil_)) {
             verifyUntil_ = DateTime::MinValue;
@@ -203,6 +156,8 @@ private:
     System::Collections::Generic::List<JObj^>^ sources_;
     JObj^ pendingKey_;
     DateTime lastStatus_;
+    int pendingSaves_;
+    String^ saveError_;
 
     void OnDetect(Object^, EventArgs^) { Client->Call("mt5.detectTerminals", nullptr, gcnew ResponseHandler(this, &MetaTraderPage::OnTerminals)); }
 
@@ -363,8 +318,10 @@ private:
         sources_->Clear();
         for each (Object ^ o in J::Arr(result)) sources_->Add(J::Obj(o));
         chanSym_->Rows->Clear();
-        for each (JObj ^ b in sources_)
-            chanSym_->Rows->Add(gcnew array<Object^>{J::Str(b, "title"), J::Str(b, "tradeSymbol")});
+        for each (JObj ^ b in sources_) {
+            int idx = chanSym_->Rows->Add(gcnew array<Object^>{J::Str(b, "title") + (J::Bool(b, "enabled", true) ? "" : "  (paused)"), SymbolText(J::Str(b, "tradeSymbol"))});
+            chanSym_->Rows[idx]->Tag = J::Str(b, "tradeSymbol");
+        }
         chanSym_->EmptyText = sources_->Count == 0 ? "No channels yet - add Telegram source channels first (Telegram sources page or the wizard)." : "";
     }
 
@@ -372,33 +329,43 @@ private:
     void OnChanSymClick(Object^, DataGridViewCellEventArgs^ e) {
         if (e->RowIndex < 0 || chanSym_->Columns[e->ColumnIndex]->Name != "symbol") return;
         if (catalog_ == nullptr || catalog_->Count == 0) { ShowError("No symbols yet - connect MetaTrader first (Start above), then click again."); return; }
-        String^ current = Convert::ToString(chanSym_->Rows[e->RowIndex]->Cells["symbol"]->Value);
-        SymbolPickerDialog^ d = gcnew SymbolPickerDialog(catalog_, current);
-        if (d->ShowDialog(FindForm()) == System::Windows::Forms::DialogResult::OK && d->Selected != nullptr)
-            chanSym_->Rows[e->RowIndex]->Cells["symbol"]->Value = d->Selected;
+        String^ current = Convert::ToString(chanSym_->Rows[e->RowIndex]->Tag);
+        SymbolPickerDialog^ d = gcnew SymbolPickerDialog(catalog_, current, true);
+        if (d->ShowDialog(FindForm()) == System::Windows::Forms::DialogResult::OK && d->Selected != nullptr) {
+            chanSym_->Rows[e->RowIndex]->Tag = d->Selected;
+            chanSym_->Rows[e->RowIndex]->Cells["symbol"]->Value = SymbolText(d->Selected);
+        }
     }
+
+    static String^ SymbolText(String^ sym) { return String::IsNullOrEmpty(sym) ? "Each message's own symbol" : sym; }
 
     void OnRefreshChannels(Object^, EventArgs^) {
         Client->Call("mt5.status", nullptr, gcnew ResponseHandler(this, &MetaTraderPage::OnStatus));
         Client->Call("sources.list", nullptr, gcnew ResponseHandler(this, &MetaTraderPage::OnSources));
     }
 
+    // only the changed rows, one field each: the channels' other settings (and channels added meanwhile) are kept
     void OnSaveChannelSymbols(Object^, EventArgs^) {
         if (sources_->Count == 0) return ShowError("No channels to save. Add Telegram source channels first.");
-        chanSym_->EndEdit();
+        pendingSaves_ = 0;
+        saveError_ = nullptr;
         for (int i = 0; i < sources_->Count && i < chanSym_->Rows->Count; i++) {
-            String^ sym = Convert::ToString(chanSym_->Rows[i]->Cells["symbol"]->Value);
-            sources_[i]["tradeSymbol"] = sym == nullptr ? "" : sym;  // the broker symbol this channel trades
+            String^ sym = Convert::ToString(chanSym_->Rows[i]->Tag);
+            if (sym == J::Str(sources_[i], "tradeSymbol")) continue;
+            JObj^ p = J::New();
+            p["chatId"] = J::Str(sources_[i], "chatId");
+            p["tradeSymbol"] = sym;
+            ++pendingSaves_;
+            Client->Call("source.update", p, gcnew ResponseHandler(this, &MetaTraderPage::OnChannelSaved));
         }
-        array<Object^>^ list = gcnew array<Object^>(sources_->Count);
-        for (int i = 0; i < sources_->Count; i++) list[i] = sources_[i];
-        JObj^ p = J::New();
-        p["sources"] = list;
-        Client->Call("sources.save", p, gcnew ResponseHandler(this, &MetaTraderPage::OnChannelsSaved));
+        if (pendingSaves_ == 0) ShowInfo("Channel symbols", "Nothing changed.");
     }
-    void OnChannelsSaved(bool ok, Object^, String^ error) {
-        if (!ok) return ShowError(error);
-        ShowInfo("Channel symbols", "Saved. Each channel now trades the symbol you chose.");
+    void OnChannelSaved(bool ok, Object^, String^ error) {
+        if (!ok) saveError_ = error;
+        if (--pendingSaves_ > 0) return;
+        if (saveError_ != nullptr) ShowError("Not saved: " + saveError_);
+        else ShowInfo("Channel symbols", "Saved. Channels with a symbol trade only it; the others trade each message's own symbol.");
+        OnRefreshChannels(nullptr, nullptr);
     }
 
     void Manage(String^ action, String^ what) {
@@ -406,9 +373,9 @@ private:
         JObj^ b = J::Obj(snap, "boundAccount");
         if (b == nullptr) return ShowError("No account is bound.");
         JObj^ acc = J::Obj(snap, "account");
-        String^ count = action == "close_positions" ? J::Str(acc, "copierOpenPositions", "?") : J::Str(acc, "copierPendingOrders", "?");
-        String^ typed = Prompt::Ask(FindForm(), what, what + ": " + count + " copier-owned item(s) on account #" + J::Str(b, "login") + " (" + J::Str(b, "server") +
-                                                          "). Type the account number to confirm:", "", false);
+        const Int64 count = J::Int(acc, action == "close_positions" ? "copierOpenPositions" : "copierPendingOrders");
+        String^ typed = Prompt::Ask(FindForm(), what, what + ": " + count + " placed by Pipkite on account #" + J::Str(b, "login") + " (" + J::Str(b, "server") +
+                                                          "). Your own trades are not touched. Type the account number to confirm:", "", false);
         if (typed == nullptr) return;
         JObj^ p = J::New();
         p["action"] = action;

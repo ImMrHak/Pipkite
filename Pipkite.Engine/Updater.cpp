@@ -8,6 +8,7 @@
 #include <filesystem>
 
 #include "AppRelease.h"
+#include "DiagLog.h"
 #include "Http.h"
 #include "Pipkite.Core/Models.h"
 #include "Pipkite.Protocol/Crypto.h"
@@ -121,6 +122,7 @@ std::string Updater::channel() const { return store_.getSetting("updates.channel
 bool Updater::autoCompatible() const { return store_.getSetting("updates.autoCompatible").value_or("true") == "true"; }
 
 void Updater::setStatus(const std::string& state, const std::string& detail) {
+    diag::write("update", state + (detail.empty() ? "" : ": " + detail));
     std::lock_guard lock(mu_);
     status_["state"] = state;
     status_["detail"] = detail;
@@ -151,13 +153,18 @@ void Updater::checkAppRelease(std::int64_t minIntervalMs) {
     if (last != 0 && now - last < minIntervalMs) return;
     if (!lastAppCheckMs_.compare_exchange_strong(last, now)) return;
     auto r = httpRequest("GET", latestReleaseUrl(), "", "", 10000, 512 * 1024, {{"Accept", "application/vnd.github+json"}});
-    if (r.status != 200) return;  // offline or rate-limited: try again next time
+    if (r.status != 200) {  // offline or rate-limited: try again next time
+        diag::write("update", "new Pipkite version check: " + (r.error.empty() ? "HTTP " + std::to_string(r.status) : r.error));
+        return;
+    }
     json info;
     try {
         info = appReleaseInfo(json::parse(r.body), kProductVersion);
     } catch (...) {
+        diag::write("update", "new Pipkite version check: unreadable answer");
         return;
     }
+    diag::write("update", "new Pipkite version check: " + (info.is_null() ? std::string("none newer than ") + kProductVersion : info.value("version", "") + " is available"));
     bool fresh = false;
     {
         std::lock_guard lock(mu_);
@@ -321,6 +328,7 @@ Status Updater::installModule(const json& release, const json& c, const std::str
         if (v) return okStatus();  // already installed; persisted separately from downloads
     }
     auto fail = [&](const std::string& why) {
+        diag::write("update", id + " " + version + " not installed: " + why);
         store_.addUpdateHistory(releaseId, id, "", version, "failed", {{"error", why}}, false);
         return failStatus("module_failed", why);
     };
@@ -355,6 +363,7 @@ Status Updater::installModule(const json& release, const json& c, const std::str
         if (hooks_.upgradeBridge) hooks_.upgradeBridge(active.value());
         store_.addUpdateHistory(releaseId, id, "", version, "activated", notes, false);
     }
+    diag::write("update", id + " " + version + " installed");
     return okStatus();
 }
 
@@ -370,6 +379,7 @@ Status Updater::installTemplate(const json& release, const json& c, const std::s
     const std::string failedKey = "updates.templateFailed." + id, failedValue = version + "|" + kProductVersion;
     if (store_.getSetting(failedKey).value_or("") == failedValue) return okStatus();
     auto fail = [&](const std::string& why) {
+        diag::write("update", "format " + id + " " + version + " not installed: " + why);
         store_.putSetting(failedKey, failedValue);
         store_.addUpdateHistory(releaseId, id, "", version, "failed", {{"error", why}}, false);
         return failStatus("template_failed", why);
@@ -390,6 +400,7 @@ Status Updater::installTemplate(const json& release, const json& c, const std::s
     if (!st) return fail(st.error().message);
     store_.putSetting(appliedKey, version);
     store_.addUpdateHistory(releaseId, id, "", version, "activated", notes, false);
+    diag::write("update", "format " + id + " " + version + " installed");
     return okStatus();
 }
 

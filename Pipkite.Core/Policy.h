@@ -15,6 +15,9 @@ struct SymbolLimits {
     double maxSpreadPrice = 0;          // broker price units; must be configured before execution
     double maxEntryDeviationPrice = 0;  // tolerance around single-price entries / NOW references
     double maxLots = 0;                 // 0 = no extra cap beyond account/broker limits
+    // the stop is never further than this from the entry price: the closer of it and the message's SL is used,
+    // a published SL is never widened. 0 = off. Also the stop for SL-less signals when tradeWithoutStopLoss is on.
+    double maxStopDistancePrice = 0;
 };
 
 struct SizingPolicy {
@@ -37,7 +40,7 @@ struct AccountLimits {
     double maxDailyLoss = 0;             // account currency, 0 = disabled
     double maxRiskPercentPerSignal = 2.0;
     int lossResetUtcOffsetMinutes = 0;   // explicit reset timezone for daily loss accounting
-    int tradingStartMinute = 0;          // minutes since local midnight
+    int tradingStartMinute = 0;          // minutes since local midnight; start > end runs overnight (22:00-06:00)
     int tradingEndMinute = 24 * 60;
 };
 
@@ -60,8 +63,7 @@ struct SourceBinding {
     bool enabled = true;
     std::string parserId = "gold_provider_v1";
     std::string parserVersion;  // empty = follow the active version
-    EntryMode entryMode = EntryMode::WaitForRange;
-    double immediateTolerancePrice = 0.5;
+    EntryMode entryMode = EntryMode::WaitForRange;  // price distances come from the symbol's maxEntryDeviationPrice
     bool overrideSizing = false;
     SizingPolicy sizing;
     bool overrideTargets = false;
@@ -94,6 +96,9 @@ struct ExecutionPolicy {
     // pips past the entry band (a missed entry by a small movement). Off by default.
     bool forceEnterMissed = false;
     double forceEnterPips = 2.0;  // maximum pips past the band to still take the entry
+    // Opt-in, off by default: a signal complete except for a stop loss it never wrote is traded with the stop placed
+    // at the symbol's maxStopDistancePrice from the entry. Without that distance it is still rejected.
+    bool tradeWithoutStopLoss = false;
     bool semanticDuplicateEnabled = false;
     int semanticDuplicateWindowSeconds = 60;
     SizingPolicy sizing;
@@ -115,5 +120,11 @@ struct ExecutionPolicy {
 
 // Canonical symbols that must never be auto-resolved; an explicit broker mapping is required.
 bool requiresExplicitBrokerMapping(const std::string& canonical);
+
+// The instrument a broker's symbol name stands for: XAUUSD.m, XAUUSDm, GOLD# and Gold are XAUUSD, US30.cash and DJ30
+// are US30. Empty when the name isn't recognized.
+std::string canonicalSymbolOf(const std::string& brokerName);
+// Whether a broker symbol is the instrument a message names (by its canonical symbol or the word it wrote).
+bool sameInstrument(const std::string& brokerName, const std::string& canonical, const std::string& alias);
 
 }  // namespace sr

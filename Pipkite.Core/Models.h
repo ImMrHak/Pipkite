@@ -11,7 +11,7 @@
 namespace sr {
 
 inline constexpr const char* kProductName = "Pipkite";
-inline constexpr const char* kProductVersion = "1.0.5";
+inline constexpr const char* kProductVersion = "1.0.6";
 inline constexpr int kConfigSchemaVersion = 1;
 inline constexpr int kProtocolVersion = 1;
 inline constexpr std::int64_t kCopierMagic = 20260930;  // MT5 magic number for copier-owned orders
@@ -66,6 +66,9 @@ struct Signal {
     bool marketIntent = false;  // provider wrote NOW / MARKET
     std::optional<PriceRange> entry;
     std::optional<double> stopLoss;
+    // the message is complete except that it never writes a stop loss (not "SL: soon"); only the opt-in
+    // ExecutionPolicy::tradeWithoutStopLoss may trade it, with the symbol's max stop distance
+    bool stopLossOmitted = false;
     std::vector<TakeProfit> targets;
     std::optional<double> lot;  // ignored unless policy.allowMessageLot
     std::string reference;

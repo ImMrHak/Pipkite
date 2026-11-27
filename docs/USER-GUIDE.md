@@ -37,7 +37,9 @@ AI review, shared formats, Pipkite's AI format help, custom parsers and updates 
 1. Paste your API ID and API hash and click **Save credentials**.
 2. Enter your phone number with the country code (for example +44...) and click **Send code**.
 3. Type the code Telegram sends you (usually inside the Telegram app). If you use a two-step password, enter it too.
-4. Tick the channels and groups you want to copy and click **Add checked as sources**.
+4. Tick the channels and groups you want to copy. Right under the list, Pipkite shows what it reads in the chat you
+   ticked (see [Signal format](#4-signal-format)). Unticking one pauses it and keeps its settings; tick it again to
+   copy it as before.
 
 Only messages that arrive from now on are copied. Old messages never become trades.
 
@@ -53,8 +55,13 @@ Once an account is paired, Pipkite can trade on it. That's why the demo account 
 
 ### 4. Signal format
 
-Every channel writes its signals in its own way. Pipkite needs to know each channel's **format** before it can
-copy it. On **Signal rules**, select a channel and click **Detect format**.
+Every channel writes its signals in its own way. When you tick a channel, or select it on **Signal rules**, Pipkite
+tries every format on its latest messages and shows the result in plain words: how many signals it read, and the
+latest ones as it reads them (Buy or Sell, symbol, entry, stop and take profit). A message that looks like a signal
+but isn't complete says **Needs a look** and why. It is never traded.
+
+- **It reads them right?** Click **Start copying** (step 5).
+- **Not right?** Click **Not right?** (**Show Pipkite a signal...** when it reads none). The format window opens:
 
 1. Paste one of the channel's signals under **Your example** and click **Check example**. Every format shows what
    it reads: symbol, side (Buy or Sell), entry, SL and TPs. The channel's recent messages are checked below.
@@ -84,7 +91,8 @@ checked on your own messages like any other.
 - **Ask the AI.** Click **Ask AI for a format**. The AI suggests words to add, and you check the result the same
   way. Links, @names, phone numbers and emails are removed from the messages first. The AI never places or
   decides a trade.
-- **Ask us.** Click **Request a custom parser**. We build one and it installs by itself, no restart.
+- **Ask us.** On **Signal rules**, tick **Show advanced tools** and click **Request a custom parser**. We build one
+  and it installs by itself, no restart.
 
 Tick **Offer this format to other Pipkite users of this channel** to share what you taught or picked.
 
@@ -92,10 +100,14 @@ Until a channel has a format, its messages aren't traded.
 
 ### 5. Start copying
 
-A new format doesn't trade right away. For a while, the channel's signals show in **History** with what Pipkite
-would have done. When they read right, select the channel on **Signal rules** and click **Start copying**.
+Nothing is copied until you click **Start copying** under the channel's readings. It uses the format whose readings
+you see, and from then on the channel's new signals are copied with your Execution policy and Symbol limits.
 
-The same check comes back whenever a channel's format changes or gets a new version.
+A format you picked or taught in the format window waits for **Start copying** too. Until then, the channel's
+signals also show in **History** with what Pipkite would have done, without trading.
+
+The same check comes back whenever a channel's format changes or gets a new version: the channel shows **Not copying
+yet** until you click **Start copying** again.
 
 ### 6. Your rules
 
@@ -103,6 +115,35 @@ On **Execution policy**, set a **max spread and deviation for every symbol you t
 top: pick the symbol from the list, fill in its limits (or click **Use suggested limits** for common symbols like gold
 and the main currency pairs, then check them), and click **Save policy**. A symbol without a max spread
 isn't traded. Then choose the lot size (or risk %). See [Execution policy](#screens) below.
+
+Pick each symbol under its own broker name (for example `XAUUSD.m`, `GOLD#` or `US30.cash`): that's also how
+Pipkite knows where a channel's GOLD or US30 signals go. If two names for the same instrument are set, Pipkite asks you
+to keep one.
+
+Execution policy applies to every channel. A channel can have its own settings on **Signal rules → Channel
+settings**:
+
+- **Broker symbol:** only for a channel that posts one instrument. Its signals trade that symbol, and a message for
+  another symbol is skipped. Otherwise each message trades its own symbol.
+- **How it enters:** **Wait for the entry price** (the default: Pipkite waits until the price is inside the
+  message's entry range), **Enter right away** (NOW signals with a price, while they are fresh), or **Pending orders
+  only** (LIMIT / STOP messages become pending orders). Every mode uses the symbol's **Entry deviation**.
+
+A trade needs a real setup: an entry price, a stop loss and a take profit. BUY NOW or SELL NOW without a price goes
+to Review and is never traded.
+- **Position sizing** and **Take profit:** follow Execution policy, or give this channel its own.
+
+**Trading hours** can run overnight: 22:00 to 06:00 copies from 10 pm to 6 am.
+
+**Max stop distance** (optional, per symbol, 0 = off) keeps every stop loss within that distance of the entry price.
+For gold, 20.00 means the stop is never more than $20 away: if the message's stop is further, Pipkite uses the closer
+one; a closer stop in the message is always kept, never widened. If your broker won't accept the stop, the trade is
+skipped. The distance is measured from the price when the order is sent. With **Risk %** sizing a closer stop means
+more lots for the same risk.
+
+A signal without a stop loss is never traded, unless you tick **Trade signals without a stop loss, using the
+symbol's max stop distance**. Then such a signal is traded only if everything else is clear, its symbol has a max stop
+distance, and the message doesn't say the stop is still to come ("SL: soon"). History shows where the stop came from.
 
 **Tip:** before risking money, use **Test a sample** in the wizard: paste a real message and see what Pipkite
 reads. Nothing is sent.
@@ -120,15 +161,19 @@ that were accepted or are still running, and how fast Pipkite was. Rejected, ign
 
 ![Dashboard](images/dashboard.png)
 
-**Telegram sources.** Sign in, then tick the chats you want to copy.
+**Telegram sources.** Sign in, then tick the chats you want to copy. The sign-in shows one step at a time. The chat
+you tick shows what Pipkite reads in it, with **Start copying**.
 
-**MetaTrader.** Start the terminal with the EA, approve pairing, and match each channel's symbol to your broker's
-name for it (for example GOLD to XAUUSD).
+**MetaTrader.** Start the terminal with the EA and approve pairing. **Channel symbols** pins a one-instrument channel
+to a broker symbol (pick **each message's own symbol** to undo it). **Close Pipkite positions** and **Cancel Pipkite
+pending orders** close or cancel only what Pipkite placed, after you type the account number.
 
 ![MetaTrader](images/metatrader.png)
 
-**Signal rules.** Which format reads each channel. Detect, teach or ask the AI for one, or request a custom parser.
-A channel marked **Not copying yet** has a new format: check its signals in History, then click **Start copying**.
+**Signal rules.** Your channels and whether each one is copying. Select one to see what Pipkite reads in its latest
+messages, then click **Start copying**, or **Not right?** to pick another format or teach one. **Channel settings**
+changes one channel's symbol, entry and sizing. **Show advanced tools** has Detect format, Request a custom parser,
+Check for parser updates and the installed parsers.
 
 ![Signal rules](images/signal-rules.png)
 
@@ -136,6 +181,7 @@ A channel marked **Not copying yet** has a new format: check its signals in Hist
 
 - **Size:** fixed lots, or a % of your equity risked at the stop-loss (always rounded down, never up).
 - **Targets:** one take-profit, or the position split across several.
+- **Stop loss:** a max stop distance per symbol, and (off by default) trading signals that have no stop loss.
 - **Limits:** how old a signal may be, max spread, slippage, open positions, daily loss, trading hours.
 - **Entry ranges:** for "buy 4299-4295", Pipkite waits for the price to enter the range. **Force-enter** (off by
   default) still takes the trade if the price slipped just past it by a few pips.
@@ -150,7 +196,9 @@ message Pipkite couldn't read and click **Teach Pipkite from this message...** t
 
 **Settings.** Theme, start with Windows, how long data is kept, backups, license key, updates. Under **Signal
 formats and AI help**: whether to look up and share formats with other users of a channel, and which AI helps with
-formats (Pipkite's, or your own OpenAI, DeepSeek or other OpenAI-compatible key, stored encrypted on your PC).
+formats (Pipkite's, or your own OpenAI, DeepSeek or other OpenAI-compatible key, stored encrypted on your PC). Under
+**Diagnostics and connection**: **Keep a detailed log for troubleshooting** and **Open log folder** (see
+[Something wrong?](#something-wrong)).
 
 ## Updating
 
@@ -174,11 +222,16 @@ Sleep, shutdown or a closed MetaTrader also pause copying.
 
 ## AI review
 
-Each signal gets a verdict (**Good**, **Uncertain** or **Bad**) with reasons and a confidence score. It's advice:
-it doesn't block trades. It's an early version, it can be wrong, and the score is not a promise of profit.
+Each signal gets a score and a verdict with reasons. The score is the estimated chance that price reaches TP1 before
+the stop loss, measured from where Pipkite enters: a TP1 half as far as the stop is reached first about two times in
+three. **Good** means 60% or more, **Bad** 40% or less, **Uncertain** in between. A far TP1 pays more but is reached
+first less often, so it can be Bad even when the reward is big. It's advice: it doesn't block trades. It's an
+estimate, it can be wrong, and it's not a promise of profit.
 
-With MetaTrader connected, the review also reads the market: the trend on H4, H1 and M15, momentum, where the price
-is now against the entry, SL and TP1, and the SL distance against volatility.
+With MetaTrader connected, the market moves that chance a little: the trend on H4, H1 and M15, an overextended or
+pulled-back entry, and the stop and TP1 against the recent H1 range. The review also warns about a very tight or very
+wide stop and a spread that takes much of the stop or of the move to TP1. Without MetaTrader it can only use the
+signal's distances, so it says **Uncertain** at best.
 
 Only the signal (symbol, side, entry, SL, TPs) and recent price candles of that symbol (M1 to H4) are sent, never
 your account or messages. The signal and its verdict are kept with your license key to help the AI learn.
@@ -187,7 +240,8 @@ your account or messages. The signal and its verdict are kept with your license 
 
 History, settings and your Telegram session (encrypted with Windows DPAPI) stay on your PC. Only what the online
 services need is sent: the privacy page on the website has the full list. Your broker password stays in
-MetaTrader, Pipkite never asks for it.
+MetaTrader, Pipkite never asks for it. The detailed log (off unless you tick it) stays on your PC too. Its files are
+deleted after the message text retention days, and by **Erase local history**.
 
 ## Something wrong?
 
@@ -195,15 +249,23 @@ MetaTrader, Pipkite never asks for it.
 |---|---|
 | **Telegram: not set up** | Enter your API ID and hash, then sign in. |
 | **MT5 offline** | MetaTrader is closed or the EA isn't on a chart. Click **Start MetaTrader** (close MT5 first if it's already open). |
-| A signal shows **Unsupported** | That channel has no format yet. **Detect format** on Signal rules. |
+| A signal shows **Unsupported** | That channel has no format yet. Select it on Signal rules: if Pipkite reads it right, click **Start copying**. |
 | A signal shows **Rejected** or **Review** | Open the row in History to see why. Nothing was sent. |
-| "New format for this channel, not copied yet" | The channel's format is new or changed. If the reading is right, click **Start copying** on Signal rules. |
-| "Pipkite couldn't fully read 2 of its last 4 signals" | The channel may have changed how it writes signals. Run **Detect format** again. |
+| "New format for this channel, not copied yet" | The channel's format is new or changed. Select it on Signal rules; if the reading is right, click **Start copying**. |
+| "Pipkite couldn't fully read 2 of its last 4 signals" | The channel may have changed how it writes signals. Select it on Signal rules and click **Not right?**. |
+| "Pipkite found no recent messages in this channel" | Check that Telegram is signed in and that you ticked the channel that posts the signals, not its comments or direct-messages chat (it often has the same name). |
 | The pairing never shows up | Start MetaTrader and log in to your broker first. |
 | A symbol isn't traded | On Execution policy, pick it under **Symbol limits** and give it a max spread and deviation. |
+| "The message is for EURUSD, but this channel trades only XAUUSD.m" | The channel is pinned to one symbol. If it posts several, set it to **each message's own symbol** in Channel settings. |
+| "Missing required fields: entry price" | The message has no entry price, like BUY NOW alone. Pipkite only trades a setup with an entry price, a stop loss and a take profit. |
 | SmartScreen warning on install | Click **More info**, then **Run anyway**. |
 
 Settings has a **Run health check** button that checks everything at once.
+
+Still not working as it should? Tick **Settings → Keep a detailed log for troubleshooting**, let it happen again,
+then click **Open log folder** and send that day's file (`pipkite-<date>.log`) to Pipkite support. The log holds the
+messages Pipkite received, what it read in them, why it traded or not, the orders and MetaTrader's replies, and what
+you did in the window. It never holds passwords, login codes or keys. Untick it when you're done.
 
 ## Words you'll see
 

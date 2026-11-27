@@ -11,8 +11,12 @@ public ref class PolicyPage : public PageBase {
 public:
     PolicyPage() {
         FlowLayoutPanel^ stack = L::Stack();
+        stack->Controls->Add(L::Wrap("These settings apply to every channel. A channel can have its own symbol, entry and sizing in Signal rules > Channel "
+                                     "settings; Symbol limits apply to each symbol.",
+                                     "muted", 900));
         limitMap_ = gcnew Dictionary<String^, array<double>^>();
         catalog_ = gcnew List<String^>();
+        specs_ = gcnew Dictionary<String^, JObj^>();
 
         // First on the page: a symbol without a max spread is never traded.
         FlowLayoutPanel^ sl = gcnew FlowLayoutPanel();
@@ -28,10 +32,18 @@ public:
         spread_ = L::Num(0, 100000, 0, 5, 0.01);
         L::AddField(lf, "Max spread (price units)", spread_, "Skip the trade if the spread is wider than this. For gold, 0.40 means 40 cents. 0 = this symbol is not traded.");
         deviation_ = L::Num(0, 100000, 0, 5, 0.01);
-        L::AddField(lf, "Entry deviation (price units)", deviation_, "How far the price may be from the signal's entry and still be taken. For gold, 1.00 means $1.");
+        L::AddField(lf, "Entry deviation (price units)", deviation_,
+                    "How far the price may be from the signal's entry price and still be taken, in every entry mode, and the most the order may slip. "
+                    "For gold, 1.00 means $1.");
         symLots_ = L::Num(0, 1000, 0, 2, 0.01);
         L::AddField(lf, "Max lots (0 = none)", symLots_, "The biggest trade size on this symbol. 0 = no cap.");
-        for each (NumericUpDown^ n in gcnew array<NumericUpDown^>{spread_, deviation_, symLots_}) n->ValueChanged += gcnew EventHandler(this, &PolicyPage::OnLimitEdited);
+        maxStop_ = L::Num(0, 100000, 0, 5, 0.01);
+        L::AddField(lf, "Max stop distance (0 = off)", maxStop_,
+                    "The stop loss is never further than this from the entry price, in price units. If the message's stop is further, this one is used; a "
+                    "closer stop in the message is always kept, never widened. For gold, 20.00 means $20.");
+        stopHint_ = L::Wrap("", "muted", 440);
+        L::AddField(lf, "", stopHint_);
+        for each (NumericUpDown^ n in gcnew array<NumericUpDown^>{spread_, deviation_, symLots_, maxStop_}) n->ValueChanged += gcnew EventHandler(this, &PolicyPage::OnLimitEdited);
         sl->Controls->Add(lf);
         suggest_ = L::Wrap("", "muted", 500);
         useSuggest_ = L::Btn("Use suggested limits", nullptr, "Fill in the suggested limits for this symbol. Nothing is traded until you click Save policy.");
@@ -41,11 +53,17 @@ public:
         sl->Controls->Add(suggestRow_);
         symStatus_ = L::Text("", "muted");
         sl->Controls->Add(symStatus_);
+        noStopLoss_ = L::Check("Trade signals without a stop loss, using the symbol's max stop distance");
+        L::Tip(noStopLoss_, "Off by default: a signal without a stop loss is never traded. On: if everything else is clear, the stop is placed at the "
+                            "symbol's max stop distance from the entry. Symbols without a max stop distance still skip it. Some channels send the stop "
+                            "a moment later; a trade already sent keeps the stop it was placed with.");
+        sl->Controls->Add(noStopLoss_);
         stack->Controls->Add(L::Group("Symbol limits", sl));
 
         TableLayoutPanel^ sz = L::Form2();
-        sizingMode_ = L::Combo(220, gcnew array<String^>{"fixed_total_lots", "risk_percent"});
-        L::AddField(sz, "Sizing mode", sizingMode_, "fixed_total_lots: a set total lot size per signal. risk_percent: size so the estimated loss at SL is about the risk % of equity (rounded down to the lot step; rejected if the broker minimum exceeds the budget).");
+        sizingMode_ = L::Combo(220, gcnew array<String^>{"Fixed lots", "Risk % of equity"});
+        sizingMode_->DropDownStyle = ComboBoxStyle::DropDownList;
+        L::AddField(sz, "Sizing mode", sizingMode_, "Fixed lots: the same total lot size for every signal. Risk % of equity: lots sized so the estimated loss at the stop loss is about that % of your equity (rounded down to the lot step; skipped if the broker minimum is above the budget).");
         lots_ = L::Num(0.01, 100, 0.01, 2, 0.01);
         L::AddField(sz, "Fixed total lots", lots_, "Total lot size sent per signal when sizing mode is fixed_total_lots.");
         risk_ = L::Num(0.01, 10, 0.5, 2, 0.05);
@@ -55,23 +73,26 @@ public:
         stack->Controls->Add(L::Group("Position sizing", sz));
 
         TableLayoutPanel^ tp = L::Form2();
-        targetMode_ = L::Combo(160, gcnew array<String^>{"single", "split"});
-        L::AddField(tp, "Target mode", targetMode_, "single: one take-profit. split: spread the volume across several of the message's take-profits.");
+        targetMode_ = L::Combo(220, gcnew array<String^>{"One take-profit", "Split across take-profits"});
+        targetMode_->DropDownStyle = ComboBoxStyle::DropDownList;
+        L::AddField(tp, "Target mode", targetMode_, "One take-profit: the whole trade closes at one of the message's TPs. Split: the trade is divided into parts, each closing at its own TP.");
         tpIndex_ = L::Num(1, 20, 1, 0, 1);
-        L::AddField(tp, "Selected TP", tpIndex_, "Which take-profit to use, by its position in the message's TP list (1 = first).");
+        L::AddField(tp, "Selected TP", tpIndex_, "Which take-profit to use, by its position in the message's TP list (1 = first). With split targets, the one used when the trade is too small to split.");
         allocations_ = L::Box(200);
         L::AddField(tp, "Split allocations %", allocations_, "When target mode is split: the percentage sent to each TP, e.g. 50,30,20.");
-        fallback_ = L::Check("If the minimum lot prevents splitting, use the single selected target instead of rejecting");
+        fallback_ = L::Check("If the trade is too small to split, use the selected TP");
+        L::Tip(fallback_, "Off: a trade too small to split across the TPs (because of the broker's minimum lot) is skipped. On: it is placed whole, at the selected TP.");
         L::AddField(tp, "", fallback_);
         stack->Controls->Add(L::Group("Take profit", tp));
 
         TableLayoutPanel^ tm = L::Form2();
         maxAge_ = L::Num(1, 3600, 30, 0, 1);
-        L::AddField(tm, "Max signal age (s)", maxAge_, "Immediate (market) signals older than this are skipped.");
+        L::AddField(tm, "Max signal age (s)", maxAge_, "For channels set to Enter right away: NOW signals older than this are skipped.");
         rangeExpiry_ = L::Num(1, 86400, 120, 0, 10);
-        L::AddField(tm, "Range expiry (s)", rangeExpiry_, "A wait-for-range signal stops waiting this long after it was posted.");
+        L::AddField(tm, "Range expiry (s)", rangeExpiry_, "For channels that wait for the entry price: stop waiting this long after the message was posted.");
         pendingExpiry_ = L::Num(60, 604800, 3600, 0, 60);
-        L::AddField(tm, "Pending expiry (s)", pendingExpiry_, "Pending orders expire after this - only if your broker supports order expiry.");
+        L::AddField(tm, "Pending expiry (s)", pendingExpiry_,
+                    "For channels set to Pending orders only: the order is cancelled this long after it was placed. Your broker must support order expiry.");
         future_ = L::Num(0, 60, 5, 0, 1);
         L::AddField(tm, "Future time tolerance (s)", future_, "Allow message timestamps up to this far in the future (clock skew).");
         quoteAge_ = L::Num(100, 60000, 3000, 0, 100);
@@ -95,7 +116,7 @@ public:
         maxPositions_ = L::Num(1, 500, 5, 0, 1);
         L::AddField(ac, "Max open positions", maxPositions_, "The most positions Pipkite may have open at once.");
         maxPending_ = L::Num(0, 500, 5, 0, 1);
-        L::AddField(ac, "Max pending orders", maxPending_, "The most pending orders Pipkite may have waiting at once.");
+        L::AddField(ac, "Max pending orders", maxPending_, "The most pending orders Pipkite may have waiting at once (channels set to Pending orders only).");
         maxLots_ = L::Num(0.01, 1000, 1, 2, 0.1);
         L::AddField(ac, "Max total lots", maxLots_, "Cap on the combined lot size of all copier trades.");
         maxDailyLoss_ = L::Num(0, 10000000, 0, 2, 10);
@@ -106,7 +127,8 @@ public:
         L::AddField(ac, "Max risk per signal (%)", maxRisk_, "Reject a signal whose planned risk is more than this % of equity.");
         startMin_ = L::Box(80);
         endMin_ = L::Box(80);
-        L::AddField(ac, "Trading hours (HH:MM - HH:MM)", L::Row(startMin_, L::Text("to"), endMin_), "Only copy during these local hours. Use 00:00 to 24:00 for all day.");
+        L::AddField(ac, "Trading hours (HH:MM - HH:MM)", L::Row(startMin_, L::Text("to"), endMin_),
+                    "Only copy during these local hours. 00:00 to 24:00 is all day; a start after the end runs overnight, e.g. 22:00 to 06:00.");
         stack->Controls->Add(L::Group("Account limits", ac));
 
         TableLayoutPanel^ ai = L::Form2();
@@ -136,6 +158,12 @@ public:
         stack->Controls->Add(L::Row(save, reload, status_));
         Controls->Add(stack);
         L::OnAnyChange(stack, gcnew EventHandler(this, &PolicyPage::OnDirty));
+        EventHandler^ relayout = gcnew EventHandler(this, &PolicyPage::OnChoiceChanged);
+        sizingMode_->SelectedIndexChanged += relayout;
+        targetMode_->SelectedIndexChanged += relayout;
+        for each (CheckBox^ c in gcnew array<CheckBox^>{fallback_, catchUp_, semantic_, forceEnter_}) c->CheckedChanged += relayout;
+        maxDailyLoss_->ValueChanged += relayout;
+        ShowApplicableFields();
         Header("Execution policy", "How trades are sized, timed and limited. Hover any ? for details.", this);
     }
 
@@ -153,14 +181,34 @@ private:
     CheckBox ^ messageLot_, ^fallback_, ^catchUp_, ^semantic_, ^forceEnter_, ^alwaysAssess_;
     TextBox ^ allocations_, ^startMin_, ^endMin_;
     ComboBox^ symbol_;
-    NumericUpDown ^ spread_, ^deviation_, ^symLots_;
-    Label ^ symStatus_, ^status_, ^suggest_;
+    NumericUpDown ^ spread_, ^deviation_, ^symLots_, ^maxStop_;
+    Label ^ symStatus_, ^status_, ^suggest_, ^stopHint_;
+    CheckBox^ noStopLoss_;
+    Dictionary<String^, JObj^>^ specs_;  // broker symbol -> its rules and live quote (from mt5.status)
     Button^ useSuggest_;
     FlowLayoutPanel^ suggestRow_;
-    Dictionary<String^, array<double>^>^ limitMap_;  // symbol -> {max spread, entry deviation, max lots}
+    Dictionary<String^, array<double>^>^ limitMap_;  // symbol -> {max spread, entry deviation, max lots, max stop distance}
     List<String^>^ catalog_;                          // every broker symbol from MetaTrader
     JObj^ policy_;
     bool loading_, dirty_;
+
+    void OnChoiceChanged(Object^, EventArgs^) { ShowApplicableFields(); }
+
+    // Only the fields that apply to the current choices are shown.
+    void ShowApplicableFields() {
+        const bool fixedLots = sizingMode_->SelectedIndex != 1;
+        L::ShowField(lots_, fixedLots);
+        L::ShowField(messageLot_, fixedLots);  // the message's lot size only replaces fixed lots
+        L::ShowField(risk_, !fixedLots);
+        const bool split = targetMode_->SelectedIndex == 1;
+        L::ShowField(allocations_, split);
+        L::ShowField(fallback_, split);
+        L::ShowField(tpIndex_, !split || fallback_->Checked);
+        L::ShowField(catchUpAge_, catchUp_->Checked);
+        L::ShowField(semanticWindow_, semantic_->Checked);
+        L::ShowField(forceEnterPips_, forceEnter_->Checked);
+        L::ShowField(resetOffset_, Val(maxDailyLoss_) > 0);  // the reset time only matters with a daily loss limit
+    }
 
     void OnDirty(Object^ sender, EventArgs^) {
         if (loading_ || sender == symbol_) return;  // picking a symbol to look at is not a change
@@ -177,6 +225,8 @@ private:
         } else {
             for each (Object^ o in J::Arr(r, "symbols")) { String^ n = J::Str(J::Obj(o), "name"); if (n != "") catalog_->Add(n); }
         }
+        specs_->Clear();
+        for each (Object^ o in J::Arr(r, "symbols")) { JObj^ sp = J::Obj(o); if (J::Str(sp, "name") != "") specs_[J::Str(sp, "name")] = sp; }
         RebuildSymbols();
     }
 
@@ -202,17 +252,47 @@ private:
         bool was = loading_;
         loading_ = true;  // showing stored values is not an edit
         array<double>^ v;
-        if (symbol_->Text == "" || !limitMap_->TryGetValue(symbol_->Text, v)) v = gcnew array<double>{0, 0, 0};
+        if (symbol_->Text == "" || !limitMap_->TryGetValue(symbol_->Text, v)) v = gcnew array<double>{0, 0, 0, 0};
         SetNum(spread_, v[0]);
         SetNum(deviation_, v[1]);
         SetNum(symLots_, v[2]);
+        SetNum(maxStop_, v[3]);
         loading_ = was;
         array<double>^ s = limitMap_->ContainsKey(symbol_->Text) ? nullptr : Suggested(symbol_->Text);
         suggestRow_->Visible = s != nullptr;
         if (s != nullptr)
             suggest_->Text = "Suggested: max spread " + J::Fmt(s[0]) + ", entry deviation " + J::Fmt(s[1]) + ", max lots " + J::Fmt(s[2]) +
-                             ". Check the spread against your broker's in MetaTrader before you save.";
+                             (s[3] > 0 ? ", max stop distance " + J::Fmt(s[3]) : "") + ". Check the spread against your broker's in MetaTrader before you save.";
+        UpdateStopHint();
         UpdateSymStatus();
+    }
+
+    // What the max stop distance does with this symbol's live price, and whether the broker would accept it.
+    void UpdateStopHint() {
+        const double d = Val(maxStop_);
+        JObj^ sp = nullptr;
+        specs_->TryGetValue(symbol_->Text, sp);
+        if (d <= 0) {
+            array<double>^ s = Suggested(symbol_->Text);
+            stopHint_->ForeColor = Theme::TextMuted;
+            stopHint_->Text = "Off: the message's stop loss is used as it is." + (s != nullptr && s[3] > 0 ? " For gold, 20.00 is a common choice." : "");
+            return;
+        }
+        const int digits = sp != nullptr ? (int)J::Num(sp, "digits", 2) : 2;
+        const double minStop = sp != nullptr ? J::Num(sp, "stopsLevel") * J::Num(sp, "point") : 0;
+        if (minStop > 0 && d < minStop) {
+            stopHint_->ForeColor = Theme::Warning;
+            stopHint_->Text = "Your broker needs stops at least " + J::Fmt(minStop, digits) + " from the price, so every trade would be rejected.";
+            return;
+        }
+        stopHint_->ForeColor = Theme::TextMuted;
+        const double ask = J::Num(J::Obj(sp, "quote"), "ask"), bid = J::Num(J::Obj(sp, "quote"), "bid");
+        if (ask > 0 && bid > 0)
+            stopHint_->Text = "BUY at " + J::Fmt(ask, digits) + ": stop no lower than " + J::Fmt(ask - d, digits) + ". SELL at " + J::Fmt(bid, digits) +
+                              ": stop no higher than " + J::Fmt(bid + d, digits) + ". A closer stop in the message is kept.";
+        else
+            stopHint_->Text = "A BUY's stop is never more than " + J::Fmt(d) + " below the entry, a SELL's never more than " + J::Fmt(d) +
+                              " above. A closer stop in the message is kept.";
     }
 
     // Starting values shipped with the app. Only a suggestion: the user applies them and saves, never automatic.
@@ -220,15 +300,15 @@ private:
     static array<double>^ Suggested(String^ sym) {
         String^ n = "";
         for each (wchar_t c in sym->ToUpperInvariant()) if (Char::IsLetter(c)) n += c;
-        if (n->StartsWith("GOLD") || n->Contains("XAUUSD")) return gcnew array<double>{0.40, 1.00, 0.01};
-        if (n->StartsWith("SILVER") || n->Contains("XAGUSD")) return gcnew array<double>{0.04, 0.05, 0.01};
+        if (n->StartsWith("GOLD") || n->Contains("XAUUSD")) return gcnew array<double>{0.40, 1.00, 0.01, 20.00};
+        if (n->StartsWith("SILVER") || n->Contains("XAGUSD")) return gcnew array<double>{0.04, 0.05, 0.01, 0};
         array<String^>^ majors = {"EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF", "EURGBP"};
         array<String^>^ yen = {"USDJPY", "EURJPY", "GBPJPY"};
         for each (String^ fx in majors) {
-            if (n->Contains(fx)) return gcnew array<double>{0.0002, 0.0003, 0.01};
+            if (n->Contains(fx)) return gcnew array<double>{0.0002, 0.0003, 0.01, 0};
         }
         for each (String^ fx in yen) {
-            if (n->Contains(fx)) return gcnew array<double>{0.03, 0.05, 0.01};
+            if (n->Contains(fx)) return gcnew array<double>{0.03, 0.05, 0.01, 0};
         }
         return nullptr;
     }
@@ -243,8 +323,9 @@ private:
 
     void OnLimitEdited(Object^, EventArgs^) {
         if (loading_ || symbol_->Text == "") return;
-        if (Val(spread_) > 0) limitMap_[symbol_->Text] = gcnew array<double>{Val(spread_), Val(deviation_), Val(symLots_)};
+        if (Val(spread_) > 0) limitMap_[symbol_->Text] = gcnew array<double>{Val(spread_), Val(deviation_), Val(symLots_), Val(maxStop_)};
         else limitMap_->Remove(symbol_->Text);  // no max spread = not traded
+        UpdateStopHint();
         UpdateSymStatus();
     }
 
@@ -254,7 +335,7 @@ private:
             if (kv.Value[0] > 0) on->Add(kv.Key);
         on->Sort();
         String^ hint = catalog_->Count == 0 ? " Connect MetaTrader to list all your broker's symbols." : "";
-        symStatus_->Text = (on->Count == 0 ? "No symbol is set yet, so nothing is traded." : "Traded: " + String::Join(", ", on)) + hint;
+        symStatus_->Text = (on->Count == 0 ? "No symbol is set yet, so nothing is traded." : "Traded: " + String::Join(", ", on) + ".") + hint;
     }
     void SetStatus(bool dirty) {
         dirty_ = dirty;
@@ -280,12 +361,12 @@ private:
         loading_ = true;  // loading values must not mark the page dirty
         policy_ = J::Obj(result);
         JObj^ s = J::Obj(policy_, "sizing");
-        sizingMode_->SelectedItem = J::Str(s, "mode", "fixed_total_lots");
+        sizingMode_->SelectedIndex = J::Str(s, "mode", "fixed_total_lots") == "risk_percent" ? 1 : 0;
         SetNum(lots_, J::Num(s, "lots", 0.01));
         SetNum(risk_, J::Num(s, "riskPercent", 0.5));
         messageLot_->Checked = J::Bool(policy_, "allowMessageLot");
         JObj^ t = J::Obj(policy_, "targets");
-        targetMode_->SelectedItem = J::Str(t, "mode", "single");
+        targetMode_->SelectedIndex = J::Str(t, "mode", "single") == "split" ? 1 : 0;
         SetNum(tpIndex_, J::Num(t, "selectedIndex", 1));
         String^ al = "";
         for each (Object^ a in J::Arr(t, "allocations")) al += (al == "" ? "" : ",") + J::Fmt(Convert::ToDouble(a));
@@ -302,6 +383,7 @@ private:
         semantic_->Checked = J::Bool(sd, "enabled");
         SetNum(semanticWindow_, J::Num(sd, "windowSeconds", 60));
         forceEnter_->Checked = J::Bool(policy_, "forceEnterMissed");
+        noStopLoss_->Checked = J::Bool(policy_, "tradeWithoutStopLoss");
         SetNum(forceEnterPips_, J::Num(policy_, "forceEnterPips", 2));
         JObj^ a = J::Obj(policy_, "accountLimits");
         SetNum(maxPositions_, J::Num(a, "maxOpenPositions", 5));
@@ -317,7 +399,7 @@ private:
         if (lim != nullptr)
             for each (KeyValuePair<String^, Object^> kv in lim) {
                 JObj^ l = J::Obj(kv.Value);
-                limitMap_[kv.Key] = gcnew array<double>{J::Num(l, "maxSpreadPrice"), J::Num(l, "maxEntryDeviationPrice"), J::Num(l, "maxLots")};
+                limitMap_[kv.Key] = gcnew array<double>{J::Num(l, "maxSpreadPrice"), J::Num(l, "maxEntryDeviationPrice"), J::Num(l, "maxLots"), J::Num(l, "maxStopDistancePrice")};
             }
         RebuildSymbols();
         JObj^ ai = J::Obj(policy_, "ai");
@@ -326,24 +408,28 @@ private:
         SetNum(threshold_, J::Num(ai, "gateAcceptThreshold", 0.6));
         timeoutAction_->SelectedItem = J::Str(ai, "gateTimeoutAction", "review");
         loading_ = false;
+        ShowApplicableFields();
         SetStatus(false);
     }
 
     void OnSave(Object^, EventArgs^) {
         if (policy_ == nullptr) return;
         JObj^ s = J::New();
-        s["mode"] = sizingMode_->Text;
+        s["mode"] = sizingMode_->SelectedIndex == 1 ? "risk_percent" : "fixed_total_lots";
         s["lots"] = Val(lots_);
         s["riskPercent"] = Val(risk_);
         policy_["sizing"] = s;
         policy_["allowMessageLot"] = messageLot_->Checked;
         JObj^ t = J::New();
-        t["mode"] = targetMode_->Text;
+        t["mode"] = targetMode_->SelectedIndex == 1 ? "split" : "single";
         t["selectedIndex"] = (int)Val(tpIndex_);
         List<Object^>^ allocs = J::List();
         for each (String^ p in allocations_->Text->Split(gcnew array<wchar_t>{',', ';', ' '}, StringSplitOptions::RemoveEmptyEntries)) {
             double v;
-            if (!J::TryNum(p, v)) return ShowError("Allocations must be numbers separated by commas");
+            if (!J::TryNum(p, v)) {
+                if (targetMode_->SelectedIndex != 1) continue;  // the field is hidden and unused: a stray value doesn't block Save
+                return ShowError("Allocations must be numbers separated by commas");
+            }
             allocs->Add(v);
         }
         t["allocations"] = allocs;
@@ -361,6 +447,7 @@ private:
         sd["windowSeconds"] = (int)Val(semanticWindow_);
         policy_["semanticDuplicate"] = sd;
         policy_["forceEnterMissed"] = forceEnter_->Checked;
+        policy_["tradeWithoutStopLoss"] = noStopLoss_->Checked;
         policy_["forceEnterPips"] = Val(forceEnterPips_);
         JObj^ a = J::New();
         a["maxOpenPositions"] = (int)Val(maxPositions_);
@@ -369,8 +456,11 @@ private:
         a["maxDailyLoss"] = Val(maxDailyLoss_);
         a["lossResetUtcOffsetMinutes"] = (int)Val(resetOffset_);
         a["maxRiskPercentPerSignal"] = Val(maxRisk_);
-        a["tradingStartMinute"] = ParseHm(startMin_->Text, 0);
-        a["tradingEndMinute"] = ParseHm(endMin_->Text, 1440);
+        const int from = ParseHm(startMin_->Text, -1), to = ParseHm(endMin_->Text, -1);
+        if (from < 0 || to < 0 || from >= 1440) return ShowError("Trading hours must be times like 08:00 to 17:00 (24:00 is allowed as the end).");
+        if (from == to) return ShowError("Trading hours can't start and end at the same time. 00:00 to 24:00 is all day.");
+        a["tradingStartMinute"] = from;
+        a["tradingEndMinute"] = to;
         policy_["accountLimits"] = a;
         JObj^ lim = J::New();
         for each (KeyValuePair<String^, array<double>^> kv in limitMap_) {
@@ -378,6 +468,7 @@ private:
             l["maxSpreadPrice"] = kv.Value[0];
             l["maxEntryDeviationPrice"] = kv.Value[1];
             l["maxLots"] = kv.Value[2];
+            l["maxStopDistancePrice"] = kv.Value[3];
             lim[kv.Key] = l;
         }
         policy_["symbolLimits"] = lim;

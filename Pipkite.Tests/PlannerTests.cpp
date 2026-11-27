@@ -195,8 +195,7 @@ TEST(planner_limits_and_account_checks) {
 
 TEST(planner_immediate_and_pending_modes) {
     Fixture f;
-    f.binding.entryMode = EntryMode::ImmediateWithinTolerance;
-    f.binding.immediateTolerancePrice = 0.5;
+    f.binding.entryMode = EntryMode::ImmediateWithinTolerance;  // within the symbol's entry deviation (0.50)
     auto nowSig = f.signal("GOLD SELL NOW 4303\nSL 4316\nTP 4290");
     f.quote = {"XAUUSD", 4303.20, 4303.50, kNow, kNow};
     CHECK_EQ(std::string(toString(f.eval(nowSig).kind)), std::string("Planned"));
@@ -463,4 +462,235 @@ TEST(plan_json_roundtrip) {
     auto back = planFromJson(j);
     CHECK(back.ok());
     CHECK(toJson(back.value()) == j);
+}
+
+TEST(planner_max_stop_distance_tightens_the_stop_but_never_widens_it) {
+    Fixture f;  // BUY [4295, 4300], published SL 4287; ask 4297.30 -> published stop is 10.30 away
+    auto buy = f.signal(kBuyRange);
+    CHECK_NEAR(f.eval(buy).plan->stopLoss, 4287.0, 1e-9);  // off by default: the message's SL as-is
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 5.0;
+    auto d = f.eval(buy);
+    CHECK_EQ(std::string(toString(d.kind)), std::string("Planned"));
+    CHECK_NEAR(d.plan->stopLoss, 4292.30, 1e-9);  // 5.00 below the ask: closer than 4287, so it wins
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 20.0;
+    CHECK_NEAR(f.eval(buy).plan->stopLoss, 4287.0, 1e-9);  // 20.00 would be wider than 4287: never widened
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 5.005;
+    CHECK_NEAR(f.eval(buy).plan->stopLoss, 4292.30, 1e-9);  // rounded to the tick toward the entry, never past the distance
+
+    auto sell = f.signal("GOLD (XAUUSD) Sell NOW\nEntry 4302-4306\nTP1 4296\nTP2 4288\nSL 4316");
+    f.quote = {"XAUUSD", 4303.00, 4303.30, kNow, kNow};
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 5.0;
+    CHECK_NEAR(f.eval(sell).plan->stopLoss, 4308.0, 1e-9);  // 5.00 above the bid
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 20.0;
+    CHECK_NEAR(f.eval(sell).plan->stopLoss, 4316.0, 1e-9);
+
+    // a stop the broker won't accept rejects the trade
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 5.0;
+    f.gold.stopsLevelPoints = 600;  // 6.00 minimum distance
+    auto r = f.eval(sell);
+    CHECK_EQ(std::string(toString(r.kind)), std::string("Rejected"));
+    CHECK(r.reason.find("stops level") != std::string::npos);
+}
+
+TEST(planner_risk_percent_sizes_from_the_tightened_stop) {
+    Fixture f;
+    f.policy.sizing.mode = SizingPolicy::Mode::RiskPercent;
+    f.policy.sizing.riskPercent = 0.5;  // 50 USD of 10000
+    auto buy = f.signal(kBuyRange);
+    CHECK_NEAR(f.eval(buy).plan->totalVolume, 0.04, 1e-9);  // 10.30 away -> 1030 USD per lot
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 5.0;
+    auto d = f.eval(buy);
+    CHECK_NEAR(d.plan->totalVolume, 0.10, 1e-9);  // 5.00 away -> 500 USD per lot: more lots, same risk
+    CHECK(d.plan->plannedRiskMoney <= 50.0 + 1e-9);
+}
+
+TEST(planner_trades_a_signal_without_stop_loss_only_when_the_user_allowed_it) {
+    Fixture f;
+    auto noSl = f.signal("#GOLD BUY 4300 4295\nTP1 4305\nTP2 4310");
+    CHECK_EQ(std::string(toString(f.eval(noSl).kind)), std::string("Review"));  // default: never traded
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 20.0;
+    CHECK_EQ(std::string(toString(f.eval(noSl).kind)), std::string("Review"));  // a distance alone isn't enough
+    f.policy.tradeWithoutStopLoss = true;
+    auto d = f.eval(noSl);
+    CHECK_EQ(std::string(toString(d.kind)), std::string("Planned"));
+    CHECK_NEAR(d.plan->stopLoss, 4277.30, 1e-9);  // 20.00 below the ask
+    bool explained = false;
+    for (auto& c : d.checks) explained = explained || c.find("not in the message") != std::string::npos;
+    CHECK(explained);
+
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 0;  // switch on, but no distance for the symbol
+    auto r = f.eval(noSl);
+    CHECK_EQ(std::string(toString(r.kind)), std::string("Rejected"));
+    CHECK(r.reason.find("max stop distance") != std::string::npos);
+
+    f.policy.symbolLimits["XAUUSD"].maxStopDistancePrice = 20.0;
+    // never for an SL that is still to come, a message missing more than the SL, or prices on the wrong side
+    CHECK_EQ(std::string(toString(f.eval(f.signal("#GOLD BUY 4300 4295\nTP1 4305\nSL: soon")).kind)), std::string("Review"));
+    CHECK_EQ(std::string(toString(f.eval(f.signal("#GOLD BUY 4300 4295")).kind)), std::string("Review"));
+    CHECK(f.eval(f.signal("#GOLD BUY 4300 4295\nTP1 4290")).kind != DecisionKind::Planned);
+    // a published SL still wins when it is closer
+    CHECK_NEAR(f.eval(f.signal(kBuyRange)).plan->stopLoss, 4287.0, 1e-9);
+}
+
+TEST(parser_marks_a_signal_whose_only_gap_is_an_unwritten_stop_loss) {
+    auto c = CompiledTemplate::compile(starterGoldTemplate()).value();
+    ParseContext ctx;
+    auto s = parseWithTemplate("#GOLD BUY 4300 4295\nTP1 4305", *c, ctx);
+    CHECK_EQ(std::string(toString(s.status)), std::string("Incomplete"));  // still not a signal on its own
+    CHECK(s.stopLossOmitted);
+    CHECK(!parseWithTemplate("#GOLD BUY 4300 4295\nTP1 4305\nSL: soon", *c, ctx).stopLossOmitted);  // SL named, still to come
+    CHECK(!parseWithTemplate("#GOLD BUY 4300 4295", *c, ctx).stopLossOmitted);                      // TP missing too
+    CHECK(!parseWithTemplate("#GOLD BUY 4300 4295\nTP1 4290", *c, ctx).stopLossOmitted);            // TP on the wrong side
+    CHECK(!parseWithTemplate("SL 4290\nTP 4310", *c, ctx).stopLossOmitted);                         // no direction
+    CHECK(!parseWithTemplate(kBuyRange, *c, ctx).stopLossOmitted);
+}
+
+TEST(policy_keeps_the_stop_loss_settings) {
+    ExecutionPolicy p;
+    CHECK(!p.tradeWithoutStopLoss);
+    p.symbolLimits["XAUUSD"] = {0.40, 1.00, 0, 20.0};
+    p.tradeWithoutStopLoss = true;
+    auto back = ExecutionPolicy::fromJson(p.toJson());
+    CHECK(back.ok());
+    CHECK_NEAR(back.value().symbolLimits["XAUUSD"].maxStopDistancePrice, 20.0, 1e-9);
+    CHECK(back.value().tradeWithoutStopLoss);
+    auto old = p.toJson();  // a policy saved before these settings existed
+    old.erase("tradeWithoutStopLoss");
+    old["symbolLimits"]["XAUUSD"].erase("maxStopDistancePrice");
+    auto o = ExecutionPolicy::fromJson(old);
+    CHECK(o.ok());
+    CHECK(!o.value().tradeWithoutStopLoss);
+    CHECK_NEAR(o.value().symbolLimits["XAUUSD"].maxStopDistancePrice, 0.0, 1e-9);
+    auto bad = p.toJson();
+    bad["symbolLimits"]["XAUUSD"]["maxStopDistancePrice"] = -1;
+    CHECK(!ExecutionPolicy::fromJson(bad).ok());
+}
+
+TEST(planner_enter_right_away_uses_the_symbols_entry_deviation) {
+    Fixture f;  // one per-symbol distance for every entry mode, no hidden per-channel tolerance
+    f.binding.entryMode = EntryMode::ImmediateWithinTolerance;
+    auto nowSig = f.signal("GOLD SELL NOW 4303\nSL 4316\nTP 4290");
+    f.quote = {"XAUUSD", 4303.40, 4303.70, kNow, kNow};  // bid 0.40 from the signal's price
+    f.policy.symbolLimits["XAUUSD"].maxEntryDeviationPrice = 0.50;
+    auto d = f.eval(nowSig);
+    CHECK_EQ(std::string(toString(d.kind)), std::string("Planned"));
+    CHECK_NEAR(d.plan->entry->low, 4302.50, 1e-9);  // the band the EA re-checks
+    CHECK_NEAR(d.plan->entry->high, 4303.50, 1e-9);
+    f.policy.symbolLimits["XAUUSD"].maxEntryDeviationPrice = 0.30;
+    CHECK_EQ(std::string(toString(f.eval(nowSig).kind)), std::string("Rejected"));
+}
+
+TEST(planner_never_enters_without_an_entry_price) {
+    Fixture f;
+    // the parser shows BUY NOW without a price for review, never as a signal
+    auto noPrice = f.signal("GOLD BUY NOW\nSL 4280\nTP 4320");
+    CHECK_EQ(std::string(toString(noPrice.status)), std::string("Incomplete"));
+    CHECK_EQ(std::string(toString(f.eval(noPrice).kind)), std::string("Review"));
+    // and even a parser module built before that rule can't get one traded, in any entry mode
+    auto priced = f.signal("GOLD BUY NOW 4297\nSL 4280\nTP 4320");
+    Signal stripped = priced;
+    stripped.entry.reset();
+    f.quote = {"XAUUSD", 4297.00, 4297.30, kNow, kNow};
+    for (EntryMode mode : {EntryMode::WaitForRange, EntryMode::ImmediateWithinTolerance, EntryMode::ExplicitPendingOnly}) {
+        f.binding.entryMode = mode;
+        auto d = f.eval(stripped);
+        CHECK_EQ(std::string(toString(d.kind)), std::string("Rejected"));
+    }
+    f.binding.entryMode = EntryMode::ImmediateWithinTolerance;  // with its price, the same NOW signal is a setup
+    CHECK_EQ(std::string(toString(f.eval(priced).kind)), std::string("Planned"));
+}
+
+TEST(broker_symbol_names_map_to_the_instrument) {
+    CHECK_EQ(canonicalSymbolOf("XAUUSD.m"), std::string("XAUUSD"));
+    CHECK_EQ(canonicalSymbolOf("XAUUSDm"), std::string("XAUUSD"));
+    CHECK_EQ(canonicalSymbolOf("GOLD#"), std::string("XAUUSD"));
+    CHECK_EQ(canonicalSymbolOf("Gold"), std::string("XAUUSD"));
+    CHECK_EQ(canonicalSymbolOf("GOLDmicro"), std::string("XAUUSD"));
+    CHECK_EQ(canonicalSymbolOf("US30.cash"), std::string("US30"));
+    CHECK_EQ(canonicalSymbolOf("DJ30"), std::string("US30"));
+    CHECK_EQ(canonicalSymbolOf("#USTEC"), std::string("NAS100"));
+    CHECK_EQ(canonicalSymbolOf("EURUSD.pro"), std::string("EURUSD"));
+    CHECK_EQ(canonicalSymbolOf("BTCUSDT"), std::string("BTCUSD"));
+    CHECK_EQ(canonicalSymbolOf("GOLDEUR"), std::string(""));  // gold in euros is not XAUUSD
+    CHECK_EQ(canonicalSymbolOf("AAPL.US"), std::string(""));
+    CHECK(sameInstrument("XAUUSD.m", "XAUUSD", "GOLD"));
+    CHECK(sameInstrument("XAUUSD.m", "GOLD", "GOLD"));  // a taught format that kept the word GOLD
+    CHECK(sameInstrument("AAPL.US", "AAPL", "AAPL"));
+    CHECK(!sameInstrument("XAUUSD.m", "EURUSD", "EURUSD"));
+    CHECK(!sameInstrument("EURUSD.m", "GBPUSD", "GBPUSD"));
+    CHECK(!sameInstrument("GOLDEUR", "XAUUSD", "GOLD"));
+}
+
+TEST(planner_pinned_channel_trades_only_its_instrument) {
+    Fixture f;
+    f.binding.tradeSymbol = "XAUUSD.m";
+    f.gold.name = "XAUUSD.m";
+    f.quote.symbol = "XAUUSD.m";
+    auto d = f.eval(f.signal(kBuyRange));
+    CHECK_EQ(std::string(toString(d.kind)), std::string("Planned"));
+    CHECK_EQ(d.plan->brokerSymbol, std::string("XAUUSD.m"));
+    auto other = f.eval(f.signal("EURUSD BUY 1.0850\nSL 1.0820\nTP 1.0900"));  // never moved onto the gold symbol
+    CHECK_EQ(std::string(toString(other.kind)), std::string("Rejected"));
+    CHECK(other.reason.find("EURUSD") != std::string::npos);
+    CHECK(other.reason.find("XAUUSD.m") != std::string::npos);
+}
+
+TEST(planner_finds_the_broker_symbol_in_symbol_limits) {
+    Fixture f;
+    f.policy.symbolLimits.clear();
+    f.policy.symbolLimits["XAUUSDm"] = {0.50, 0.50, 0};  // the broker's name for gold, picked from MetaTrader
+    f.gold.name = "XAUUSDm";
+    f.quote.symbol = "XAUUSDm";
+    auto gold = f.signal(kBuyRange);
+    auto d = f.eval(gold);
+    CHECK_EQ(std::string(toString(d.kind)), std::string("Planned"));
+    CHECK_EQ(d.plan->brokerSymbol, std::string("XAUUSDm"));
+    std::string why;
+    f.policy.symbolLimits["XAUUSD.pro"] = {0.50, 0.50, 0};  // two names for gold: never guess between them
+    CHECK(!ExecutionPlanner::resolveBrokerSymbol(gold, f.policy, f.binding, why));
+    CHECK(why.find("XAUUSD.pro") != std::string::npos);
+    f.policy.symbolLimits["XAUUSD"] = {0.50, 0.50, 0};  // the exact name wins
+    CHECK_EQ(ExecutionPlanner::resolveBrokerSymbol(gold, f.policy, f.binding, why).value_or(""), std::string("XAUUSD"));
+
+    auto dow = f.signal("US30 SELL 39250\nSL 39350\nTP 39100");  // indices are never guessed from the bare name
+    CHECK(!ExecutionPlanner::resolveBrokerSymbol(dow, f.policy, f.binding, why));
+    CHECK(why.find("Symbol limits") != std::string::npos);
+    f.policy.symbolLimits["US30.cash"] = {2.0, 2.0, 0};
+    CHECK_EQ(ExecutionPlanner::resolveBrokerSymbol(dow, f.policy, f.binding, why).value_or(""), std::string("US30.cash"));
+}
+
+TEST(planner_trading_hours_can_wrap_past_midnight) {
+    Fixture f;
+    auto s = f.signal(kBuyRange);
+    auto at = [&](int minute) {
+        PlanningInput in;
+        in.signal = &s;
+        in.binding = &f.binding;
+        in.policy = &f.policy;
+        in.account = &f.account;
+        in.symbol = &f.gold;
+        in.quote = &f.quote;
+        in.nowMs = kNow;
+        in.localMinuteOfDay = minute;
+        return std::string(toString(f.planner.evaluate(in).kind));
+    };
+    f.policy.account.tradingStartMinute = 22 * 60;  // 22:00 to 06:00
+    f.policy.account.tradingEndMinute = 6 * 60;
+    CHECK(f.policy.validate().ok());
+    CHECK_EQ(at(23 * 60), std::string("Planned"));
+    CHECK_EQ(at(3 * 60), std::string("Planned"));
+    CHECK_EQ(at(12 * 60), std::string("Rejected"));
+    f.policy.account.tradingStartMinute = 8 * 60;  // 08:00 to 17:00 as before
+    f.policy.account.tradingEndMinute = 17 * 60;
+    CHECK_EQ(at(9 * 60), std::string("Planned"));
+    CHECK_EQ(at(17 * 60), std::string("Rejected"));
+    f.policy.account.tradingEndMinute = 8 * 60;  // same start and end: not a window
+    CHECK(!f.policy.validate().ok());
+}
+
+TEST(policy_ignores_the_old_per_channel_tolerance) {
+    auto b = SourceBinding::fromJson(nlohmann::json{{"chatId", "-5"}, {"entryMode", "immediate_within_tolerance"}, {"immediateTolerancePrice", 0.5}});
+    CHECK(b.ok());
+    CHECK(b.value().entryMode == EntryMode::ImmediateWithinTolerance);
+    CHECK(!b.value().toJson().contains("immediateTolerancePrice"));
 }

@@ -20,7 +20,7 @@ export const es: Dict = {
     guideDesc:
       'Guía paso a paso para copiar señales de Telegram a MetaTrader 5: conecta Telegram y MT5, elige el formato de cada canal, fija tus reglas de riesgo y prueba seguro.',
     changelogTitle: `Novedades de Pipkite – Versión ${VERSION}`,
-    changelogDesc: `Notas de versión de Pipkite, el copiador gratuito de Telegram a MT5. Última versión: ${VERSION}: límites por símbolo más fáciles, recorridos guiados y un feed en directo más claro.`,
+    changelogDesc: `Notas de versión de Pipkite, el copiador gratuito de Telegram a MT5. Última versión: ${VERSION}: ajustes por canal, un límite de stop-loss por símbolo y solo setups reales operados.`,
     privacyTitle: 'Privacidad – Qué recoge Pipkite y por qué',
     privacyDesc:
       'Qué guarda Pipkite en tu PC, qué reciben los servicios de licencia, revisión con IA y parsers, y qué no se recoge nunca. Explicado con claridad.',
@@ -97,7 +97,7 @@ export const es: Dict = {
     cardNow: 'ahora',
     aiReview: 'Revisión IA',
     good: 'Buena',
-    rr: 'beneficio/riesgo 2,2',
+    rr: 'probabilidad de TP1 68 %',
     orderSent: 'Orden enviada a MT5',
     downloadsCount: '{n} descargas',
   },
@@ -119,7 +119,7 @@ export const es: Dict = {
     steps: [
       { title: 'Conecta Telegram', text: 'Inicia sesión con tu propia cuenta de Telegram y marca los canales o grupos a copiar. Los códigos de acceso nunca se guardan.' },
       { title: 'Conecta MetaTrader 5', text: 'Pulsa «Start MetaTrader». Pipkite instala su Expert Advisor, abre tu terminal y se empareja con él.' },
-      { title: 'Elige el formato de cada canal', text: 'Detect format prueba cada formato con los mensajes recientes del canal. Elige el que los lee bien, o enséñaselo a Pipkite con una sola señal.' },
+      { title: 'Revisa las señales de cada canal', text: 'Pipkite prueba cada formato con los últimos mensajes del canal y muestra sus señales tal como las lee. Si están bien, pulsa Start copying. Si no, elige otro formato o enséñaselo a Pipkite con una sola señal.' },
       { title: 'Fija tus reglas', text: 'Lotes o % de riesgo, spread máximo, horario, zonas de entrada. La copia funciona en cuanto MT5 está emparejado; pausa o reanuda con un clic.' },
     ],
   },
@@ -174,18 +174,18 @@ export const es: Dict = {
 
   ai: {
     exampleLabel: 'Ejemplo de revisión con IA',
-    reasons: ['El stop-loss está en el lado correcto de la entrada', 'Beneficio/riesgo hasta el último objetivo: 2,2 : 1', 'El primer objetivo está más cerca que el stop-loss'],
+    reasons: ['Alrededor de un 68 % de probabilidad de alcanzar el TP1 antes del stop-loss', 'La tendencia acompaña esta COMPRA (H4, H1 y M15 al alza)', 'Stop-loss y objetivos en el lado correcto y en orden'],
     good: 'Buena',
     eyebrow: 'IA incluida',
     title: 'Una segunda opinión sobre cada señal, gratis',
     lead: 'El backend de IA de Pipkite ya está funcionando. Nada que instalar ni clave de API que comprar: añade tu clave de licencia gratis y cada señal recibe una segunda opinión.',
     points: [
-      { title: 'Veredictos claros y razonados', text: 'Buena, Mala o Incierta, con los motivos: posición del stop, beneficio/riesgo y amplitud de la entrada.' },
+      { title: 'Veredictos claros y razonados', text: 'La probabilidad estimada de que el precio alcance el TP1 antes del stop-loss: Buena desde el 60 %, Mala con el 40 % o menos, con los motivos.' },
       { title: 'Consejo, no órdenes', text: 'El veredicto aparece junto a cada señal en el feed en directo para ayudarte a juzgar a un proveedor. Actívalo o desactívalo en Execution policy.' },
       { title: 'Solo la señal y los precios del mercado', text: 'Símbolo, dirección, entrada, SL y TP, más las velas de precio recientes de ese símbolo. Nunca tu cuenta, saldo, acceso al bróker, chats ni el texto de los mensajes. Las señales se guardan para que la IA aprenda.' },
     ],
     warnStrong: 'Aún es pronto: la IA puede equivocarse.',
-    warn: 'Es una primera versión, así que se le pueden escapar cosas, y su puntuación es un índice de confianza, no una promesa de beneficio. La mejoramos en cada versión; tómala como una segunda opinión, nunca como una garantía.',
+    warn: 'Es una estimación a partir de las distancias de la señal y del mercado, así que puede equivocarse, y su puntuación es una probabilidad, no una promesa de beneficio. La mejoramos en cada versión; tómala como una segunda opinión, nunca como una garantía.',
   },
 
   screens: {
@@ -199,7 +199,7 @@ export const es: Dict = {
       history: { label: 'Historial', text: 'Cada mensaje, cómo se leyó y qué se hizo, con el motivo. Exporta a CSV o JSON.' },
       metatrader: { label: 'MetaTrader', text: 'Abre MT5 con el EA, aprueba el emparejamiento y elige el símbolo de cada canal.' },
       'execution-policy': { label: 'Reglas de ejecución', text: 'Tamaño, take-profits, tiempos y límites. Cada opción tiene un «?» que la explica.' },
-      'signal-rules': { label: 'Formatos', text: 'Qué formato lee cada canal. Detéctalo, enséñalo o pídeselo a la IA con un clic.' },
+      'signal-rules': { label: 'Formatos', text: 'Lo que Pipkite lee en cada canal, y Start copying con un clic. Elige otro formato o enseña uno si no lee bien.' },
     },
     note: 'La interfaz de la app está en inglés.',
   },
@@ -243,7 +243,7 @@ export const es: Dict = {
       },
       {
         q: '¿Cómo copio señales de Telegram a MT5 automáticamente?',
-        a: 'Instala Pipkite, inicia sesión con tu cuenta de Telegram y marca los canales a copiar, pulsa «Start MetaTrader» para adjuntar el Expert Advisor de Pipkite y aprueba el emparejamiento, luego elige el formato de cada canal con «Detect format» y fija tu tamaño de lote o % de riesgo. Revisa las primeras señales en el historial y pulsa «Start copying»: desde entonces, las nuevas señales se colocan solas en MT5. Pausa o reanuda la copia con un clic.',
+        a: 'Instala Pipkite, inicia sesión con tu cuenta de Telegram y marca los canales a copiar, pulsa «Start MetaTrader» para adjuntar el Expert Advisor de Pipkite y aprueba el emparejamiento, luego fija tu tamaño de lote o % de riesgo. Cada canal muestra sus últimas señales tal como Pipkite las lee: si están bien, pulsa «Start copying». Desde entonces, las nuevas señales se colocan solas en MT5. Pausa o reanuda la copia con un clic.',
       },
       {
         q: '¿Qué tan rápido es, de verdad?',
@@ -264,11 +264,11 @@ export const es: Dict = {
       },
       {
         q: '¿Tengo que configurar o escribir un parser?',
-        a: 'No. Pipkite incluye formatos que leen la mayoría de las señales (varios idiomas, emojis, rangos de entrada, varios TP). En Signal rules, pulsa «Detect format»: Pipkite muestra lo que cada formato lee en los mensajes recientes del canal, incluidos los formatos que otros usuarios de Pipkite crearon para ese mismo canal, y eliges el que los lee bien. Si ninguno lo hace, marca las partes de una señal para enseñárselo a Pipkite, o deja que la IA proponga un formato, y compruébalo con los mensajes recientes. También puedes pedir un parser a medida al equipo de Pipkite. Un canal solo se copia cuando has revisado sus primeras señales y pulsado «Start copying».',
+        a: 'No. Pipkite incluye formatos que leen la mayoría de las señales (varios idiomas, emojis, rangos de entrada, varios TP). Cuando marcas un canal, Pipkite prueba cada formato con sus mensajes recientes, incluidos los formatos que otros usuarios de Pipkite crearon para ese mismo canal, y muestra sus señales tal como las lee el mejor. Si ninguno las lee bien, marca las partes de una señal para enseñárselo a Pipkite, o deja que la IA proponga un formato, y compruébalo con los mensajes recientes. También puedes pedir un parser a medida al equipo de Pipkite. Un canal solo se copia cuando has revisado sus primeras señales y pulsado «Start copying».',
       },
       {
         q: '¿La revisión con IA siempre acierta?',
-        a: 'No. La revisión con IA es una primera versión y puede equivocarse. Evalúa cómo está construida cada señal (posición del stop, beneficio/riesgo, amplitud de entrada) y, desde la versión 1.0.2, el propio mercado: la tendencia en H4, H1 y M15, el momentum, dónde está el precio y la volatilidad. Da una puntuación de confianza, que no es una promesa de beneficio. Se muestra como consejo junto a cada señal y la vamos mejorando con el tiempo.',
+        a: 'No. Estima la probabilidad de que el precio alcance el TP1 antes del stop-loss: primero a partir de las distancias de la propia señal (un TP1 a la mitad de distancia que el stop se alcanza primero unas dos veces de cada tres) y luego un poco a partir del mercado: la tendencia en H4, H1 y M15, el momentum y el rango reciente. Buena significa 60 % o más; Mala, 40 % o menos. Es una estimación, no una promesa de beneficio; se muestra como consejo junto a cada señal y la mejoramos con el tiempo.',
       },
       {
         q: '¿La IA ve mi cuenta?',
@@ -375,7 +375,7 @@ export const es: Dict = {
     short: `Para copiar señales de Telegram a MT5 automáticamente, instala un copiador de Telegram a MT5 como Pipkite, inicia sesión con tu cuenta de Telegram, elige los canales a copiar, adjunta el Expert Advisor del copiador a tu terminal MetaTrader 5, elige el formato de señal de cada canal y fija tu tamaño de lote o % de riesgo. Cada nueva señal se lee y se coloca como orden por sí sola, en unos ${ms} ms. Un clic pausa o reanuda la copia.`,
     figures: {
       metatrader: { alt: 'Pantalla MetaTrader de Pipkite con la lista de terminales, el botón Start MetaTrader y el estado del emparejamiento', caption: 'La pantalla MetaTrader: abre el terminal, aprueba el emparejamiento, asocia símbolos.' },
-      'signal-rules': { alt: 'Pantalla Signal rules de Pipkite con los canales y el formato que lee cada uno', caption: 'Signal rules: el formato que lee cada canal.' },
+      'signal-rules': { alt: 'Pantalla Signal rules de Pipkite con los canales y las últimas señales del canal seleccionado tal como Pipkite las lee', caption: 'Signal rules: lo que Pipkite lee en cada canal.' },
       'execution-policy': { alt: 'Pantalla Execution policy de Pipkite con tamaño de posición, take-profits y tiempos', caption: 'Execution policy: cuánto, qué objetivos y cuándo no operar.' },
     },
     sections: [
@@ -408,7 +408,7 @@ export const es: Dict = {
 <li>Ve a <code>my.telegram.org</code>, abre <strong>API development tools</strong> y copia el API ID y el API hash.</li>
 <li>Pega ambos en Pipkite y pulsa <strong>Save credentials</strong>. Se cifran en tu PC con Windows DPAPI y nunca se registran.</li>
 <li>Escribe tu número, pulsa <strong>Send code</strong> e introduce el código que te envía Telegram (y tu contraseña de verificación en dos pasos si la usas).</li>
-<li>Marca los canales y grupos a copiar y pulsa <strong>Add checked as sources</strong>. Los canales privados también funcionan, siempre que tu cuenta sea miembro.</li>
+<li>Marca los canales y grupos a copiar: cada uno se añade en cuanto lo marcas. Los canales privados también funcionan, siempre que tu cuenta sea miembro.</li>
 </ol>
 <p>Solo se copian los mensajes que llegan después de iniciar sesión. El historial nunca se convierte en órdenes.</p>`,
       },
@@ -429,12 +429,12 @@ export const es: Dict = {
         figure: 'signal-rules',
         html: `<p>Cada proveedor escribe sus señales a su manera. Pipkite necesita conocer el <em>formato</em> de cada canal antes de copiarlo.</p>
 <ol>
-<li>Abre <strong>Signal rules</strong>, selecciona un canal y pulsa <strong>Detect format</strong>. Pipkite prueba cada formato con los mensajes recientes del canal y muestra lo que lee cada uno: símbolo, dirección, entrada, SL y TP. También aparecen los formatos que otros usuarios de Pipkite crearon para ese canal.</li>
-<li>Elige el formato que los lee bien y pulsa <strong>Use this format</strong>.</li>
-<li>¿Ninguno los lee bien? Marca el símbolo, la dirección, la entrada, el SL y los TP de una señal para enseñárselo a Pipkite, o pulsa <strong>Ask AI for a format</strong>. Comprueba el resultado con los mensajes recientes antes de usarlo.</li>
-<li>¿Sigues sin conseguirlo? Pulsa <strong>Request a custom parser</strong>: el equipo de Pipkite crea uno, que se instala solo sin reiniciar.</li>
+<li>Marca un canal en <strong>Telegram sources</strong>, o selecciónalo en <strong>Signal rules</strong>. Pipkite prueba cada formato con los últimos mensajes del canal, incluidos los formatos que otros usuarios de Pipkite crearon para ese canal, y muestra sus señales tal como las lee el mejor: dirección, símbolo, entrada, SL y TP.</li>
+<li>Si se leen bien, pulsa <strong>Start copying</strong>.</li>
+<li>¿No es correcto? Pulsa <strong>Not right?</strong> para ver lo que lee cada formato y elegir otro, marca el símbolo, la dirección, la entrada, el SL y los TP de una señal para enseñárselo a Pipkite, o pulsa <strong>Ask AI for a format</strong>. Comprueba el resultado con los mensajes recientes antes de usarlo.</li>
+<li>¿Sigues sin conseguirlo? Marca <strong>Show advanced tools</strong> y pulsa <strong>Request a custom parser</strong>: el equipo de Pipkite crea uno, que se instala solo sin reiniciar.</li>
 </ol>
-<p>Un formato nuevo no opera enseguida: las señales del canal aparecen en History con lo que Pipkite habría hecho. Cuando se lean bien, selecciona el canal en Signal rules y pulsa <strong>Start copying</strong>.</p>`,
+<p>No se copia nada hasta que pulsas <strong>Start copying</strong>. Un formato que eliges o enseñas en la ventana de formatos también lo espera; mientras tanto, las señales del canal aparecen en History con lo que Pipkite habría hecho.</p>`,
       },
       {
         id: 'how-it-reads',
@@ -442,13 +442,13 @@ export const es: Dict = {
         html: `<p>Pipkite nunca adivina. Cada mensaje nuevo pasa por los mismos cuatro pasos, y solo un mensaje en el que todo está claro puede convertirse en una operación. Este es un ejemplo típico y lo que Pipkite lee de él:</p>
 <div class="sig-demo"><p class="sig-msg" dir="ltr"><span class="sig-symbol">GOLD</span> <span class="sig-side">BUY</span> <span class="sig-price">4299 – 4295</span><br><span class="sig-label">🛑 SL</span> <span class="sig-price">4282</span><br><span class="sig-label">🎯 TP1</span> <span class="sig-price">4307</span> <span class="sig-label">TP2</span> <span class="sig-price">4320</span><br><span class="sig-skip">Good luck traders 🚀</span></p><p class="sig-legend">Azul: símbolo · Verde: compra o venta · Naranja: etiquetas · Gris: precios · Tachado: ignorado</p><dl class="sig-read"><dt>Símbolo</dt><dd>XAUUSD (el canal escribió GOLD)</dd><dt>Dirección</dt><dd>Compra</dd><dt>Entrada</dt><dd>entre 4295 y 4299 (Pipkite espera a que el precio llegue ahí)</dd><dt>Stop-loss</dt><dd>4282</dd><dt>Take-profits</dt><dd>4307 y 4320</dd><dt>Ignorado</dt><dd>«Good luck traders 🚀»</dd></dl></div>
 <ol>
-<li><strong>Limpiar.</strong> Los emojis, el texto en negrita, los guiones raros y los dígitos como ٤٢٩٩ o ⁴²⁹⁹ se convierten en texto normal. Pipkite recuerda de dónde sale cada valor, así siempre puedes ver qué palabras leyó.</li>
-<li><strong>Encontrar las partes.</strong> El <em>formato</em> del canal dice qué significa cada palabra: compra y venta (BUY, COMPRA, ACHAT, شراء y más), etiquetas como SL, TP o 🎯, y nombres como GOLD para XAUUSD. La entrada puede ser un precio, un rango o NOW / market.</li>
+<li><strong>Limpiar.</strong> Los emojis, el texto en negrita, las letras estilizadas como 𝐆𝐎𝐋𝐃, los guiones raros y los dígitos como ٤٢٩٩ o ⁴²⁹⁹ se convierten en texto normal. Pipkite recuerda de dónde sale cada valor, así siempre puedes ver qué palabras leyó.</li>
+<li><strong>Encontrar las partes.</strong> El <em>formato</em> del canal dice qué significa cada palabra: compra y venta (BUY, COMPRA, ACHAT, شراء y más), etiquetas como SL, TP o 🎯, y nombres como GOLD para XAUUSD. La entrada es un precio o un rango; se le puede añadir NOW / market para entrar al momento.</li>
 <li><strong>Comprobar que tiene sentido.</strong>
 <ul>
-<li>Deben estar el símbolo, compra o venta, la entrada (o NOW), el stop-loss y un take-profit.</li>
+<li>Deben estar el símbolo, compra o venta, un precio de entrada, el stop-loss y un take-profit. Un BUY NOW sin precio no es un setup. Solo puede faltar el stop-loss, si lo permites en Execution policy: Pipkite lo coloca entonces a tu distancia máxima de stop.</li>
 <li>Dos valores distintos para lo mismo nunca se adivinan: el mensaje pasa a Review.</li>
-<li>Los precios deben cuadrar: en una compra, el stop-loss va por debajo de la entrada y los objetivos por encima; en una venta, al revés. Un precio pendiente lejos del mercado de hoy (como 23.50 por 2350) se rechaza como mal leído.</li>
+<li>Los precios deben cuadrar: en una compra, el stop-loss va por debajo de la entrada y los objetivos por encima; en una venta, al revés. Un precio pendiente lejos del mercado de hoy (como 23.50 por 2350) se rechaza como mal leído, igual que un stop-loss u objetivo por debajo de la mitad o por encima del doble de la entrada (un stop escrito en pips, como «SL 30 pips», tampoco es un precio).</li>
 <li>Las preguntas, la charla y los resultados como «TP1 alcanzado» no son señales. Un mensaje editado nunca abre una segunda operación.</li>
 </ul></li>
 <li><strong>Decidir.</strong> <strong>Signal</strong>: todo está claro y la operación pasa a tus reglas. <strong>Review</strong>: falta algo o no está claro; aparece en el historial y nunca se opera. <strong>Ignorado</strong>: no es una operación.</li>
@@ -482,13 +482,13 @@ export const es: Dict = {
       {
         id: 'formats',
         title: '¿Qué formatos de señal funcionan?',
-        html: `<p>La mayoría de formatos que un proveedor use de forma constante. Los formatos incluidos leen muchos idiomas, emojis, Markdown, guiones inusuales, dígitos arábigo-índicos y en superíndice, decimales con coma y varios take-profits, e ignoran comentarios como «TP1 alcanzado» en lugar de adivinar. Para lo demás, enséñale el formato a Pipkite con una señal o deja que la IA sugiera uno. Si un proveedor cambia su forma de publicar, Pipkite te avisa cuando ya no lee sus señales: vuelve a usar «Detect format».</p>`,
+        html: `<p>La mayoría de formatos que un proveedor use de forma constante. Los formatos incluidos leen muchos idiomas, emojis, Markdown, guiones inusuales, dígitos arábigo-índicos y en superíndice, decimales con coma y varios take-profits, e ignoran comentarios como «TP1 alcanzado» en lugar de adivinar. Para lo demás, enséñale el formato a Pipkite con una señal o deja que la IA sugiera uno. Si un proveedor cambia su forma de publicar, Pipkite te avisa cuando ya no lee sus señales: selecciona el canal en Signal rules y elige o enseña un formato nuevo.</p>`,
       },
       {
         id: 'ai',
         title: '¿Qué hace la revisión con IA?',
-        html: `<p>La revisión con IA da una segunda opinión sobre cada señal: <strong>Buena</strong>, <strong>Incierta</strong> o <strong>Mala</strong>, con motivos como la posición del stop-loss, el beneficio/riesgo y la amplitud de la entrada. Solo se envían los campos de la señal, nunca tu cuenta ni tus mensajes.</p>
-<p><strong>Puede equivocarse.</strong> Es una primera versión, y su puntuación es un índice de confianza, no una promesa de beneficio. Tómala como un consejo; mejora con cada versión.</p>`,
+        html: `<p>La revisión con IA da una segunda opinión sobre cada señal: <strong>Buena</strong>, <strong>Incierta</strong> o <strong>Mala</strong>, según la probabilidad estimada de que el precio alcance el TP1 antes del stop-loss (Buena desde el 60 %, Mala con el 40 % o menos). Los motivos muestran las distancias, la tendencia y el spread. Solo se envían los campos de la señal, nunca tu cuenta ni tus mensajes.</p>
+<p><strong>Puede equivocarse.</strong> Su puntuación es una estimación, no una promesa de beneficio. Tómala como un consejo; mejora con cada versión.</p>`,
       },
       {
         id: 'speed',
@@ -511,7 +511,7 @@ export const es: Dict = {
         html: `<dl>
 <dt>«Telegram: Not set up»</dt><dd>Introduce tu API ID y hash, y después inicia sesión con tu número.</dd>
 <dt>«MT5 offline»</dt><dd>MetaTrader no está abierto o el Expert Advisor no está en un gráfico. Pulsa Start MetaTrader; si MT5 ya está abierto, ciérralo y vuelve a pulsar Start.</dd>
-<dt>Una señal aparece como «Unsupported»</dt><dd>Ese canal aún no tiene formato. Pulsa «Detect format» en la pantalla Signal rules.</dd>
+<dt>Una señal aparece como «Unsupported»</dt><dd>Ese canal aún no tiene formato. Selecciónalo en la pantalla Signal rules: si Pipkite lo lee bien, pulsa «Start copying».</dd>
 <dt>Una señal aparece como Rejected o Review</dt><dd>Abre la fila en el historial para ver por qué. No se envió nada.</dd>
 <dt>La solicitud de emparejamiento nunca aparece</dt><dd>Abre MetaTrader e inicia sesión en tu bróker primero; después aprueba el emparejamiento.</dd>
 </dl>`,
@@ -547,6 +547,60 @@ export const es: Dict = {
     downloadButton: (v: string) => `Descargar ${v}`,
     latest: "Última versión",
     releases: {
+      '1.0.6': [
+        {
+          h: 'Léelo después de actualizar',
+          items: [
+            'Los formatos integrados ahora leen algunos mensajes de otra forma, así que cada canal que usa uno muestra Not copying yet en Signal rules. Selecciónalo allí para ver sus últimas señales tal como Pipkite las lee y, si están bien, pulsa Start copying. Sus ajustes se conservan.',
+          ],
+        },
+        {
+          h: 'Stop-loss',
+          items: [
+            'Distancia máxima del stop por símbolo: si el stop de un mensaje está más lejos de la entrada, Pipkite usa el más cercano. Un stop publicado nunca se amplía. Para el oro se sugiere 20.00.',
+            'Desactivado por defecto: operar señales sin stop-loss, con el stop a la distancia máxima del símbolo, solo cuando todo lo demás está claro.',
+          ],
+        },
+        {
+          h: 'Lectura de señales',
+          items: [
+            'Una operación necesita un setup real: un precio de entrada, un stop-loss y un take-profit. Un BUY NOW o SELL NOW sin precio pasa a Review y nunca se opera.',
+            'Las señales de venta que terminan con una frase como «Money management is key to long term success» vuelven a leerse bien.',
+          ],
+        },
+        {
+          h: 'Canales',
+          items: [
+            'Configurar un canal es un clic: Pipkite muestra sus últimas señales tal como las lee, y Start copying usa ese formato. Not right? abre la ventana de formatos. Detect format y las solicitudes de parser están en Show advanced tools.',
+            'Channel settings en Signal rules: el símbolo del bróker de un canal, cómo entra (esperar el precio, al momento u órdenes pendientes) y su propio tamaño de posición o take-profit.',
+            'Los nombres del bróker como XAUUSD.m, GOLD# o US30.cash en Symbol limits reciben ahora las señales que les corresponden, también de canales que publican varios símbolos.',
+            'Un canal fijado a un símbolo nunca opera un mensaje de otro instrumento.',
+            'Desmarcar un chat lo pausa y conserva sus ajustes.',
+          ],
+        },
+        {
+          h: 'MetaTrader y ajustes',
+          items: [
+            'Un símbolo añadido en Symbol limits recibe sus precios al momento, sin reconectar MetaTrader.',
+            'Botones Close Pipkite positions y Cancel Pipkite pending orders, solo para lo que colocó Pipkite.',
+            'El horario de trading puede cruzar la medianoche, por ejemplo de 22:00 a 06:00.',
+            'Los ajustes muestran solo lo que se aplica a tus elecciones, y las páginas caben en una ventana pequeña sin desplazamiento lateral.',
+          ],
+        },
+        {
+          h: 'Revisión con IA',
+          items: [
+            'El veredicto ahora indica qué tan probable es que una señal funcione: la puntuación es la probabilidad estimada de que el precio alcance el TP1 antes del stop-loss, medida desde donde entra Pipkite. Buena desde el 60 %, Mala con el 40 % o menos. Un TP1 lejano paga más pero se alcanza primero con menos frecuencia, así que puede ser Mala.',
+            'Sin los precios de MetaTrader, una señal es como mucho Incierta. Las órdenes buy stop y sell stop ya no se marcan como Malas mientras el precio sigue al otro lado del stop, antes de la ruptura.',
+          ],
+        },
+        {
+          h: 'Solución de problemas',
+          items: [
+            'Un registro detallado, desactivado por defecto: marca Keep a detailed log for troubleshooting en Settings y Pipkite escribe en un archivo de tu PC cada mensaje que recibe, lo que leyó, por qué operó o no, las órdenes y las respuestas de MetaTrader, para soporte cuando algo falle. Nunca se escriben contraseñas, códigos de acceso ni claves.',
+          ],
+        },
+      ],
       '1.0.5': [
         {
           h: 'Reglas de ejecución',
@@ -743,7 +797,7 @@ export const es: Dict = {
       },
       {
         h: 'Formatos compartidos entre usuarios',
-        html: '<p>Cuando abres Detect format para un canal, la aplicación envía el ID de ese canal con tu clave de licencia para encontrar los formatos que otros usuarios de Pipkite crearon para él. Si marcas «Offer this format to other Pipkite users of this channel», la aplicación envía el formato, el título del canal y hasta 10 mensajes de ejemplo sin enlaces, @usuarios, teléfonos ni correos. Los guardamos con una huella irreversible de tu clave de licencia (no la clave), para contar cuántos usuarios usan cada formato. Los demás usuarios ven el formato, el título del canal y los ejemplos, nunca quién los compartió.</p>',
+        html: '<p>Cuando Pipkite revisa un canal (lo marcas, lo seleccionas en Signal rules o abres Detect format), la aplicación envía el ID de ese canal con tu clave de licencia para encontrar los formatos que otros usuarios de Pipkite crearon para él. Puedes desactivarlo en Settings. Si marcas «Offer this format to other Pipkite users of this channel», la aplicación envía el formato, el título del canal y hasta 10 mensajes de ejemplo sin enlaces, @usuarios, teléfonos ni correos. Los guardamos con una huella irreversible de tu clave de licencia (no la clave), para contar cuántos usuarios usan cada formato. Los demás usuarios ven el formato, el título del canal y los ejemplos, nunca quién los compartió.</p>',
       },
       {
         h: 'Ayuda de la IA con los formatos',
