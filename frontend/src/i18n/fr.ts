@@ -547,6 +547,21 @@ export const fr: Dict = {
     downloadButton: (v: string) => `Télécharger la ${v}`,
     latest: "Dernière version",
     releases: {
+      '1.0.7': [
+        {
+          h: 'À lire après la mise à jour',
+          items: [
+            'Les formats intégrés lisent désormais un take profit situé dans la zone d’entrée : chaque canal qui en utilise un affiche Not copying yet dans Signal rules. Sélectionnez-le pour voir ses derniers signaux tels que Pipkite les lit et, s’ils sont justes, cliquez sur Start copying. Ses réglages sont conservés.',
+          ],
+        },
+        {
+          h: 'Corrections',
+          items: [
+            'Les signaux ne sont plus refusés avec « Market is closed » après la réouverture du marché. Quand MetaTrader s’était connecté marché fermé (week-end, pause quotidienne, jour férié), Pipkite le gardait jusqu’à la reconnexion de MetaTrader ; il voit maintenant le marché rouvert dès que les prix bougent.',
+            'Un take profit dans la zone d’entrée est utilisé : Pipkite compare les objectifs au prix auquel il achète vraiment, laisse de côté ceux déjà dépassés et prend le suivant. Sans objectif au-delà du prix, rien n’est tradé.',
+          ],
+        },
+      ],
       '1.0.6': [
         {
           h: 'À lire après la mise à jour',

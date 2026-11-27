@@ -172,7 +172,7 @@ public:
         healthText_ = L::Wrap("", nullptr, 900);
         healthText_->Font = Theme::Mono;
         dg->Controls->Add(healthText_);
-        dg->Controls->Add(L::Text("Pipkite 1.0.6", "muted"));
+        dg->Controls->Add(L::Text("Pipkite 1.0.7", "muted"));
         stack->Controls->Add(L::Group("Diagnostics and connection", dg));
         Controls->Add(stack);
         Header("Settings", "Appearance, startup, local data, updates, signal formats and AI help.", this);

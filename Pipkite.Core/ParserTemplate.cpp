@@ -223,7 +223,8 @@ ParserTemplate universalTemplate() {
     // 1.1.0: running-text Buy/Sell words ignored, BUY NOW without a price is not a setup; SL in pips, a stop or target far
     // from the entry and "TP4 #open" are never read as prices; styled letters, "SELL FROM 3965", result posts, @mentions,
     // "Hold BUY" is trade management
-    t.version = "1.1.0";
+    // 1.2.0: a take profit inside the entry zone is read (the planner uses only targets beyond the price paid)
+    t.version = "1.2.0";
     t.name = "Universal (built in)";
     t.description = "Reads common signal layouts in any channel: GOLD/XAUUSD, BUY/LONG, entry ranges, SL, numbered TPs, emojis.";
     t.allowGluedTokens = true;  // "SELL4295" is common; the shared negative corpus still has to pass
@@ -301,7 +302,7 @@ std::vector<ParserTemplate> builtinTemplates() {
     {
         ParserTemplate t = starterStrictTemplate();
         t.id = "strict_labels";
-        t.version = "1.1.0";  // same parser changes as universal 1.1.0
+        t.version = "1.2.0";  // same parser changes as universal 1.2.0
         t.name = "Strict labels only";
         t.description = "The careful choice: needs Entry/SL/TP written as labels, no market words, no glued numbers. Reads less, guesses nothing.";
         out.push_back(t);

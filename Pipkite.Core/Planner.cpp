@@ -343,13 +343,30 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
         return reject("Planned risk " + num(plannedRisk / acc.equity * 100.0) + "% exceeds the per-signal limit " + num(p.account.maxRiskPercentPerSignal) + "%", checks);
     checks.push_back("volume " + num(total) + " (" + sizingMode + ")");
 
-    // targets
+    // targets: only those beyond the price actually paid. A target inside the entry zone (BUY 3620-3626, TP 3625) is
+    // still ahead when the fill is below it, and already passed when it isn't: then it is left out
     const TargetPolicy tp = p.targetsFor(b);
+    struct UsableTarget {
+        int position;  // in the message, 1 = first
+        double price;
+    };
+    std::vector<UsableTarget> usable;
+    std::string leftOut;
+    for (std::size_t i = 0; i < s.targets.size(); ++i) {
+        const double price = normalizeToTick(s.targets[i].price, spec.tickSize);
+        if ((buy ? price > entryPrice : price < entryPrice) && std::fabs(price - entryPrice) >= minStop) usable.push_back({static_cast<int>(i + 1), price});
+        else leftOut += (leftOut.empty() ? "TP" : ", TP") + std::to_string(i + 1) + " " + num(price);
+    }
+    const std::string paid = std::string(buy ? "buy" : "sell") + " price " + num(entryPrice);
+    if (usable.empty()) return reject("No take profit is beyond the " + paid, checks);
+    if (!leftOut.empty()) checks.push_back(leftOut + " left out: not beyond the " + paid);
     std::vector<ChildOrder> children;
-    auto tpPrice = [&](int ordinal) { return normalizeToTick(s.targets[static_cast<std::size_t>(ordinal - 1)].price, spec.tickSize); };
     auto singleChild = [&]() -> std::optional<std::string> {
         if (tp.selectedIndex > static_cast<int>(s.targets.size())) return "Selected TP" + std::to_string(tp.selectedIndex) + " is not present in the signal";
-        children.push_back({0, total, tpPrice(tp.selectedIndex), tp.selectedIndex});
+        // the selected target, or the first one after it that is beyond the price paid
+        auto it = std::find_if(usable.begin(), usable.end(), [&](const UsableTarget& t) { return t.position >= tp.selectedIndex; });
+        if (it == usable.end()) return "TP" + std::to_string(tp.selectedIndex) + " and the targets after it are not beyond the " + paid;
+        children.push_back({0, total, it->price, it->position});
         return std::nullopt;
     };
     if (tp.mode == TargetPolicy::Mode::Single) {
@@ -357,7 +374,7 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
     } else {
         if (acc.marginMode == MarginMode::Netting) return reject("Split targets are not supported on netting accounts", checks);
         std::optional<std::string> splitErr;
-        if (s.targets.size() < tp.allocations.size()) splitErr = "Signal has fewer targets than split allocations";
+        if (usable.size() < tp.allocations.size()) splitErr = "Signal has fewer targets than split allocations";
         SplitResult sr;
         if (!splitErr) {
             sr = splitVolume(total, tp.allocations, spec);
@@ -368,7 +385,7 @@ Decision ExecutionPlanner::evaluate(const PlanningInput& in) const {
             checks.push_back("split fallback to single target: " + *splitErr);
             if (auto err = singleChild()) return reject(*err, checks);
         } else {
-            for (std::size_t k = 0; k < sr.volumes.size(); ++k) children.push_back({static_cast<int>(k), sr.volumes[k], tpPrice(static_cast<int>(k + 1)), static_cast<int>(k + 1)});
+            for (std::size_t k = 0; k < sr.volumes.size(); ++k) children.push_back({static_cast<int>(k), sr.volumes[k], usable[k].price, usable[k].position});
         }
     }
     for (auto& c : children) {

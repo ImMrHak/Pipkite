@@ -417,9 +417,11 @@ std::string checkGeometry(const Signal& s) {
             if (buy && !(*s.stopLoss < s.entry->low)) return "BUY stop loss " + fmt(*s.stopLoss) + " must be below entry " + fmt(s.entry->low);
             if (!buy && !(*s.stopLoss > s.entry->high)) return "SELL stop loss " + fmt(*s.stopLoss) + " must be above entry " + fmt(s.entry->high);
         }
+        // a target inside the entry zone is reached from a fill below it (BUY 3620-3626, TP 3625); the planner keeps
+        // only the targets beyond the price actually paid
         for (auto& tp : s.targets) {
-            if (buy && !(tp.price > s.entry->high)) return "BUY take profit " + fmt(tp.price) + " must be above entry " + fmt(s.entry->high);
-            if (!buy && !(tp.price < s.entry->low)) return "SELL take profit " + fmt(tp.price) + " must be below entry " + fmt(s.entry->low);
+            if (buy && !(tp.price > s.entry->low)) return "BUY take profit " + fmt(tp.price) + " must be above entry " + fmt(s.entry->low);
+            if (!buy && !(tp.price < s.entry->high)) return "SELL take profit " + fmt(tp.price) + " must be below entry " + fmt(s.entry->high);
         }
         // below half or above double the entry is a misreading ("SL 30" meant in pips for gold at 4000), not a price
         auto far = [&](double v) { return v < s.entry->low / 2 || v > s.entry->high * 2; };

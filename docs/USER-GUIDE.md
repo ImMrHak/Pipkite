@@ -180,7 +180,8 @@ Check for parser updates and the installed parsers.
 **Execution policy.** How trades are placed. Every option has a **?** that explains it.
 
 - **Size:** fixed lots, or a % of your equity risked at the stop-loss (always rounded down, never up).
-- **Targets:** one take-profit, or the position split across several.
+- **Targets:** one take-profit, or the position split across several. Targets the price has already passed when the
+  trade opens (a take-profit inside the entry zone) are left out, and the next one is used.
 - **Stop loss:** a max stop distance per symbol, and (off by default) trading signals that have no stop loss.
 - **Limits:** how old a signal may be, max spread, slippage, open positions, daily loss, trading hours.
 - **Entry ranges:** for "buy 4299-4295", Pipkite waits for the price to enter the range. **Force-enter** (off by

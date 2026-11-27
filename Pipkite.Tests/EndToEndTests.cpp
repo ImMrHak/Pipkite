@@ -963,3 +963,69 @@ TEST(e2e_channel_settings_are_kept_and_new_symbols_get_prices) {
     json sent = ui.call("mt5.manage", {{"action", "cancel_pending"}, {"confirmLogin", "90000001"}, {"expectedCount", "0"}});
     CHECK(sent.value("sent", false));
 }
+
+// MetaTrader connected while gold was closed (a weekend, the daily break, a holiday): the EA reported the market
+// closed once, at connect, and every signal after the reopening was refused as "Market is closed" until the EA
+// reconnected. A price with a newer tick time means the market trades again.
+TEST(e2e_a_market_closed_at_connect_trades_again_once_prices_move) {
+    const fs::path bin = platform::exeDir();
+    if (!fs::exists(bin / L"Pipkite.Engine.exe") || !fs::exists(bin / L"Pipkite.FakeTerminal.exe")) {
+        std::printf("        (skipped: engine or fake terminal not present in %s)\n", platform::narrow(bin.wstring()).c_str());
+        return;
+    }
+    const fs::path data = fs::temp_directory_path() / (L"PipkiteOpen-" + std::to_wstring(GetCurrentProcessId()));
+    fs::remove_all(data);
+    fs::create_directories(data);
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", data.c_str());
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", (L"open" + std::to_wstring(GetCurrentProcessId())).c_str());
+    SetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", L"1");
+    Proc engine;
+    CHECK(engine.start(L"\"" + (bin / L"Pipkite.Engine.exe").wstring() + L"\""));
+    UiClient ui;
+    bool connected = false;
+    for (int i = 0; i < 40 && !connected; ++i) {
+        connected = ui.connect();
+        if (!connected) Sleep(250);
+    }
+    CHECK(connected);
+    const std::string chat = "-1000000000099";
+    ui.call("sources.save", {{"sources", json::array({{{"chatId", chat}, {"title", "Gold room"}, {"chatType", "channel"}, {"template", "universal"},
+                                                        {"entryMode", "wait_for_range"}, {"aiMode", "off"}}})}});
+    json policy = ui.call("policy.get");
+    policy["symbolLimits"] = {{"XAUUSD", {{"maxSpreadPrice", 0.5}, {"maxEntryDeviationPrice", 1.0}, {"maxLots", 1.0}}}};
+    ui.call("policy.save", {{"policy", policy}});
+
+    Proc term;
+    CHECK(term.start(L"\"" + (bin / L"Pipkite.FakeTerminal.exe").wstring() + L"\" --login 90000001 --closed-at-connect"));
+    CHECK(ui.waitFor([](const json& s) { return !s["bridge"]["pairingPending"].is_null(); }, 15000));
+    ui.call("mt5.approvePairing", {{"confirmLogin", "90000001"}});
+    CHECK(ui.waitFor([](const json& s) { return s.value("reconciled", false) && s["bridge"].value("paired", false) && !s.value("paused", true); }, 15000));
+    ui.call("source.confirmFormat", {{"chatId", chat}, {"format", ui.call("sources.list")[0].value("activeFormat", "")}});
+    Sleep(500);  // a few more prices, with newer tick times
+
+    double ask = 0;
+    const json status = ui.call("mt5.status");  // keep the reply alive while looping over a part of it
+    for (auto& sym : status["symbols"])
+        if (sym.value("name", "") == "XAUUSD") ask = sym["quote"].value("ask", 0.0);
+    CHECK(ask > 0);
+    char text[256];
+    std::snprintf(text, sizeof text, "GOLD BUY %.2f %.2f\nTP1 %.2f\nSL %.2f", ask + 0.5, ask - 0.5, ask + 10, ask - 10);
+    const std::string msgId = ui.call("test.injectMessage", {{"chatId", chat}, {"text", std::string(text)}}).value("messageId", "");
+    bool filled = false;
+    json detail;
+    for (int i = 0; i < 60 && !filled; ++i) {
+        Sleep(150);
+        detail = ui.call("history.detail", {{"chatId", chat}, {"messageId", msgId}, {"revision", 0}});
+        filled = detail.contains("commands") && !detail["commands"].empty() && detail["commands"][0].value("state", "") == "Filled";
+    }
+    if (!filled) std::printf("        decision: %s\n", detail["decision"].dump().substr(0, 300).c_str());
+    CHECK(filled);
+
+    ui.call("engine.shutdown");
+    CHECK(engine.waitExit(10000));
+    SetEnvironmentVariableW(L"PIPKITE_TEST_HOOKS", nullptr);
+    SetEnvironmentVariableW(L"PIPKITE_DATA_DIR", nullptr);
+    SetEnvironmentVariableW(L"PIPKITE_INSTANCE", nullptr);
+    std::error_code ec;
+    fs::remove_all(data, ec);
+}

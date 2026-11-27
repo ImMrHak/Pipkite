@@ -8,6 +8,8 @@
 #include "Pipkite.Core/StateMachine.h"
 #include "TestFramework.h"
 
+#include <algorithm>
+
 using namespace sr;
 
 namespace {
@@ -693,4 +695,49 @@ TEST(policy_ignores_the_old_per_channel_tolerance) {
     CHECK(b.ok());
     CHECK(b.value().entryMode == EntryMode::ImmediateWithinTolerance);
     CHECK(!b.value().toJson().contains("immediateTolerancePrice"));
+}
+
+TEST(planner_uses_only_targets_beyond_the_price_paid) {
+    Fixture f;
+    // BUY 4295-4300 with TP1 4298 inside the zone: bought at 4297.30, TP1 is still ahead and used
+    auto s = f.signal("#GOLD BUY 4300 4295\nTP1 4298\nTP2 4310\nSL 4287");
+    CHECK_EQ(std::string(toString(s.status)), std::string("Valid"));
+    auto d = f.eval(s);
+    CHECK_EQ(std::string(toString(d.kind)), std::string("Planned"));
+    CHECK_EQ(*d.plan->children[0].takeProfit, 4298.0);
+    CHECK_EQ(d.plan->children[0].tpIndex, 1);
+    // bought at 4299.30: TP1 is behind the price paid, so the next target is used and the check says why
+    f.quote.bid = 4299.00;
+    f.quote.ask = 4299.30;
+    auto later = f.eval(s);
+    CHECK_EQ(std::string(toString(later.kind)), std::string("Planned"));
+    CHECK_EQ(*later.plan->children[0].takeProfit, 4310.0);
+    CHECK_EQ(later.plan->children[0].tpIndex, 2);
+    CHECK(std::find(later.checks.begin(), later.checks.end(), "TP1 4298 left out: not beyond the buy price 4299.3") != later.checks.end());
+    // split targets share the remaining targets; too few left falls back or refuses, as with too few written
+    f.policy.targets.mode = TargetPolicy::Mode::Split;
+    f.policy.targets.allocations = {50, 50};
+    f.policy.sizing.lots = 0.10;
+    CHECK_EQ(std::string(toString(f.eval(s).kind)), std::string("Rejected"));
+    f.policy.targets.singleTargetFallback = true;
+    auto fb = f.eval(s);
+    CHECK_EQ(std::string(toString(fb.kind)), std::string("Planned"));
+    CHECK_EQ(*fb.plan->children[0].takeProfit, 4310.0);
+    // nothing beyond the price paid: no trade
+    f.policy.targets = TargetPolicy{};
+    auto none = f.signal("#GOLD BUY 4300 4295\nTP1 4298\nTP2 4299\nSL 4287");
+    f.quote.bid = 4299.20;
+    f.quote.ask = 4299.50;
+    auto r = f.eval(none);
+    CHECK_EQ(std::string(toString(r.kind)), std::string("Rejected"));
+    CHECK_EQ(r.reason, std::string("No take profit is beyond the buy price 4299.5"));
+    // SELL mirror: 4300-4305 with TP1 4302 inside; sold at 4303 it is ahead, sold at 4301 it is passed
+    auto sell = f.signal("#GOLD SELL 4300 4305\nTP1 4302\nTP2 4290\nSL 4312");
+    CHECK_EQ(std::string(toString(sell.status)), std::string("Valid"));
+    f.quote.bid = 4303.00;
+    f.quote.ask = 4303.30;
+    CHECK_EQ(*f.eval(sell).plan->children[0].takeProfit, 4302.0);
+    f.quote.bid = 4301.00;
+    f.quote.ask = 4301.30;
+    CHECK_EQ(*f.eval(sell).plan->children[0].takeProfit, 4290.0);
 }

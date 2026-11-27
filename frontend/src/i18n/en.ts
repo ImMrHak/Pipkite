@@ -548,6 +548,21 @@ export const en = {
     downloadButton: (v: string) => `Download ${v}`,
     latest: "Latest",
     releases: {
+      '1.0.7': [
+        {
+          h: 'Read this after updating',
+          items: [
+            'The built-in formats now read a take profit inside the entry zone, so each channel that uses one shows Not copying yet on Signal rules. Select it there to see its latest signals as Pipkite reads them, and if they’re right, press Start copying. Its settings are kept.',
+          ],
+        },
+        {
+          h: 'Fixes',
+          items: [
+            'Signals are no longer refused as “Market is closed” after the market reopens. When MetaTrader connected while the market was closed (a weekend, the daily break, a holiday), Pipkite kept that until MetaTrader reconnected; now it sees the market open again as soon as prices move.',
+            'A take profit inside the entry zone is used: Pipkite compares the targets with the price it really buys at, leaves out the ones already passed and uses the next. With no target beyond the price, nothing is traded.',
+          ],
+        },
+      ],
       '1.0.6': [
         {
           h: 'Read this after updating',

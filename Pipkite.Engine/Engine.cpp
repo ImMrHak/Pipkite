@@ -1454,6 +1454,14 @@ void Engine::onBridgeEnvelope(const ipc::Envelope& e) {
             if (!q) continue;
             Quote quote = q.value();
             quote.receivedAtMs = clock_.nowMs();  // quote updates may coalesce; trade events may not
+            // the EA says whether the market is open only in the symbol details it sends on connect: connected while
+            // closed (weekend, daily break), it stayed "closed" after the reopening. A newer tick means it trades again
+            // (a closed market repeats its last tick; the first price after a connect may be that old tick).
+            if (auto prev = quotes_.find(quote.symbol); prev != quotes_.end() && prev->second.brokerTimeMs > 0 && quote.brokerTimeMs > prev->second.brokerTimeMs)
+                if (auto spec = symbols_.find(quote.symbol); spec != symbols_.end() && !spec->second.sessionOpen) {
+                    spec->second.sessionOpen = true;
+                    diag::write("mt5", quote.symbol + " is trading again (newer prices): market open");
+                }
             quotes_[quote.symbol] = quote;
         }
         // Waiting ranges react to the new price immediately instead of on the next 100 ms tick.

@@ -26,6 +26,8 @@ const std::vector<Case>& cases() {
     static const std::vector<Case> v{
         // gold
         {"universal", "XAUUSD SELL 2350-2355\nTP 2345/2340/2335\nSL 2360", "SELL", "XAUUSD", 2350, 2355, 2360, {2345, 2340, 2335}},
+        // TP1 inside the entry zone: reached from a fill below it, so it is read; the planner keeps only targets beyond the fill
+        {"universal", "XAUUSD BUY NOW\nEntry: 4020/4026\nSL 4008\nTake Profit 👊\nTP 4025\nTP 4030\nTP 4035", "BUY", "XAUUSD", 4020, 4026, 4008, {4025, 4030, 4035}},
         {"universal", "GOLD BUY NOW @2346\nTP1: 2350\nTP2: 2355\nTP3: OPEN\nSL: 2338", "BUY", "XAUUSD", 2346, 2346, 2338, {2350, 2355}},
         {"universal", "🔥 XAU/USD BUY 2346 - 2342 🔥\n\n✅ TP 2350\n✅ TP 2355\n✅ TP 2360\n\n❌ SL 2335", "BUY", "XAUUSD", 2342, 2346, 2335, {2350, 2355, 2360}},
         {"universal", "Gold buy zone 2342 - 2338\nStop loss : 2332\nTake profit : 2350 , 2360 , 2370", "BUY", "XAUUSD", 2338, 2342, 2332, {2350, 2360, 2370}},

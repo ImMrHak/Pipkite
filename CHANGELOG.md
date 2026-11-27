@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.7
+
+- **After updating, press Start copying once per channel.** The built-in formats now read a take profit inside the
+  entry zone (see below), so a channel that uses one shows **Not copying yet** on Signal rules. Select it there to see
+  its latest signals as Pipkite reads them. If they're right, press **Start copying**. Its settings are kept.
+- **No more "Market is closed" after the market reopens.** When MetaTrader connected while the market was closed (a
+  weekend, the daily break, a holiday), Pipkite kept refusing every signal as "Market is closed" until MetaTrader
+  reconnected, even with the market trading. It now sees the market open again as soon as prices move.
+- **A take profit inside the entry zone is used.** "BUY 3620-3626, TP 3625, TP 3630" was refused as invalid. Pipkite
+  now compares the targets with the price it really buys at: bought at 3622, TP1 3625 is used; bought at 3625.50, TP1
+  is left out and the next target is used. With no target beyond the price, nothing is traded. History shows which
+  targets were left out, and the AI review counts the same way.
+
 ## 1.0.6
 
 - **After updating, press Start copying once per channel.** The built-in formats now read a few messages differently

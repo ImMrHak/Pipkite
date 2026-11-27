@@ -2,7 +2,7 @@
 // loads the real MT5BridgeHost.dll and talks to it exactly like the EA, with an in-memory broker.
 // 
 // usage: Pipkite.FakeTerminal.exe [--login N] [--server NAME] [--netting] [--reject-all] [--seconds N]
-//        [--no-heartbeat-after S]
+//        [--no-heartbeat-after S] [--closed-at-connect]
 
 #include <windows.h>
 
@@ -131,6 +131,7 @@ struct Sim {
     std::string server = "Demo-Server";
     std::string terminalId = "7F3A9C2E5B1D4086A2E9C4F1B8D3E605";
     bool netting = false, rejectAll = false, paused = false;
+    bool closedAtConnect = false;  // symbol details say the market is closed, as the EA does when it connects during a break; prices still move
     double balance = 10000, commissionPerLot = 7.0;
     std::map<std::string, Sym> syms;
     std::set<std::string> subscribed;  // like the EA: only symbols the engine asked for are streamed
@@ -202,7 +203,7 @@ void sendSymbols() {
         const std::string p = "symbols." + std::to_string(i++) + ".";
         o.put(p + "name", s.name).puti(p + "digits", s.digits).put(p + "point", s.tick, 6).put(p + "tickSize", s.tick, 6).put(p + "tickValue", s.tickValue, 4);
         o.put(p + "contractSize", s.contract, 0).put(p + "volumeMin", 0.01, 2).put(p + "volumeMax", 50.0, 2).put(p + "volumeStep", 0.01, 2);
-        o.puti(p + "stopsLevel", 0).puti(p + "freezeLevel", 0).put(p + "tradeAllowed", "true").put(p + "sessionOpen", "true").puti(p + "fillingModes", 3).puti(p + "expirationModes", 15);
+        o.puti(p + "stopsLevel", 0).puti(p + "freezeLevel", 0).put(p + "tradeAllowed", "true").put(p + "sessionOpen", sim.closedAtConnect ? "false" : "true").puti(p + "fillingModes", 3).puti(p + "expirationModes", 15);
         o.put(p + "marginPerLot", 900.0, 2);
     }
     o.send();
@@ -406,6 +407,7 @@ int wmain(int argc, wchar_t** argv) {
             WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), sim.server.data(), n, nullptr, nullptr);
         } else if (a == L"--netting") sim.netting = true;
         else if (a == L"--reject-all") sim.rejectAll = true;
+        else if (a == L"--closed-at-connect") sim.closedAtConnect = true;
         else if (a == L"--seconds" && i + 1 < argc) seconds = _wtoi(argv[++i]);
         else if (a == L"--emulate-mt5-timer") emulateTimer = true;
         else if (a == L"--poll-ms" && i + 1 < argc) pollMs = (std::max)(1, _wtoi(argv[++i]));

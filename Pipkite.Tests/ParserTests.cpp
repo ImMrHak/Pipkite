@@ -403,6 +403,20 @@ TEST(universal_never_trades_when_unsure_or_on_results) {
 }
 
 // traps seen in real channels (prices changed)
+// A take profit inside the entry zone is a real target (bought at the zone's bottom, it is ahead); one outside the
+// zone on the wrong side still makes the signal invalid.
+TEST(take_profit_inside_the_entry_zone_is_read) {
+    auto in = parseUniversal("XAUUSD BUY 4020-4026\nSL 4008\nTP 4025\nTP 4030");
+    CHECK_EQ(std::string(toString(in.status)), std::string("Valid"));
+    CHECK_EQ(in.targets.size(), std::size_t(2));
+    auto below = parseUniversal("XAUUSD BUY 4020-4026\nSL 4008\nTP 4019\nTP 4030");
+    CHECK_EQ(std::string(toString(below.status)), std::string("Invalid"));
+    CHECK(std::find(below.diagnostics.begin(), below.diagnostics.end(), "BUY take profit 4019 must be above entry 4020") != below.diagnostics.end());
+    auto sell = parseUniversal("XAUUSD SELL 4020-4026\nSL 4038\nTP 4021\nTP 4010");
+    CHECK_EQ(std::string(toString(sell.status)), std::string("Valid"));
+    CHECK_EQ(std::string(toString(parseUniversal("XAUUSD SELL 4020-4026\nSL 4038\nTP 4027").status)), std::string("Invalid"));
+}
+
 TEST(universal_reads_real_channel_traps_safely) {
     auto a = parseUniversal("#XAU/Gold Sell at 4170/4173\nTP¹ 4160\nTP² 4150\nTP⁴ #Open\nSTOP LOSS : 4182");
     CHECK_EQ(outcomeOf(a), std::string("signal"));

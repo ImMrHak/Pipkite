@@ -547,6 +547,21 @@ export const es: Dict = {
     downloadButton: (v: string) => `Descargar ${v}`,
     latest: "Última versión",
     releases: {
+      '1.0.7': [
+        {
+          h: 'Léelo después de actualizar',
+          items: [
+            'Los formatos integrados ahora leen un take profit dentro de la zona de entrada, así que cada canal que usa uno muestra Not copying yet en Signal rules. Selecciónalo allí para ver sus últimas señales tal como Pipkite las lee y, si están bien, pulsa Start copying. Se conservan sus ajustes.',
+          ],
+        },
+        {
+          h: 'Correcciones',
+          items: [
+            'Las señales ya no se rechazan con «Market is closed» después de que el mercado reabre. Si MetaTrader se conectaba con el mercado cerrado (fin de semana, pausa diaria, festivo), Pipkite lo mantenía hasta que MetaTrader se reconectaba; ahora ve el mercado abierto en cuanto se mueven los precios.',
+            'Se usa un take profit dentro de la zona de entrada: Pipkite compara los objetivos con el precio al que realmente compra, deja fuera los ya superados y usa el siguiente. Si ningún objetivo está más allá del precio, no se opera.',
+          ],
+        },
+      ],
       '1.0.6': [
         {
           h: 'Léelo después de actualizar',
