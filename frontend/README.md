@@ -3,10 +3,10 @@
 The website for [Pipkite](../README.md), the free Telegram to MetaTrader 5 signal copier.
 
 It has the landing page, the download page, the free license key page, a step-by-step setup guide, the
-changelog and the privacy page, in **English, French, Spanish and Arabic** (Arabic is right-to-left).
+changelog, privacy page and Contact Us page, in **English, French, Spanish and Arabic** (Arabic is right-to-left).
 
 Built with [Astro](https://astro.build) and [Tailwind CSS](https://tailwindcss.com). The result is plain static
-HTML: fast, no tracking, no cookies, nothing loaded from other sites.
+HTML with no third-party analytics. The optional Turnstile script loads when a visitor needs to verify a support request.
 
 ## Quick start
 
@@ -40,6 +40,15 @@ Copy `.env.example` to `.env` and fill it in:
 | `PUBLIC_API_BASE` | Where the API is. Leave empty to use `/api/v1` on the same domain (recommended). |
 | `PUBLIC_DOWNLOAD_BASE` | Where the installer and zip are hosted. Leave empty to serve them from `/downloads`. `{version}` is replaced with the site version, e.g. `https://github.com/ImMrHak/Pipkite/releases/download/v{version}`. |
 | `PUBLIC_DOWNLOADS_MIN` | The download counter only appears from this number on (default 500, `0` = always). |
+| `PUBLIC_SUPPORT_TURNSTILE_SITE_KEY` | Optional public site key. Pair it with the backend secret and hostname for the same Cloudflare widget. |
+
+## Contact Us
+
+The localized contact pages submit support requests to `/api/v1/support/tickets`. Caddy and nginx forward the route.
+Keep `PUBLIC_API_BASE` unset for same-origin requests. For a separate API origin, allow the website origin in the backend.
+
+See `SUPPORT-CONTACT.md` in the private backend for email settings and delivery retries.
+After building, run `node --test tests/contact-site.test.mjs` to verify the page and navigation in all four languages.
 
 ## Project layout
 
@@ -47,7 +56,7 @@ Copy `.env.example` to `.env` and fill it in:
 frontend/
 ├── src/
 │   ├── i18n/         all the text, one file per language (en.ts is the reference)
-│   ├── views/        the pages: Home, Download, License, Guide, Changelog, Privacy, 404
+│   ├── views/        the pages: Home, Download, License, Guide, Contact, Changelog, Privacy, 404
 │   ├── pages/        the routes (English at /, other languages at /fr, /es, /ar)
 │   ├── components/   header, footer and home page sections
 │   ├── layouts/      the shared page layout

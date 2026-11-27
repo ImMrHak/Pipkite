@@ -1,0 +1,110 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import Icon from '../components/Icon.astro';
+import { API_BASE, CONTACT_EMAIL } from '../config';
+import { localize, t, type Lang } from '../i18n';
+import { breadcrumbs, webPage } from '../seo/schema';
+
+const { lang } = Astro.props as { lang: Lang };
+const d = t(lang);
+const contact = d.contact;
+const path = '/contact';
+const trail = [{ name: d.nav.contact, path }];
+const site = Astro.site!;
+const { contactTitle: title, contactDesc: description } = d.meta;
+const schema = [webPage(site, lang, path, title, description, { '@type': 'ContactPage' }), breadcrumbs(site, lang, trail)];
+const sitekey = import.meta.env.PUBLIC_SUPPORT_TURNSTILE_SITE_KEY?.trim();
+const fieldClass = 'field mt-1.5 min-h-11 border-muted/75 py-2.5 text-base sm:py-3 sm:text-sm';
+---
+
+<Layout lang={lang} path={path} title={title} description={description} schema={schema}>
+  {/* The site header and the gap above the footer take up 10rem. */}
+  <div class="container-page min-h-[calc(100dvh-10rem)] pt-6 sm:pt-10">
+    <div class="mx-auto max-w-[46rem]">
+      <Breadcrumbs lang={lang} trail={trail} />
+
+      <header class="mt-4 text-center sm:mt-7">
+        <h1 id="contact-title" class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{d.nav.contact}</h1>
+        <p class="mt-2.5 text-base leading-relaxed text-muted">{contact.lead}</p>
+      </header>
+
+      <div class="card mt-5 min-w-0 sm:mt-7" data-contact>
+        <form method="post" aria-labelledby="contact-title" data-contact-form
+          data-endpoint={API_BASE + '/support/tickets'} data-lang={lang} data-sitekey={sitekey}
+          data-status-text={JSON.stringify(contact.status)}>
+          <div class="mx-5 py-4 sm:mx-7 sm:py-7">
+            <div class="grid gap-4 sm:grid-cols-2 sm:gap-5">
+              <div class="min-w-0">
+                <label class="block text-sm font-medium" for="contact-name">{contact.name} <span class="font-normal text-muted">{contact.optional}</span></label>
+                <input class={fieldClass} id="contact-name" name="name" type="text" maxlength="100" autocomplete="name" dir="auto" />
+              </div>
+              <div class="min-w-0">
+                <label class="block text-sm font-medium" for="contact-email">{contact.email}</label>
+                <input class={fieldClass} id="contact-email" name="email" type="email" maxlength="254" autocomplete="email" dir="ltr" required />
+              </div>
+            </div>
+
+            <div class="mt-4 sm:mt-5">
+              <label class="block text-sm font-medium" for="contact-category">{contact.category}</label>
+              <select class={fieldClass} id="contact-category" name="category" required>
+                <option value="">{contact.select}</option>
+                {Object.entries(contact.categories).map(([value, label]) => <option value={value}>{label}</option>)}
+              </select>
+            </div>
+
+            <div class="mt-4 sm:mt-5">
+              <label class="block text-sm font-medium" for="contact-message">{contact.message}</label>
+              <textarea class:list={[fieldClass, 'block resize-y sm:min-h-40']} id="contact-message" name="message" rows="4"
+                minlength="10" maxlength="2000" dir="auto" required></textarea>
+            </div>
+
+            <input type="text" name="website" tabindex="-1" autocomplete="off" hidden />
+            <div class="mt-4 empty:hidden" data-verification></div>
+            <p class="text-sm text-muted not-empty:mt-4 data-[error]:text-bad" data-contact-status role="status" tabindex="-1"></p>
+            <noscript><p class="mt-4 text-sm text-muted">{contact.useEmail}</p></noscript>
+          </div>
+
+          <div class="flex justify-center rounded-b-2xl border-t border-line bg-bg px-5 py-3 sm:px-7 sm:py-4">
+            <button type="submit" class="btn-primary min-h-11 w-full max-w-xs shadow-none disabled:cursor-not-allowed disabled:opacity-60" disabled>
+              {contact.submit}
+            </button>
+          </div>
+        </form>
+
+        <section class="space-y-4 p-5 sm:p-7" data-contact-receipt tabindex="-1" aria-labelledby="contact-received" hidden>
+          <span class="grid size-11 place-items-center rounded-xl bg-accent-soft text-accent-strong"><Icon name="check" size={22} /></span>
+          <h2 id="contact-received" class="text-xl font-semibold">{contact.received}</h2>
+          <p class="text-sm leading-relaxed text-muted">{contact.receivedNote}</p>
+          <div class="rounded-xl border border-line bg-bg px-4 py-3">
+            <p class="text-xs font-medium text-muted">{contact.reference}</p>
+            <p class="mt-1 font-mono font-semibold break-all"><bdi data-contact-reference></bdi></p>
+          </div>
+          <button type="button" class="btn-ghost min-h-11" data-contact-restart>{contact.sendAnother}</button>
+        </section>
+      </div>
+
+      <div class="mt-3 flex flex-col items-start gap-x-4 px-1 sm:flex-row sm:items-center sm:justify-between">
+        {CONTACT_EMAIL && (
+          <a href={`mailto:${CONTACT_EMAIL}`}
+            class="inline-flex min-h-11 max-w-full items-center gap-2 text-sm font-medium text-accent-strong underline decoration-accent/50 underline-offset-4 hover:decoration-current">
+            <Icon name="mail" size={17} class="shrink-0" />
+            <bdi dir="ltr" class="min-w-0 [overflow-wrap:anywhere]">{CONTACT_EMAIL}</bdi>
+          </a>
+        )}
+        <a href={localize(lang, '/telegram-to-mt5-copier#troubleshooting')}
+          class="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent-strong underline decoration-accent/50 underline-offset-4 hover:decoration-current">
+          {contact.troubleshooting}
+          <Icon name="arrow" size={16} class="shrink-0 rtl:rotate-180" />
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { mountContactForm } from '../support/contact';
+
+  const root = document.querySelector<HTMLElement>('[data-contact]');
+  if (root) mountContactForm(root);
+</script>

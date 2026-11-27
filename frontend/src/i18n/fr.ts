@@ -21,6 +21,8 @@ export const fr: Dict = {
       'Guide pas à pas pour copier les signaux Telegram vers MetaTrader 5 : connecter Telegram et MT5, choisir le format de chaque canal, régler le risque, tester sans risque.',
     changelogTitle: `Journal des versions Pipkite – Nouveautés ${VERSION}`,
     changelogDesc: `Notes de version de Pipkite, le copieur Telegram vers MT5 gratuit. Dernière version : ${VERSION} : réglages par canal, une limite de stop-loss par symbole et seuls les vrais setups tradés.`,
+    contactTitle: 'Contacter l’assistance Pipkite',
+    contactDesc: 'Contactez l’assistance Pipkite pour une installation, une connexion à Telegram ou MetaTrader 5, ou un problème technique.',
     privacyTitle: 'Confidentialité – Ce que Pipkite collecte et pourquoi',
     privacyDesc:
       'Ce que Pipkite garde sur votre PC, ce que reçoivent les services de licence, de revue IA et de parsers, et ce qui n’est jamais collecté. En clair.',
@@ -65,7 +67,7 @@ export const fr: Dict = {
     homeAria: 'Accueil Pipkite',
   },
 
-  nav: { how: 'Fonctionnement', features: 'Fonctionnalités', speed: 'Vitesse', ai: 'IA', guide: 'Guide', faq: 'FAQ' },
+  nav: { how: 'Fonctionnement', features: 'Fonctionnalités', speed: 'Vitesse', ai: 'IA', guide: 'Guide', faq: 'FAQ', contact: 'Contactez-nous' },
 
   footer: {
     tagline: 'Copieur gratuit de signaux Telegram vers MetaTrader 5 pour Windows. Lit la plupart des formats, apprend les autres.',
@@ -287,6 +289,34 @@ export const fr: Dict = {
         a: 'Cette première version n’est pas encore signée avec un certificat payant, donc Windows peut vous avertir. Choisissez « Informations complémentaires → Exécuter quand même ». Vous pouvez vérifier le fichier avec la somme SHA-256 de la page de téléchargement.',
       },
     ],
+  },
+
+  contact: {
+    lead: 'Envoyez-nous un message. Nous vous répondrons par e-mail.',
+    troubleshooting: 'Guide de dépannage',
+    name: 'Nom',
+    optional: '(facultatif)',
+    email: 'Adresse e-mail',
+    category: 'Type de problème',
+    select: 'Choisir une catégorie',
+    categories: {
+      INSTALLATION: 'Installation', LICENSE: 'Clé de licence', CONNECTION: 'Telegram ou MetaTrader',
+      TECHNICAL: 'Problème technique', OTHER: 'Autre',
+    },
+    message: 'Décrivez le problème',
+    submit: 'Envoyer la demande',
+    useEmail: 'Contactez-nous à l’adresse e-mail indiquée sur cette page.',
+    received: 'Demande reçue',
+    receivedNote: 'Conservez cette référence. Notre équipe pourra répondre à l’adresse e-mail que vous avez indiquée.',
+    reference: 'Numéro de référence',
+    sendAnother: 'Envoyer une autre demande',
+    status: {
+      sending: 'Envoi de votre demande…',
+      failed: 'Nous n’avons pas pu confirmer votre demande. Réessayez de l’envoyer.',
+      limited: 'Trop de demandes ont été envoyées. Réessayez plus tard.',
+      invalid: 'Vérifiez les champs et réessayez.',
+      verification: 'La vérification n’a pas abouti. Réessayez.',
+    },
   },
 
   ideas: {
@@ -788,7 +818,11 @@ export const fr: Dict = {
     updated: 'Dernière mise à jour',
     shortTitle: 'En bref',
     short:
-      'Vos données de trading, votre session Telegram et vos identifiants courtier restent sur votre PC. Les services en ligne ne reçoivent que le nécessaire : votre e-mail (et un nom facultatif) pour la clé de licence, les champs du signal et des bougies de prix récentes pour la revue IA, l’ID d’un canal quand vous cherchez son format, et des messages d’exemple expurgés quand vous demandez un parser ou l’aide de l’IA pour un format. Nous ne vendons aucune donnée, et ce site n’a ni publicité, ni cookies, ni pistage : il compte seulement, de façon anonyme, les pages vues et les clics de téléchargement.',
+      'Vos données de trading, votre session Telegram et vos identifiants courtier restent sur votre PC. Les sections ci-dessous expliquent ce que reçoivent les services en ligne, y compris les données que vous choisissez de partager avec l’assistance. Nous ne vendons pas de données et n’utilisons pas d’outils d’analyse tiers.',
+    support: {
+      title: 'Demandes d’assistance',
+      html: `<p>Lorsque vous contactez notre équipe depuis le site, nous utilisons votre adresse e-mail et les informations transmises pour traiter votre demande et vous répondre. Partagez uniquement ce qui nous aide à la traiter. Gardez vos mots de passe, clés de licence et données de compte privés.</p>`,
+    },
     sections: [
       {
         h: 'Ce qui reste sur votre PC',
@@ -821,7 +855,7 @@ export const fr: Dict = {
       { h: 'Mises à jour', html: '<p>L’application envoie votre clé de licence lorsqu’elle vérifie et télécharge les mises à jour, pour que les bons parsers vous parviennent. À chaque démarrage, puis toutes les quelques heures, elle demande aussi à GitHub quelle est la dernière version de Pipkite ; GitHub voit votre adresse IP, comme pour tout site web. Rien d’autre n’est envoyé, pas même la clé de licence.</p>' },
       {
         h: 'Ce site',
-        html: '<p>Ni publicité, ni cookies, ni outil d’analyse tiers. Pour savoir combien de personnes visitent et téléchargent, le site compte les pages vues (quelle page, quelle langue, quel jour) et les clics de téléchargement (installeur ou zip). Rien qui vous identifie n’est envoyé ni stocké : votre adresse IP sert uniquement, en mémoire et pour la journée, à empêcher des scripts de gonfler le nombre de pages vues. Chaque clic de téléchargement est compté. Si votre navigateur envoie Global Privacy Control ou Do Not Track, les pages vues ne sont pas comptées. Votre choix de thème (clair ou sombre) est enregistré uniquement dans votre navigateur. Notre hébergeur peut conserver des journaux serveur standard.</p>',
+        html: '<p>Le site compte les pages vues par page, langue et jour, et les clics de téléchargement par type de fichier. Le compteur de pages utilise votre adresse IP en mémoire pour la journée afin de limiter les abus. Chaque clic est compté. Si votre navigateur envoie Global Privacy Control ou Do Not Track, les pages vues ne sont pas comptées. Votre thème est conservé dans le navigateur. Notre hébergeur peut conserver des journaux serveur standard.</p>',
       },
       {
         h: 'Vos choix',
@@ -830,7 +864,7 @@ export const fr: Dict = {
 <li>La revue IA peut être désactivée dans Execution policy.</li>
 <li>Vous pouvez effacer l’historique local à tout moment dans Settings.</li>
 <li>La recherche et le partage de formats se désactivent dans Settings, sous Signal formats and AI help.</li>
-<li>Pour savoir ce que nous détenons sur votre clé de licence ou demander sa suppression, {contact}</li>
+<li>Pour savoir quelles données nous détenons au sujet de votre licence ou d’une demande d’assistance, ou demander leur suppression, {contact}</li>
 </ul>`,
       },
     ],

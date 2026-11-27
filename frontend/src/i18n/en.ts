@@ -22,6 +22,8 @@ export const en = {
       'Step-by-step guide to copy Telegram trading signals to MetaTrader 5 automatically: connect Telegram and MT5, pick each channel’s format, set risk rules, test safely.',
     changelogTitle: `Pipkite Changelog – What's New in ${VERSION}`,
     changelogDesc: `Release notes for Pipkite, the free Telegram to MT5 copier. Latest: version ${VERSION}: per-channel settings, a stop-loss limit per symbol and only real setups traded.`,
+    contactTitle: 'Contact Pipkite Support',
+    contactDesc: 'Contact Pipkite support for help installing Pipkite, connecting Telegram or MetaTrader 5, or troubleshooting an issue.',
     privacyTitle: 'Privacy – What Pipkite Collects and Why',
     privacyDesc:
       'What Pipkite keeps on your PC, what the license, AI review and custom parser services receive, and what is never collected. Plain language.',
@@ -66,7 +68,7 @@ export const en = {
     homeAria: 'Pipkite home',
   },
 
-  nav: { how: 'How it works', features: 'Features', speed: 'Speed', ai: 'AI', guide: 'Guide', faq: 'FAQ' },
+  nav: { how: 'How it works', features: 'Features', speed: 'Speed', ai: 'AI', guide: 'Guide', faq: 'FAQ', contact: 'Contact Us' },
 
   footer: {
     tagline: 'Free Telegram-to-MetaTrader 5 signal copier for Windows. Reads most signal formats, learns the rest.',
@@ -288,6 +290,34 @@ export const en = {
         a: 'This first release is not signed with a paid code-signing certificate yet, so Windows may warn you. Choose "More info → Run anyway". You can verify the file against the SHA-256 checksum on the download page.',
       },
     ],
+  },
+
+  contact: {
+    lead: 'Send us a message and we’ll reply by email.',
+    troubleshooting: 'Troubleshooting guide',
+    name: 'Name',
+    optional: '(optional)',
+    email: 'Email address',
+    category: 'Issue category',
+    select: 'Choose a category',
+    categories: {
+      INSTALLATION: 'Installation', LICENSE: 'License key', CONNECTION: 'Telegram or MetaTrader',
+      TECHNICAL: 'Technical issue', OTHER: 'Other',
+    },
+    message: 'Describe the issue',
+    submit: 'Send support request',
+    useEmail: 'Use the email address on this page to contact us.',
+    received: 'Request received',
+    receivedNote: 'Keep this reference. Our support team can reply to the email you provided.',
+    reference: 'Reference number',
+    sendAnother: 'Send another request',
+    status: {
+      sending: 'Sending your request…',
+      failed: 'We couldn’t confirm your request. Try submitting it again.',
+      limited: 'Too many support requests were sent. Please try again later.',
+      invalid: 'Check the fields and try again.',
+      verification: 'Verification didn’t finish. Try again.',
+    },
   },
 
   ideas: {
@@ -789,7 +819,11 @@ export const en = {
     updated: 'Last updated',
     shortTitle: 'In short',
     short:
-      'Your trading data, Telegram session and broker login stay on your PC. The online services receive only what they need: your email (and optional name) for a license key, the signal fields and recent price candles for an AI review, a channel’s ID when you look for its format, and redacted sample messages when you ask for a custom parser or AI help with a format. We don’t sell data, and this website has no ads, cookies or tracking: it only counts page views and download clicks anonymously.',
+      'Your trading data, Telegram session and broker login stay on your PC. The sections below explain what online features receive, including the data you choose to share through website support. We don’t sell data or use third-party analytics.',
+    support: {
+      title: 'Support requests',
+      html: `<p>When you contact us through the website, we use your email address and the details you share to respond and handle your request. Share only what we need to help. Keep passwords, license keys and account details private.</p>`,
+    },
     sections: [
       {
         h: 'What stays on your PC',
@@ -822,7 +856,7 @@ export const en = {
       { h: 'Updates', html: '<p>The app sends your license key when it checks for and downloads updates, so the right parsers reach you. Each time it starts, and every few hours after, it also asks GitHub which version of Pipkite is the latest; GitHub sees your IP address, as with any website. Nothing else is sent, and the license key is not.</p>' },
       {
         h: 'This website',
-        html: '<p>No ads, no cookies and no third-party analytics. To know how many people visit and download, the site counts page views (which page, which language, which day) and download clicks (installer or zip). Nothing that identifies you is sent or stored: your IP address is only used, in memory and for that day, to stop scripts inflating the page view numbers. Every download click is counted. If your browser sends Global Privacy Control or Do Not Track, page views are not counted. Your theme choice (light or dark) is saved in your own browser only. Our hosting provider may keep standard server logs.</p>',
+        html: '<p>The site counts page views by page, language and day, and download clicks by installer or zip. The page view counter uses your IP address in memory for that day to prevent inflated numbers. Every download click is counted. If your browser sends Global Privacy Control or Do Not Track, page views are skipped. Your theme choice (light or dark) is saved in your browser. Our hosting provider may keep standard server logs.</p>',
       },
       {
         h: 'Your choices',
@@ -831,7 +865,7 @@ export const en = {
 <li>AI review can be turned off in Execution policy.</li>
 <li>You can erase local history at any time in Settings.</li>
 <li>Looking up and sharing formats can be turned off in Settings, under Signal formats and AI help.</li>
-<li>To ask what we hold about your license key or to have it deleted, {contact}</li>
+<li>To ask about information we hold from your license or a support ticket, or to request deletion, {contact}</li>
 </ul>`,
       },
     ],

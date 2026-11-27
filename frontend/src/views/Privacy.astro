@@ -42,6 +42,8 @@ const contact = CONTACT_EMAIL ? pv.contactEmail(CONTACT_EMAIL) : pv.contactFallb
           </>
         ))
       }
+      <h2 id="website-support">{pv.support.title}</h2>
+      <Fragment set:html={pv.support.html} />
       {pv.englishPrevails && <p class="text-sm italic">{pv.englishPrevails}</p>}
     </div>
   </div>
