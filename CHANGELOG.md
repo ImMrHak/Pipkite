@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Use Contact Us in the website navigation or footer to send a support request and get a reference number.
+  The form gives you more room to write and has a centered send button. Find the support email and troubleshooting
+  guide below it. The footer starts below the first screen.
+- Use shorter Contact Us page titles in all four languages.
+
 ## 1.0.7
 
 - **After updating, press Start copying once per channel.** The built-in formats now read a take profit inside the

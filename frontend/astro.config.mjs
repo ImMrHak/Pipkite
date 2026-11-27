@@ -15,6 +15,7 @@ const site = (env.SITE_URL || 'https://pipkite.com').replace(/\/$/, '');
 
 // only needed when the API lives on another origin
 const apiOrigin = /^https?:\/\//.test(env.PUBLIC_API_BASE ?? '') ? new URL(env.PUBLIC_API_BASE).origin : null;
+const turnstileOrigin = env.PUBLIC_SUPPORT_TURNSTILE_SITE_KEY?.trim() ? 'https://challenges.cloudflare.com' : null;
 
 // astro hashes its own scripts, this one is ours
 const themeScriptHash = `sha256-${createHash('sha256').update(THEME_SCRIPT).digest('base64')}`;
@@ -40,18 +41,19 @@ export default defineConfig({
       algorithm: 'SHA-256',
       scriptDirective: {
         hashes: [/** @type {`sha256-${string}`} */ (themeScriptHash)],
+        resources: turnstileOrigin ? ["'self'", turnstileOrigin] : undefined,
       },
       directives: [
         "default-src 'self'",
         "img-src 'self' data:",
         "font-src 'self'",
-        `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
+        `connect-src 'self' ${[apiOrigin, turnstileOrigin].filter(Boolean).join(' ')}`,
         "manifest-src 'self'",
         "media-src 'self'",
         "object-src 'none'",
         "base-uri 'self'",
         `form-action 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
-        "frame-src 'none'",
+        `frame-src ${turnstileOrigin ?? "'none'"}`,
         'upgrade-insecure-requests',
       ],
     },

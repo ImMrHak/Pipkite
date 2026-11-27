@@ -268,6 +268,10 @@ then click **Open log folder** and send that day's file (`pipkite-<date>.log`) t
 messages Pipkite received, what it read in them, why it traded or not, the orders and MetaTrader's replies, and what
 you did in the window. It never holds passwords, login codes or keys. Untick it when you're done.
 
+On the Pipkite website, select **Contact Us** in the navigation or footer. Use the form to send a support request
+and get a reference number. The troubleshooting guide and [support@pipkite.com](mailto:support@pipkite.com) are
+below the form.
+
 ## Words you'll see
 
 | Word | Meaning |

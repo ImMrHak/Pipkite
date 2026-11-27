@@ -21,6 +21,8 @@ export const es: Dict = {
       'Guía paso a paso para copiar señales de Telegram a MetaTrader 5: conecta Telegram y MT5, elige el formato de cada canal, fija tus reglas de riesgo y prueba seguro.',
     changelogTitle: `Novedades de Pipkite – Versión ${VERSION}`,
     changelogDesc: `Notas de versión de Pipkite, el copiador gratuito de Telegram a MT5. Última versión: ${VERSION}: ajustes por canal, un límite de stop-loss por símbolo y solo setups reales operados.`,
+    contactTitle: 'Contactar con el soporte de Pipkite',
+    contactDesc: 'Contacta con el soporte de Pipkite para obtener ayuda con la instalación, la conexión a Telegram o MetaTrader 5 y los problemas técnicos.',
     privacyTitle: 'Privacidad – Qué recoge Pipkite y por qué',
     privacyDesc:
       'Qué guarda Pipkite en tu PC, qué reciben los servicios de licencia, revisión con IA y parsers, y qué no se recoge nunca. Explicado con claridad.',
@@ -65,7 +67,7 @@ export const es: Dict = {
     homeAria: 'Inicio de Pipkite',
   },
 
-  nav: { how: 'Cómo funciona', features: 'Funciones', speed: 'Velocidad', ai: 'IA', guide: 'Guía', faq: 'Preguntas' },
+  nav: { how: 'Cómo funciona', features: 'Funciones', speed: 'Velocidad', ai: 'IA', guide: 'Guía', faq: 'Preguntas', contact: 'Contáctanos' },
 
   footer: {
     tagline: 'Copiador gratis de señales de Telegram a MetaTrader 5 para Windows. Lee la mayoría de formatos y aprende el resto.',
@@ -287,6 +289,34 @@ export const es: Dict = {
         a: 'Esta primera versión aún no está firmada con un certificado de pago, así que Windows puede avisarte. Elige «Más información → Ejecutar de todas formas». Puedes verificar el archivo con la suma SHA-256 de la página de descarga.',
       },
     ],
+  },
+
+  contact: {
+    lead: 'Envíanos un mensaje y te responderemos por correo electrónico.',
+    troubleshooting: 'Guía de solución de problemas',
+    name: 'Nombre',
+    optional: '(opcional)',
+    email: 'Correo electrónico',
+    category: 'Tipo de problema',
+    select: 'Elige una categoría',
+    categories: {
+      INSTALLATION: 'Instalación', LICENSE: 'Clave de licencia', CONNECTION: 'Telegram o MetaTrader',
+      TECHNICAL: 'Problema técnico', OTHER: 'Otro',
+    },
+    message: 'Describe el problema',
+    submit: 'Enviar solicitud de soporte',
+    useEmail: 'Usa el correo electrónico de esta página para contactarnos.',
+    received: 'Solicitud recibida',
+    receivedNote: 'Guarda esta referencia. Nuestro equipo puede responder al correo que proporcionaste.',
+    reference: 'Número de referencia',
+    sendAnother: 'Enviar otra solicitud',
+    status: {
+      sending: 'Enviando tu solicitud…',
+      failed: 'No pudimos confirmar tu solicitud. Intenta enviarla de nuevo.',
+      limited: 'Se han enviado demasiadas solicitudes. Inténtalo más tarde.',
+      invalid: 'Revisa los campos e inténtalo de nuevo.',
+      verification: 'No se pudo completar la verificación. Inténtalo de nuevo.',
+    },
   },
 
   ideas: {
@@ -788,7 +818,11 @@ export const es: Dict = {
     updated: 'Última actualización',
     shortTitle: 'En resumen',
     short:
-      'Tus datos de trading, tu sesión de Telegram y tu acceso al bróker se quedan en tu PC. Los servicios en línea solo reciben lo necesario: tu correo (y un nombre opcional) para la clave de licencia, los campos de la señal y velas de precio recientes para la revisión con IA, el ID de un canal cuando buscas su formato y mensajes de ejemplo depurados cuando pides un parser o ayuda de la IA con un formato. No vendemos datos, y esta web no tiene anuncios, cookies ni seguimiento: solo cuenta de forma anónima las páginas vistas y los clics de descarga.',
+      'Tus datos de trading, tu sesión de Telegram y tu acceso al bróker se quedan en tu PC. Abajo se explica qué reciben los servicios en línea, incluidos los datos que elijas compartir con soporte. No vendemos datos ni usamos analítica de terceros.',
+    support: {
+      title: 'Solicitudes de soporte',
+      html: `<p>Cuando contactas con nuestro equipo desde el sitio, usamos tu correo electrónico y los datos que compartes para gestionar tu solicitud y responderte. Comparte solo lo necesario. Mantén en privado tus contraseñas, claves de licencia y datos de cuenta.</p>`,
+    },
     sections: [
       {
         h: 'Lo que se queda en tu PC',
@@ -821,7 +855,7 @@ export const es: Dict = {
       { h: 'Actualizaciones', html: '<p>La app envía tu clave de licencia al buscar y descargar actualizaciones, para que te lleguen los parsers correctos. Cada vez que se abre, y luego cada pocas horas, también pregunta a GitHub cuál es la última versión de Pipkite; GitHub ve tu dirección IP, como cualquier web. No se envía nada más, tampoco la clave de licencia.</p>' },
       {
         h: 'Esta web',
-        html: '<p>Sin anuncios, sin cookies y sin analítica de terceros. Para saber cuántas personas visitan y descargan, la web cuenta las páginas vistas (qué página, qué idioma, qué día) y los clics de descarga (instalador o zip). No se envía ni se guarda nada que te identifique: tu dirección IP solo se usa, en memoria y durante ese día, para evitar que scripts inflen las páginas vistas. Cada clic de descarga se cuenta. Si tu navegador envía Global Privacy Control o Do Not Track, las páginas vistas no se cuentan. Tu elección de tema (claro u oscuro) se guarda solo en tu navegador. Nuestro proveedor de hosting puede conservar registros estándar del servidor.</p>',
+        html: '<p>La web cuenta las páginas vistas por página, idioma y día, y los clics de descarga por tipo de archivo. El contador de páginas usa tu dirección IP en memoria durante el día para evitar abusos. Se cuentan todos los clics de descarga. Si tu navegador indica Global Privacy Control o Do Not Track, se omiten las páginas vistas. El tema se guarda en el navegador. El proveedor de alojamiento puede conservar registros estándar del servidor.</p>',
       },
       {
         h: 'Tus opciones',
@@ -830,7 +864,7 @@ export const es: Dict = {
 <li>La revisión con IA se puede desactivar en Execution policy.</li>
 <li>Puedes borrar el historial local cuando quieras en Settings.</li>
 <li>La búsqueda y el uso compartido de formatos se desactivan en Settings, en Signal formats and AI help.</li>
-<li>Para saber qué datos tenemos sobre tu clave de licencia o pedir que se borren, {contact}</li>
+<li>Para consultar qué datos guardamos de tu licencia o de una solicitud de soporte, o pedir que se eliminen, {contact}</li>
 </ul>`,
       },
     ],

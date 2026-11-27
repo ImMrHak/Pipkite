@@ -18,6 +18,7 @@ const links = [
   { href: '/#ai', label: d.nav.ai },
   { href: '/telegram-to-mt5-copier', label: d.nav.guide },
   { href: '/#faq', label: d.nav.faq },
+  { href: '/contact', label: d.nav.contact },
 ];
 ---
 
@@ -28,13 +29,14 @@ const links = [
   <div class="container-page flex h-16 items-center justify-between gap-3">
     <a href={L('/')} aria-label={d.common.homeAria}><Logo /></a>
 
-    <nav class="hidden items-center gap-1 lg:flex" aria-label={d.common.mainNav}>
+    <nav class="hidden items-center gap-0.5 xl:flex" aria-label={d.common.mainNav}>
       {
         links.map((l) => (
           <a
             href={L(l.href)}
+            aria-current={l.href === path ? 'page' : undefined}
             data-section={l.href.startsWith('/#') ? l.href.slice(2) : undefined}
-            class="rounded-lg px-3 py-2 text-sm whitespace-nowrap text-muted transition hover:bg-surface-2 hover:text-fg aria-[current=true]:bg-surface-2 aria-[current=true]:text-fg"
+            class="rounded-lg px-2 py-2 text-sm whitespace-nowrap text-muted transition hover:bg-surface-2 hover:text-fg aria-[current=true]:bg-surface-2 aria-[current=true]:text-fg aria-[current=page]:bg-surface-2 aria-[current=page]:text-fg"
           >
             {l.label}
           </a>
@@ -87,7 +89,7 @@ const links = [
       <button
         id="menu-toggle"
         type="button"
-        class="grid size-10 place-items-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-fg lg:hidden"
+        class="grid size-10 place-items-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-fg xl:hidden"
         aria-label={d.common.openMenu}
         aria-expanded="false"
         aria-controls="mobile-menu"
@@ -97,11 +99,12 @@ const links = [
     </div>
   </div>
 
-  <div id="mobile-menu" class="hidden border-t border-line bg-bg/95 backdrop-blur-xl lg:hidden">
+  <div id="mobile-menu" class="hidden max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-line bg-bg/95 backdrop-blur-xl xl:hidden">
     <nav class="container-page flex flex-col py-3" aria-label={d.common.mobileNav}>
       {
         links.map((l) => (
-          <a href={L(l.href)} class="rounded-lg px-3 py-3 text-fg hover:bg-surface-2">
+          <a href={L(l.href)} aria-current={l.href === path ? 'page' : undefined}
+            class="rounded-lg px-3 py-3 text-fg hover:bg-surface-2 aria-[current=page]:bg-surface-2">
             {l.label}
           </a>
         ))
