@@ -463,7 +463,7 @@ export const en = {
         figure: 'execution-policy',
         html: `<ul>
 <li><strong>Position size:</strong> a fixed lot size, or a percentage of equity risked at the stop-loss. Risk sizing always rounds down to your broker's lot step; if even the minimum lot is too much, the trade is skipped rather than forced.</li>
-<li><strong>Take-profits:</strong> use one target, or split the position across several.</li>
+<li><strong>Take-profits:</strong> use one target, or split the position across several. Targets the price has already passed when the trade opens (a take-profit inside the entry zone) are left out, and the next one is used.</li>
 <li><strong>Symbol limits:</strong> at the top of the page, pick each symbol you trade from your broker's list and set its maximum spread, entry deviation and lot size. A symbol without a max spread is never traded. Gold, silver and the main currency pairs come with suggested limits: click <em>Use suggested limits</em>, check them, then save.</li>
 <li><strong>Other limits:</strong> maximum signal age, open positions, daily loss and trading hours.</li>
 <li><strong>Entry ranges:</strong> for "buy 4299–4295" signals, Pipkite waits for price to enter the range. Optional <em>force-enter</em> takes the trade if price slipped just past it by a few pips you choose.</li>

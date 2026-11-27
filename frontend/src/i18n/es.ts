@@ -462,7 +462,7 @@ export const es: Dict = {
         figure: 'execution-policy',
         html: `<ul>
 <li><strong>Tamaño de posición:</strong> un lote fijo, o un porcentaje del equity arriesgado hasta el stop-loss. El cálculo por riesgo siempre redondea a la baja al paso de lote de tu bróker; si incluso el lote mínimo es demasiado, la operación se omite en lugar de forzarse.</li>
-<li><strong>Take-profits:</strong> un solo objetivo, o la posición repartida entre varios.</li>
+<li><strong>Take-profits:</strong> un solo objetivo, o la posición repartida entre varios. Los objetivos que el precio ya superó al abrirse la operación (un take-profit dentro de la zona de entrada) se dejan fuera y se usa el siguiente.</li>
 <li><strong>Límites por símbolo:</strong> arriba de la página, elige cada símbolo que operas de la lista de tu bróker y fija su spread máximo, su desviación de entrada y su tamaño de lote. Un símbolo sin spread máximo nunca se opera. El oro, la plata y los principales pares de divisas traen límites sugeridos: pulsa <em>Use suggested limits</em>, revísalos y guarda.</li>
 <li><strong>Otros límites:</strong> antigüedad máxima de la señal, posiciones abiertas, pérdida diaria y horario de trading.</li>
 <li><strong>Zonas de entrada:</strong> con señales «buy 4299–4295», Pipkite espera a que el precio entre en la zona. La opción <em>force-enter</em> abre la operación si el precio la rebasó por unos pocos pips que tú eliges.</li>

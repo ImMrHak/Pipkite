@@ -462,7 +462,7 @@ export const fr: Dict = {
         figure: 'execution-policy',
         html: `<ul>
 <li><strong>Taille de position :</strong> un lot fixe, ou un pourcentage de l’équité risqué au stop-loss. Le calcul au risque arrondit toujours au pas de lot inférieur ; si même le lot minimum est trop gros, le trade est ignoré plutôt que forcé.</li>
-<li><strong>Take-profits :</strong> un seul objectif, ou une position répartie sur plusieurs.</li>
+<li><strong>Take-profits :</strong> un seul objectif, ou une position répartie sur plusieurs. Les objectifs que le prix a déjà dépassés à l’ouverture du trade (un take-profit dans la zone d’entrée) sont laissés de côté, et le suivant est utilisé.</li>
 <li><strong>Limites par symbole :</strong> en haut de la page, choisissez chaque symbole tradé dans la liste de votre courtier et réglez son spread maximal, son écart d’entrée et sa taille de lot. Un symbole sans spread maximal n’est jamais tradé. L’or, l’argent et les principales paires de devises ont des limites suggérées : cliquez sur <em>Use suggested limits</em>, vérifiez-les, puis enregistrez.</li>
 <li><strong>Autres limites :</strong> âge maximal du signal, positions ouvertes, perte journalière et horaires de trading.</li>
 <li><strong>Zones d’entrée :</strong> pour les signaux « buy 4299–4295 », Pipkite attend que le prix entre dans la zone. L’option <em>force-enter</em> prend le trade si le prix l’a dépassée de quelques pips que vous choisissez.</li>
